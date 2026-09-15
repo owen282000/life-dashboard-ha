@@ -1,0 +1,7 @@
+{
+  "config": {
+    "abort": {
+      "not_ready": "Setting up Life Dashboard is not implemented yet."
+    }
+  }
+}
