@@ -11,12 +11,14 @@ phone can write to these sensors.
 
 ## Install
 
-1. In HACS, open the three-dot menu, choose **Custom repositories**, paste
-   `https://github.com/owen282000/life-dashboard-ha` and pick category
-   **Integration**.
-2. Download **Life Dashboard**, then restart Home Assistant.
-3. Go to **Settings > Devices & services > Add integration** and search for
-   **Life Dashboard**.
+[![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
+
+That button opens HACS on your own Home Assistant with this repository already filled
+in. Download **Life Dashboard**, restart Home Assistant, then go to **Settings >
+Devices & services > Add integration** and search for **Life Dashboard**.
+
+By hand instead: in HACS, three-dot menu, **Custom repositories**, paste
+`https://github.com/owen282000/life-dashboard-ha` and pick category **Integration**.
 
 Needs Home Assistant 2026.3 or newer.
 
