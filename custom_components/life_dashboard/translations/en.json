@@ -15,7 +15,7 @@
       },
       "reconfigure": {
         "title": "Life Dashboard",
-        "description": "Webhook URL:\n`{webhook_url}`\n\nSigning secret:\n`{secret}`\n\nPaste both into the Webhook card on the Health tab and on the Screen Time tab of the app.",
+        "description": "{qr}\n\nScan this with your phone's camera, or with the camera button in the app. Or paste by hand:\n\nWebhook URL:\n`{webhook_url}`\n\nSigning secret:\n`{secret}`\n\nPaste both into the Webhook card on the Health tab and on the Screen Time tab of the app.",
         "data": {
           "url_choice": "Address to use",
           "regenerate_secret": "Generate a new secret"
@@ -32,10 +32,10 @@
     },
     "abort": {
       "already_configured": "This phone is already set up.",
-      "reconfigure_successful": "Saved.\n\nWebhook URL:\n`{webhook_url}`\n\nSigning secret:\n`{secret}`\n\nPaste both into the Webhook card on the Health tab and on the Screen Time tab of the app."
+      "reconfigure_successful": "Saved.\n\n{qr}\n\nScan this with your phone's camera, or with the camera button in the app. Or paste by hand:\n\nWebhook URL:\n`{webhook_url}`\n\nSigning secret:\n`{secret}`\n\nPaste both into the Webhook card on the Health tab and on the Screen Time tab of the app."
     },
     "create_entry": {
-      "default": "Open the app, go to the Health tab, Webhook card, and paste:\n\nURL:\n`{webhook_url}`\n\nHMAC signing secret:\n`{secret}`\n\nDo the same on the Screen Time tab, then tap Test and Sync now. Sensors appear as soon as the first data arrives.\n\nIf the phone cannot reach that URL, set your address under Settings > System > Network and open this integration's Reconfigure to get the corrected URL."
+      "default": "{qr}\n\nScan this with your phone's camera, or with the camera button in the app. Or paste by hand:\n\nURL:\n`{webhook_url}`\n\nHMAC signing secret:\n`{secret}`\n\nOpen the app, go to the Health tab, Webhook card, and paste both. Do the same on the Screen Time tab, then tap Test and Sync now. Sensors appear as soon as the first data arrives.\n\nIf the phone cannot reach that URL, set your address under Settings > System > Network and open this integration's Reconfigure to get the corrected URL and a new code."
     }
   },
   "selector": {

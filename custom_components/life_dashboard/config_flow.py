@@ -37,6 +37,7 @@ from .const import (
     URL_CHOICE_EXTERNAL,
     URL_CHOICE_INTERNAL,
 )
+from .pairing import pairing_url, qr_markup
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,6 +145,21 @@ async def _async_delete_cloudhook(hass: HomeAssistant, webhook_id: str) -> None:
         _LOGGER.debug("Could not delete the cloudhook for %s", webhook_id)
 
 
+def _pairing_placeholders(url: str, secret: str) -> dict[str, str]:
+    """What every pairing dialog shows: the QR, and the two fields to paste by hand.
+
+    An empty URL (reconfigure while the chosen address is not configured) still gets
+    a QR; the app refuses it with a clear message, which beats a blank dialog.
+    """
+    pair_url = pairing_url(url, secret)
+    return {
+        "webhook_url": url,
+        "secret": secret,
+        "pair_url": pair_url,
+        "qr": qr_markup(pair_url),
+    }
+
+
 class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Life Dashboard."""
 
@@ -180,7 +196,7 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=user_input[CONF_NAME].strip() or DEFAULT_NAME,
                     data=data,
-                    description_placeholders={"webhook_url": url, "secret": secret},
+                    description_placeholders=_pairing_placeholders(url, secret),
                 )
 
         return self.async_show_form(
@@ -229,7 +245,7 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.hass.config_entries.async_schedule_reload(entry.entry_id)
                 return self.async_abort(
                     reason="reconfigure_successful",
-                    description_placeholders={"webhook_url": url, "secret": secret},
+                    description_placeholders=_pairing_placeholders(url, secret),
                 )
 
         try:
@@ -245,8 +261,5 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=_schema(self.hass, default_choice=old_choice, reconfigure=True),
             errors=errors,
-            description_placeholders={
-                "webhook_url": current_url,
-                "secret": entry.data[CONF_SECRET],
-            },
+            description_placeholders=_pairing_placeholders(current_url, entry.data[CONF_SECRET]),
         )

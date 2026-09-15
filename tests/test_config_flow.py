@@ -87,10 +87,9 @@ async def test_user_internal(hass: HomeAssistant) -> None:
         CONF_URL_CHOICE: URL_CHOICE_INTERNAL,
     }
     # The user cannot pair without seeing these two.
-    assert result["description_placeholders"] == {
-        "webhook_url": f"{INTERNAL_URL}/api/webhook/{WEBHOOK_ID}",
-        "secret": SECRET,
-    }
+    placeholders = result["description_placeholders"]
+    assert placeholders["webhook_url"] == f"{INTERNAL_URL}/api/webhook/{WEBHOOK_ID}"
+    assert placeholders["secret"] == SECRET
 
     entry = hass.config_entries.async_entries(DOMAIN)[0]
     assert entry.unique_id == WEBHOOK_ID
@@ -239,10 +238,9 @@ async def test_reconfigure_shows_current_pairing(hass: HomeAssistant) -> None:
 
     result = await _start_reconfigure(hass, entry)
     assert result["type"] is FlowResultType.FORM
-    assert result["description_placeholders"] == {
-        "webhook_url": f"{INTERNAL_URL}/api/webhook/{WEBHOOK_ID}",
-        "secret": SECRET,
-    }
+    placeholders = result["description_placeholders"]
+    assert placeholders["webhook_url"] == f"{INTERNAL_URL}/api/webhook/{WEBHOOK_ID}"
+    assert placeholders["secret"] == SECRET
     # No name field here: renaming is what the entry's own rename is for.
     assert CONF_NAME not in result["data_schema"].schema
 
@@ -335,3 +333,60 @@ async def test_reconfigure_survives_a_missing_url(hass: HomeAssistant) -> None:
     assert result["description_placeholders"]["webhook_url"] == ""
     # The secret is the part the user came for.
     assert result["description_placeholders"]["secret"] == SECRET
+
+
+# --- The QR ----------------------------------------------------------------
+
+
+async def test_every_pairing_dialog_carries_the_qr_url(hass: HomeAssistant) -> None:
+    """Wherever the secret is shown, the QR's URL is shown with it."""
+    from custom_components.life_dashboard.pairing import pairing_url
+
+    await async_process_ha_core_config(hass, {"internal_url": INTERNAL_URL})
+
+    # Adding a phone.
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_NAME: "Phone", CONF_URL_CHOICE: URL_CHOICE_INTERNAL}
+    )
+    placeholders = result["description_placeholders"]
+    expected_url = f"{INTERNAL_URL}/api/webhook/{WEBHOOK_ID}"
+    assert placeholders["pair_url"] == pairing_url(expected_url, SECRET)
+    # The element the frontend renders, carrying that same URL.
+    assert placeholders["qr"].startswith('<ha-qr-code data="' + placeholders["pair_url"] + '"')
+    assert placeholders["qr"].endswith("</ha-qr-code>")
+
+    # The reconfigure form.
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    result = await _start_reconfigure(hass, entry)
+    assert result["description_placeholders"]["pair_url"] == pairing_url(expected_url, SECRET)
+
+    # The reconfigure result, with a rotated secret in the new code.
+    new_secret = "d" * 64
+    with patch(
+        "custom_components.life_dashboard.config_flow.secrets.token_hex",
+        return_value=new_secret,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_URL_CHOICE: URL_CHOICE_INTERNAL, CONF_REGENERATE_SECRET: True},
+        )
+    await hass.async_block_till_done()
+    assert result["description_placeholders"]["pair_url"] == pairing_url(expected_url, new_secret)
+
+
+def test_the_qr_element_is_in_every_pairing_text() -> None:
+    """The three texts that show the secret also show the code."""
+    import json
+
+    with open("custom_components/life_dashboard/strings.json") as handle:
+        config = json.load(handle)["config"]
+    for text in (
+        config["create_entry"]["default"],
+        config["step"]["reconfigure"]["description"],
+        config["abort"]["reconfigure_successful"],
+    ):
+        assert "{qr}" in text
+        assert "{secret}" in text
+        # hassfest refuses HTML in strings.json; the element lives in the placeholder.
+        assert "<" not in text
