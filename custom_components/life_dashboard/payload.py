@@ -246,7 +246,9 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec("skin_temperature_delta", "°C", "temperature", precision=2),
         SensorSpec("basal_body_temperature", "°C", "temperature", precision=1),
         SensorSpec("respiratory_rate", "breaths/min", precision=1),
-        SensorSpec("hydration", "L", "volume", precision=2),
+        # No volume device class: Home Assistant only allows that with TOTAL, which
+        # fits a tank rather than "how much the last drink was".
+        SensorSpec("hydration", "L", precision=2),
         SensorSpec("body_fat", "%", precision=1),
         SensorSpec("lean_body_mass", "kg", "weight", precision=1),
         SensorSpec("bone_mass", "kg", "weight", precision=1),

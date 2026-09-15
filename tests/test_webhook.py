@@ -292,21 +292,31 @@ async def test_reload_does_not_clash_with_itself(hass: HomeAssistant, loaded) ->
     assert loaded.state is ConfigEntryState.LOADED
 
 
-async def test_reload_forgets_nothing_it_should_not(
-    hass: HomeAssistant, hass_client_no_auth, loaded
-) -> None:
-    """A reload starts with an empty ordering memory, and entities reseed it.
+async def test_a_reload_keeps_its_place(hass: HomeAssistant, hass_client_no_auth, loaded) -> None:
+    """A reload gets a fresh memory, and the entities put the values back.
 
-    Phase 5 restores the values; this only pins down that the memory is per load.
+    That is what stops an old batch arriving straight after a reload from
+    overwriting a newer reading.
     """
     client = await hass_client_no_auth()
     await _post(client, _health(heart_rate=[{"bpm": 61, "time": "2026-09-15T12:00:00Z"}]))
     await hass.async_block_till_done()
-    assert loaded.runtime_data.latest
+    assert loaded.runtime_data.latest["heart_rate"].value == 61
 
     await hass.config_entries.async_reload(loaded.entry_id)
     await hass.async_block_till_done()
-    assert loaded.runtime_data.latest == {}
+
+    restored = loaded.runtime_data.latest["heart_rate"]
+    assert restored.value == 61
+    assert restored.measured_at.isoformat() == "2026-09-15T12:00:00+00:00"
+
+    # And an older batch is still refused after the reload.
+    await _post(
+        client,
+        _health(backfill=True, heart_rate=[{"bpm": 95, "time": "2026-09-01T10:00:00Z"}]),
+    )
+    await hass.async_block_till_done()
+    assert loaded.runtime_data.latest["heart_rate"].value == 61
 
 
 async def test_remove_entry_deletes_the_cloudhook(hass: HomeAssistant) -> None:

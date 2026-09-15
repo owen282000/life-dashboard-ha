@@ -46,5 +46,99 @@
         "cloud": "Home Assistant Cloud"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "heart_rate": {
+        "name": "Heart rate"
+      },
+      "resting_heart_rate": {
+        "name": "Resting heart rate"
+      },
+      "heart_rate_variability": {
+        "name": "Heart rate variability"
+      },
+      "sleep_duration": {
+        "name": "Last sleep duration"
+      },
+      "weight": {
+        "name": "Weight"
+      },
+      "blood_pressure_systolic": {
+        "name": "Blood pressure systolic"
+      },
+      "blood_pressure_diastolic": {
+        "name": "Blood pressure diastolic"
+      },
+      "blood_glucose": {
+        "name": "Blood glucose"
+      },
+      "oxygen_saturation": {
+        "name": "Oxygen saturation"
+      },
+      "body_temperature": {
+        "name": "Body temperature"
+      },
+      "skin_temperature_delta": {
+        "name": "Skin temperature delta"
+      },
+      "basal_body_temperature": {
+        "name": "Basal body temperature"
+      },
+      "respiratory_rate": {
+        "name": "Respiratory rate"
+      },
+      "hydration": {
+        "name": "Last drink"
+      },
+      "body_fat": {
+        "name": "Body fat"
+      },
+      "lean_body_mass": {
+        "name": "Lean body mass"
+      },
+      "bone_mass": {
+        "name": "Bone mass"
+      },
+      "body_water_mass": {
+        "name": "Body water mass"
+      },
+      "basal_metabolic_rate": {
+        "name": "Basal metabolic rate"
+      },
+      "vo2_max": {
+        "name": "VO2 max"
+      },
+      "height": {
+        "name": "Height"
+      },
+      "steps_today": {
+        "name": "Steps today"
+      },
+      "distance_today": {
+        "name": "Distance today"
+      },
+      "active_calories_today": {
+        "name": "Active calories today"
+      },
+      "total_calories_today": {
+        "name": "Total calories today"
+      },
+      "screen_time_today": {
+        "name": "Screen time today"
+      },
+      "screen_time_yesterday": {
+        "name": "Screen time yesterday"
+      },
+      "screen_time_top_app": {
+        "name": "Most used app today"
+      },
+      "last_health_sync": {
+        "name": "Last health sync"
+      },
+      "last_screen_time_sync": {
+        "name": "Last screen time sync"
+      }
+    }
   }
 }
