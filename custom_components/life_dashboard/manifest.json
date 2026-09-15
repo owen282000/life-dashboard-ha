@@ -1,14 +1,20 @@
 {
   "domain": "life_dashboard",
   "name": "Life Dashboard",
-  "codeowners": ["@owen282000"],
+  "after_dependencies": [
+    "cloud"
+  ],
+  "codeowners": [
+    "@owen282000"
+  ],
   "config_flow": true,
-  "dependencies": ["webhook"],
-  "after_dependencies": ["cloud"],
+  "dependencies": [
+    "webhook"
+  ],
   "documentation": "https://github.com/owen282000/life-dashboard-ha",
-  "issue_tracker": "https://github.com/owen282000/life-dashboard-ha/issues",
   "integration_type": "device",
   "iot_class": "local_push",
+  "issue_tracker": "https://github.com/owen282000/life-dashboard-ha/issues",
   "requirements": [],
   "version": "0.1.0"
 }
