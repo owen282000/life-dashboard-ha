@@ -21,8 +21,9 @@ PAIR_PAGE: Final = "https://owen282000.github.io/life-dashboard-companion-app/pa
 PAIR_VERSION: Final = "1"
 DEFAULT_NAME: Final = "Home Assistant"
 
-# What this integration accepts. The app offers the user only these sections.
-SOURCES: Final = ("health_connect", "screen_time")
+# This integration accepts both sections, which is also what the app assumes when a code
+# does not say. The field is therefore left out of the code: it is the default spelled
+# out, and every character costs modules a phone has to resolve through camera blur.
 
 
 def pairing_url(webhook_url: str, secret: str, *, name: str = DEFAULT_NAME) -> str:
@@ -38,7 +39,6 @@ def pairing_url(webhook_url: str, secret: str, *, name: str = DEFAULT_NAME) -> s
             "url": webhook_url,
             "secret": secret,
             "name": name,
-            "sources": ",".join(SOURCES),
         },
         quote_via=quote,
         safe="",

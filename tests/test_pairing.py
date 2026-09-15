@@ -20,7 +20,6 @@ KNOWN_GOOD = (
     + "&secret="
     + "b" * 64
     + "&name=Home%20Assistant"
-    "&sources=health_connect%2Cscreen_time"
 )
 
 
@@ -47,7 +46,6 @@ def test_round_trip() -> None:
         "url": [WEBHOOK_URL],
         "secret": [SECRET],
         "name": ["My House"],
-        "sources": ["health_connect,screen_time"],
     }
 
 
@@ -62,3 +60,29 @@ def test_awkward_characters_survive() -> None:
     # Nothing is left unencoded that the app's splitter could mistake.
     raw = fragment.split("&secret=", 1)[1].split("&", 1)[0]
     assert "+" not in raw and "/" not in raw and "=" not in raw and "&" not in raw
+
+
+def test_the_code_stays_small_enough_to_scan() -> None:
+    """A denser code is a code a phone cannot read through camera blur.
+
+    Measured with ZXing against a softened frame: at the analyser's resolution a symbol
+    of 69 modules survives about one pixel of blur and a 65-module one rather more, and a
+    phone that focused on the text under the code is well past that. Modules, not
+    characters, are what the camera has to resolve, so the guard is on the symbol.
+
+    A typical LAN address gives 65 modules; the ceiling here leaves room for a long
+    hostname without letting a future field push the symbol denser still.
+    """
+    import segno
+
+    for label, url in (
+        ("a LAN address", "http://192.168.10.138:8123/api/webhook/" + "b" * 64),
+        (
+            "a long hostname",
+            "https://a-fairly-long-host-name.duckdns.org:8123/api/webhook/" + "f" * 64,
+        ),
+        ("a cloudhook", "https://hooks.nabu.casa/" + "g" * 40),
+    ):
+        code = segno.make(pairing_url(url, "d" * 64, name="Home Assistant"), error="m")
+        modules = code.symbol_size(scale=1, border=0)[0]
+        assert modules <= 69, f"{label} makes a {modules}-module symbol"

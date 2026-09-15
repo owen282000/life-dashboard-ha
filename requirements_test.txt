@@ -1,1 +1,3 @@
 pytest-homeassistant-custom-component
+# Renders a pairing code in the test that guards its size.
+segno
