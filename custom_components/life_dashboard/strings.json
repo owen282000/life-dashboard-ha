@@ -1,7 +1,50 @@
 {
   "config": {
+    "step": {
+      "user": {
+        "title": "Add a phone",
+        "description": "Internal works at home and never leaves your network. External works away from home and needs Home Assistant to be reachable from outside. Home Assistant Cloud needs no port forwarding.",
+        "data": {
+          "name": "Name",
+          "url_choice": "Address to use"
+        },
+        "data_description": {
+          "name": "Becomes the device name. Worth setting with more than one phone in the house.",
+          "url_choice": "You can change this later without pairing again."
+        }
+      },
+      "reconfigure": {
+        "title": "Life Dashboard",
+        "description": "Webhook URL:\n`{webhook_url}`\n\nSigning secret:\n`{secret}`\n\nPaste both into the Webhook card on the Health tab and on the Screen Time tab of the app.",
+        "data": {
+          "url_choice": "Address to use",
+          "regenerate_secret": "Generate a new secret"
+        },
+        "data_description": {
+          "regenerate_secret": "The phone stops syncing until you paste the new secret into both tabs."
+        }
+      }
+    },
+    "error": {
+      "no_internal_url": "No internal URL is set. Add one under Settings > System > Network, or pick another address.",
+      "no_external_url": "No external URL is set. Add one under Settings > System > Network, or pick another address.",
+      "cloud_not_connected": "Home Assistant Cloud is not connected."
+    },
     "abort": {
-      "not_ready": "Setting up Life Dashboard is not implemented yet."
+      "already_configured": "This phone is already set up.",
+      "reconfigure_successful": "Saved.\n\nWebhook URL:\n`{webhook_url}`\n\nSigning secret:\n`{secret}`\n\nPaste both into the Webhook card on the Health tab and on the Screen Time tab of the app."
+    },
+    "create_entry": {
+      "default": "Open the app, go to the Health tab, Webhook card, and paste:\n\nURL:\n`{webhook_url}`\n\nHMAC signing secret:\n`{secret}`\n\nDo the same on the Screen Time tab, then tap Test and Sync now. Sensors appear as soon as the first data arrives.\n\nIf the phone cannot reach that URL, set your address under Settings > System > Network and open this integration's Reconfigure to get the corrected URL."
+    }
+  },
+  "selector": {
+    "url_choice": {
+      "options": {
+        "internal": "Internal URL, home network only",
+        "external": "External URL",
+        "cloud": "Home Assistant Cloud"
+      }
     }
   }
 }
