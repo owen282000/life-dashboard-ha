@@ -5,8 +5,8 @@
 #
 # Replace two things: "owen_s_pixel" in the entity ids with your phone's name as it
 # appears in the entity ids (the device name in lower case with underscores), and the
-# two statistic ids with the ones the picker offers under that name. Cards for sensors
-# the phone does not send simply stay empty.
+# two statistic ids with the ones the picker offers under that name. Remove the rows
+# for types the phone does not sync; Home Assistant shows a missing entity as an error.
 title: Owen's Pixel
 views:
   - title: Today

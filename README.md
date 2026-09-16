@@ -243,7 +243,8 @@ is decided on the phone, so Home Assistant only ever sees what you chose to send
 [examples/dashboard.yaml](examples/dashboard.yaml) is a view for one phone: tiles for
 today, the most used app with its top five, a body card, and statistics graphs for
 steps, screen time and heart rate. Paste it into a new dashboard's raw configuration
-editor and replace the phone's name in the entity ids.
+editor, replace the phone's name in the entity ids, and drop the rows for types you
+do not sync.
 
 ## History
 
