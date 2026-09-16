@@ -79,9 +79,9 @@ took most of them, next to the steps and the heart rate of the same phone.
    **Life Dashboard**. Give the phone a name. The address is filled in with the one your
    browser is using; keep it, or change it.
 
-3. **Scan the code.** Point the phone's camera at the QR code in the dialog, or tap the
-   scan button in the app. The app shows what it is about to fill in and asks you to
-   confirm.
+3. **Scan the code.** The dialog shows it next to three short steps. Point the phone's
+   camera at it, or tap the scan button in the app; the app shows what it is about to
+   fill in and asks you to confirm.
 
 4. **Sync.** Tap **Sync now** in the app. The device appears under
    *Settings > Devices & services > Life Dashboard* with a sensor for every type the
@@ -89,8 +89,8 @@ took most of them, next to the steps and the heart rate of the same phone.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/pairing.png" alt="The pairing dialog: a QR code, and under it the webhook URL and the signing secret for pasting by hand" width="380"></td>
-    <td align="center"><img src="docs/screenshots/statistics.png" alt="Two statistics graph cards fed by the integration: steps per week as bars, and heart rate per day as a line with its min and max band" width="560"></td>
+    <td align="center"><img src="docs/screenshots/pairing.png" alt="The pairing dialog: the QR code in a frame on the left, three steps beside it, and a folded section for pasting the URL and the secret by hand" width="520"></td>
+    <td align="center"><img src="docs/screenshots/statistics.png" alt="Two statistics graph cards fed by the integration: steps per week as bars, and heart rate per day as a line with its min and max band" width="520"></td>
   </tr>
   <tr>
     <td align="center">The pairing dialog</td>
@@ -102,10 +102,11 @@ Needs Home Assistant 2026.3 or newer.
 
 ## Pairing
 
-The dialog asks for a name and an address, then shows the QR code with the URL and the
-signing secret under it. The address is prefilled with the one your browser is using at
-that moment, which is usually the right one; it is a plain text field, so change it
-when it is not.
+The dialog asks for a name and an address, then shows the QR code with three steps
+beside it. The URL and the signing secret are behind **Or paste by hand**, for a phone
+that cannot scan. The address is prefilled with the one your browser is using at that
+moment, which is usually the right one; it is a plain text field, so change it when it
+is not.
 
 | Address | What it means for the phone |
 |---|---|
