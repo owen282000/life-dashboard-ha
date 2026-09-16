@@ -26,8 +26,9 @@ questions, setup help and ideas. The answer stays findable for whoever asks next
 
 If something is genuinely broken, open an
 [issue](https://github.com/owen282000/life-dashboard-ha/issues/new/choose). The template
-asks for your Home Assistant version, the app and its version, and the relevant lines from
-the Home Assistant log, because those usually determine the cause.
+asks for your Home Assistant version, the app and its version, the diagnostics file
+(three dots on the integration > Download diagnostics; no health data in it) and the
+relevant log lines, because those usually determine the cause.
 
 Security problems go through
 [private advisories](https://github.com/owen282000/life-dashboard-ha/security/advisories/new)

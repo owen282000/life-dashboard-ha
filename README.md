@@ -1,4 +1,4 @@
-<h1 align="center">Life Dashboard for Home Assistant</h1>
+<h1 align="center"><img src="custom_components/life_dashboard/brand/icon.png" alt="" width="28" height="28" align="absmiddle"> Life Dashboard for Home Assistant</h1>
 
 <p align="center">
   Health Connect and screen time from your phone as Home Assistant sensors and long-term statistics.<br>
@@ -43,6 +43,15 @@ time has none of those. No Android app exports it, no cloud service offers it, a
 companion app does not read it. This integration does, with today's minutes,
 yesterday's, and the app that took most of them, next to the steps and the heart rate of
 the same phone.
+
+## How it works
+
+The phone pushes; nothing here polls. The app reads Health Connect and screen time on
+the schedule you set in it (an interval, or fixed times) and posts a signed payload to
+this integration's webhook. Each value arrives with the moment it describes: the
+sensors take the newest, the statistics take every day and hour. A Home Assistant
+restart changes nothing on the phone; the sensors keep their last values and the next
+sync fills in whatever happened meanwhile.
 
 ## Why this integration
 
@@ -143,27 +152,51 @@ per phone. To see the code again, change the address, or rotate the secret, use
 ## What you get
 
 Sensors appear as data arrives, so you only get the types you actually sync. Each sensor
-holds the latest value; the past lives in the [statistics](#history).
+holds the latest value; the past lives in the [statistics](#history). Entity ids follow
+the device name: "Owen's Pixel" gives `sensor.owen_s_pixel_steps_today`.
 
 **Day totals**, from Health Connect's own deduplicated figures, resetting at local
-midnight: steps, distance, active calories, total calories.
+midnight. Each carries the day it describes as a `date` attribute.
 
-**Latest reading** of heart rate, resting heart rate, heart rate variability, last sleep
-duration, weight, blood pressure (systolic and diastolic), blood glucose, oxygen
-saturation, body temperature, skin temperature delta, basal body temperature, respiratory
-rate, last drink, body fat, lean body mass, bone mass, body water mass, basal metabolic
-rate, VO2 max and height. Each carries the source app and the record id as attributes.
+| Sensor | Unit |
+|---|---|
+| `steps_today` | steps |
+| `distance_today` | m |
+| `active_calories_today` | kcal |
+| `total_calories_today` | kcal |
 
-**Screen time**: minutes today, minutes yesterday, and the most used app today with the
-top five as an attribute. See [Screen time](#screen-time) below.
+**Latest reading**, with the source app and the record id as attributes.
 
-**Diagnostics**: last health sync and last screen time sync, as timestamps. A **Test**
-ping in the app moves these, which is the quickest way to see that pairing worked.
+| Sensor | Unit | | Sensor | Unit |
+|---|---|---|---|---|
+| `heart_rate` | bpm | | `body_temperature` | °C |
+| `resting_heart_rate` | bpm | | `skin_temperature_delta` | °C |
+| `heart_rate_variability` | ms | | `basal_body_temperature` | °C |
+| `sleep_duration` (last sleep) | min | | `respiratory_rate` | breaths/min |
+| `weight` | kg | | `hydration` (last drink) | L |
+| `blood_pressure_systolic` | mmHg | | `body_fat` | % |
+| `blood_pressure_diastolic` | mmHg | | `lean_body_mass` | kg |
+| `blood_glucose` | mmol/L | | `bone_mass` | kg |
+| `oxygen_saturation` | % | | `body_water_mass` | kg |
+| `basal_metabolic_rate` | kcal/d | | `vo2_max` | mL/min/kg |
+| `height` | m | | | |
+
+**Screen time**, see [below](#screen-time).
+
+| Sensor | Unit | Attributes |
+|---|---|---|
+| `screen_time_today` | min | `date` |
+| `screen_time_yesterday` | min | `date` |
+| `screen_time_top_app` | the app's name | `top_apps`, the top five with their minutes |
+
+**Diagnostic**: `last_health_sync` and `last_screen_time_sync`, as timestamps. A
+**Test** ping in the app moves these, which is the quickest way to see that pairing
+worked.
 
 Event-like data (workouts, meals, mindfulness sessions, cycle tracking) gets no sensor,
 because a single value cannot represent it honestly. Mindfulness and exercise do count
-towards the day statistics below, and everything is in the webhook payload for an
-automation that wants the raw records.
+towards the day statistics below. For the raw records, use the app's plain webhook route
+into an automation, or MQTT; this integration does not fire events with them.
 
 ## Screen time
 
@@ -204,6 +237,13 @@ attribute: top_apps
 
 Screen time is Android only: iOS has no API that lets an app read it. Which apps count
 is decided on the phone, so Home Assistant only ever sees what you chose to send.
+
+## A dashboard to start from
+
+[examples/dashboard.yaml](examples/dashboard.yaml) is a view for one phone: tiles for
+today, the most used app with its top five, a body card, and statistics graphs for
+steps, screen time and heart rate. Paste it into a new dashboard's raw configuration
+editor and replace the phone's name in the entity ids.
 
 ## History
 
@@ -309,6 +349,18 @@ are unaffected.
 **A backfill left the step history empty.** The app is older than 1.17; update it and run
 the backfill again. The log names the window when this happens.
 
+**Reporting a bug.** *Settings > Devices & services > Life Dashboard > three dots >
+Download diagnostics* gives a file with which sensors exist, when each last updated and
+how much history is stored, with the secret and the webhook id redacted and no health
+data in it. Attach it to the issue. For more detail, turn on debug logging:
+
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.life_dashboard: debug
+```
+
 Still stuck? [Discussions](https://github.com/owen282000/life-dashboard-ha/discussions)
 for questions, [issues](https://github.com/owen282000/life-dashboard-ha/issues/new/choose)
 for bugs.
@@ -317,6 +369,12 @@ for bugs.
 
 - Support for the iOS app ([#1](https://github.com/owen282000/life-dashboard-ha/issues/1))
 - Listing in the HACS default repository, so no custom repository step is needed
+
+## Support the project
+
+It is free and stays free. If it saves you an evening of Tasker, a coffee on
+[Ko-fi](https://ko-fi.com/owen282000) is appreciated; a star on the repository helps
+others find it.
 
 ## Development
 

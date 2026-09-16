@@ -4,6 +4,22 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-09-16
+
+### Added
+
+- Diagnostics: *Download diagnostics* on the integration gives a bug report the
+  sensors that exist, when each last updated and how much history the ledger holds,
+  with the secret and the webhook id redacted and no health data in it. The bug
+  report template asks for it.
+- `examples/dashboard.yaml`, a view for one phone to start from.
+
+### Changed
+
+- README: an entity table with units and attributes, how data arrives, a debug logging
+  snippet, and a correction: the raw records (workouts, meals, cycle tracking) are not
+  fired as events by this integration; the plain webhook route or MQTT carries them.
+
 ## [0.5.3] - 2026-09-16
 
 ### Changed
@@ -122,6 +138,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.6.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.6.0
 [0.5.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.3
 [0.5.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.2
 [0.5.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.1
