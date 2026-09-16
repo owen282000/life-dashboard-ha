@@ -25,7 +25,7 @@ views:
         entity: sensor.owen_s_pixel_last_sleep_duration
         name: Last sleep
       - type: entity
-        entity: sensor.owen_s_pixel_screen_time_top_app
+        entity: sensor.owen_s_pixel_most_used_app_today
         name: Most used app today
         attribute: top_apps
       - type: entities
