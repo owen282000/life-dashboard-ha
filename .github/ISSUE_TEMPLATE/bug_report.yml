@@ -1,0 +1,81 @@
+name: Bug report
+description: Something is broken or not working as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For setup questions, use
+        [Discussions](https://github.com/owen282000/life-dashboard-ha/discussions) instead.
+        The [troubleshooting section](https://github.com/owen282000/life-dashboard-ha#troubleshooting)
+        answers the most common problems.
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: Before reporting
+      options:
+        - label: I searched the existing issues and this is not a duplicate
+          required: true
+        - label: I read the troubleshooting section in the README
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Pair the phone with the internal URL
+        2. Tap Sync now in the app
+        3. See ...
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.9.2"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      description: Shown on the integration's page in HACS.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: App and version
+      placeholder: "Android 1.17.1, or iOS 1.2.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: address
+    attributes:
+      label: Which address does the phone send to?
+      options:
+        - Internal URL
+        - External URL
+        - Home Assistant Cloud
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Lines mentioning `life_dashboard` from Settings > System > Logs, and the app's
+        Logs tab if delivery fails. Remove the webhook id and the secret before pasting.
+      render: shell

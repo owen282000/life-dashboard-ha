@@ -143,7 +143,7 @@ python3.13 -m venv .venv
 ```
 
 `scripts/sync-to-dev-ha.sh` copies the integration into a local Home Assistant in
-Docker and restarts it.
+Docker and restarts it. [CONTRIBUTING.md](CONTRIBUTING.md) has the conventions.
 
 ## License
 

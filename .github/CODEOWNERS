@@ -1,0 +1,10 @@
+# One maintainer, so everything routes to the same place. This exists to make review
+# assignment automatic rather than to restrict who may contribute.
+*                                               @owen282000
+
+# What ships, and what verifies a payload, gets looked at even when the rest of a pull
+# request is routine.
+/.github/workflows/                             @owen282000
+/custom_components/life_dashboard/payload.py    @owen282000
+/custom_components/life_dashboard/manifest.json @owen282000
+/SECURITY.md                                    @owen282000
