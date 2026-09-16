@@ -72,6 +72,15 @@ body:
     validations:
       required: true
   - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Settings > Devices & services > Life Dashboard > three dots > Download diagnostics,
+        and paste the file here. It holds no health data and no secrets: only which
+        sensors exist, when each last updated, and how much history is stored.
+      render: json
+  - type: textarea
     id: logs
     attributes:
       label: Relevant log output

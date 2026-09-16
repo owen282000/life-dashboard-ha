@@ -1,0 +1,78 @@
+# A dashboard view for one phone, ready to paste.
+#
+# Settings > Dashboards > Add dashboard > New dashboard from scratch, open it, three
+# dots > Edit dashboard > three dots > Raw configuration editor, paste, save.
+#
+# Replace two things: "owen_s_pixel" in the entity ids with your phone's name as it
+# appears in the entity ids (the device name in lower case with underscores), and the
+# two statistic ids with the ones the picker offers under that name. Cards for sensors
+# the phone does not send simply stay empty.
+title: Owen's Pixel
+views:
+  - title: Today
+    path: today
+    cards:
+      - type: tile
+        entity: sensor.owen_s_pixel_steps_today
+        name: Steps
+      - type: tile
+        entity: sensor.owen_s_pixel_screen_time_today
+        name: Screen time
+      - type: tile
+        entity: sensor.owen_s_pixel_heart_rate
+        name: Heart rate
+      - type: tile
+        entity: sensor.owen_s_pixel_last_sleep_duration
+        name: Last sleep
+      - type: entity
+        entity: sensor.owen_s_pixel_screen_time_top_app
+        name: Most used app today
+        attribute: top_apps
+      - type: entities
+        title: Body
+        entities:
+          - sensor.owen_s_pixel_weight
+          - sensor.owen_s_pixel_resting_heart_rate
+          - sensor.owen_s_pixel_heart_rate_variability
+          - sensor.owen_s_pixel_blood_pressure_systolic
+          - sensor.owen_s_pixel_blood_pressure_diastolic
+      - type: statistics-graph
+        title: Steps per week
+        chart_type: bar
+        period: week
+        days_to_show: 90
+        stat_types:
+          - change
+        hide_legend: true
+        entities:
+          - entity: life_dashboard:<entry>_steps
+            name: Steps
+      - type: statistics-graph
+        title: Screen time per day
+        chart_type: bar
+        period: day
+        days_to_show: 30
+        stat_types:
+          - change
+        hide_legend: true
+        entities:
+          - entity: life_dashboard:<entry>_screen_time
+            name: Screen time
+      - type: statistics-graph
+        title: Heart rate per day
+        chart_type: line
+        period: day
+        days_to_show: 30
+        stat_types:
+          - min
+          - mean
+          - max
+        hide_legend: true
+        entities:
+          - entity: life_dashboard:<entry>_heart_rate
+            name: Heart rate
+      - type: entities
+        title: Sync
+        entities:
+          - sensor.owen_s_pixel_last_health_sync
+          - sensor.owen_s_pixel_last_screen_time_sync
