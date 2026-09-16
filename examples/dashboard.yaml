@@ -5,74 +5,135 @@
 #
 # Replace two things: "owen_s_pixel" in the entity ids with your phone's name as it
 # appears in the entity ids (the device name in lower case with underscores), and the
-# two statistic ids with the ones the picker offers under that name. Remove the rows
-# for types the phone does not sync; Home Assistant shows a missing entity as an error.
+# three statistic ids with the ones the picker offers under that name. Remove the tiles
+# and rows for types the phone does not sync; Home Assistant shows a missing entity as
+# an error.
 title: Owen's Pixel
 views:
   - title: Today
     path: today
-    cards:
-      - type: tile
-        entity: sensor.owen_s_pixel_steps_today
-        name: Steps
-      - type: tile
-        entity: sensor.owen_s_pixel_screen_time_today
-        name: Screen time
-      - type: tile
-        entity: sensor.owen_s_pixel_heart_rate
-        name: Heart rate
-      - type: tile
-        entity: sensor.owen_s_pixel_last_sleep_duration
-        name: Last sleep
-      - type: entity
-        entity: sensor.owen_s_pixel_most_used_app_today
-        name: Most used app today
-        attribute: top_apps
-      - type: entities
-        title: Body
-        entities:
-          - sensor.owen_s_pixel_weight
-          - sensor.owen_s_pixel_resting_heart_rate
-          - sensor.owen_s_pixel_heart_rate_variability
-          - sensor.owen_s_pixel_blood_pressure_systolic
-          - sensor.owen_s_pixel_blood_pressure_diastolic
-      - type: statistics-graph
-        title: Steps per week
-        chart_type: bar
-        period: week
-        days_to_show: 90
-        stat_types:
-          - change
-        hide_legend: true
-        entities:
-          - entity: life_dashboard:<entry>_steps
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Today
+            heading_style: title
+            icon: mdi:calendar-today
+          - type: tile
+            entity: sensor.owen_s_pixel_steps_today
             name: Steps
-      - type: statistics-graph
-        title: Screen time per day
-        chart_type: bar
-        period: day
-        days_to_show: 30
-        stat_types:
-          - change
-        hide_legend: true
-        entities:
-          - entity: life_dashboard:<entry>_screen_time
+            icon: mdi:walk
+            color: green
+          - type: tile
+            entity: sensor.owen_s_pixel_distance_today
+            name: Distance
+            icon: mdi:map-marker-distance
+            color: teal
+          - type: tile
+            entity: sensor.owen_s_pixel_total_calories_today
+            name: Calories
+            icon: mdi:fire
+            color: orange
+          - type: tile
+            entity: sensor.owen_s_pixel_screen_time_today
             name: Screen time
-      - type: statistics-graph
-        title: Heart rate per day
-        chart_type: line
-        period: day
-        days_to_show: 30
-        stat_types:
-          - min
-          - mean
-          - max
-        hide_legend: true
-        entities:
-          - entity: life_dashboard:<entry>_heart_rate
+            icon: mdi:cellphone
+            color: blue
+          - type: tile
+            entity: sensor.owen_s_pixel_heart_rate
             name: Heart rate
-      - type: entities
-        title: Sync
-        entities:
-          - sensor.owen_s_pixel_last_health_sync
-          - sensor.owen_s_pixel_last_screen_time_sync
+            icon: mdi:heart-pulse
+            color: red
+          - type: tile
+            entity: sensor.owen_s_pixel_last_sleep_duration
+            name: Last sleep
+            icon: mdi:sleep
+            color: purple
+          - type: heading
+            heading: Body
+            heading_style: subtitle
+            icon: mdi:human
+          - type: entities
+            entities:
+              - sensor.owen_s_pixel_weight
+              - sensor.owen_s_pixel_resting_heart_rate
+              - sensor.owen_s_pixel_heart_rate_variability
+              - sensor.owen_s_pixel_blood_pressure_systolic
+              - sensor.owen_s_pixel_blood_pressure_diastolic
+          - type: heading
+            heading: Sync
+            heading_style: subtitle
+            icon: mdi:sync
+          - type: entities
+            entities:
+              - entity: sensor.owen_s_pixel_last_health_sync
+                name: Health
+              - entity: sensor.owen_s_pixel_last_screen_time_sync
+                name: Screen time
+      - type: grid
+        cards:
+          - type: heading
+            heading: On the phone
+            heading_style: title
+            icon: mdi:cellphone
+          - type: tile
+            entity: sensor.owen_s_pixel_most_used_app_today
+            name: Most used app
+            icon: mdi:apps
+            color: indigo
+            grid_options:
+              columns: 12
+          - type: markdown
+            title: Top apps today
+            content: |
+              {% set apps = state_attr('sensor.owen_s_pixel_screen_time_today', 'top_apps') or '' %}
+              {% if apps %}
+              {% for app in apps.split(', ') %}{% set name, minutes = app.rsplit(' (', 1) %}
+              <p><ha-icon icon="mdi:numeric-{{ loop.index }}-circle"></ha-icon> <b>{{ name }}</b> {{ minutes[:-1] }}</p>
+              {% endfor %}
+              {% else %}
+              Nothing yet today.
+              {% endif %}
+          - type: statistics-graph
+            title: Screen time per day
+            chart_type: bar
+            period: day
+            days_to_show: 30
+            stat_types:
+              - change
+            hide_legend: true
+            entities:
+              - entity: life_dashboard:<entry>_screen_time
+                name: Screen time
+      - type: grid
+        cards:
+          - type: heading
+            heading: History
+            heading_style: title
+            icon: mdi:chart-line
+          - type: statistics-graph
+            title: Steps per week
+            chart_type: bar
+            period: week
+            days_to_show: 90
+            stat_types:
+              - change
+            hide_legend: true
+            entities:
+              - entity: life_dashboard:<entry>_steps
+                name: Steps
+          - type: statistics-graph
+            title: Heart rate per day
+            chart_type: line
+            period: day
+            days_to_show: 30
+            stat_types:
+              - min
+              - mean
+              - max
+            hide_legend: true
+            entities:
+              - entity: life_dashboard:<entry>_heart_rate
+                name: Heart rate

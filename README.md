@@ -186,9 +186,9 @@ midnight. Each carries the day it describes as a `date` attribute.
 
 | Sensor | Unit | Attributes |
 |---|---|---|
-| `screen_time_today` | min | `date` |
-| `screen_time_yesterday` | min | `date` |
-| `most_used_app_today` | the app's name | `top_apps`, the top five with their minutes |
+| `screen_time_today` | min | `date`, `app_count`, `top_apps` (the top five with their minutes) |
+| `screen_time_yesterday` | min | `date`, `app_count`, `top_apps` |
+| `most_used_app_today` | the app's name | `package`, `minutes`, `date` |
 
 **Diagnostic**: `last_health_sync` and `last_screen_time_sync`, as timestamps. A
 **Test** ping in the app moves these, which is the quickest way to see that pairing
@@ -209,7 +209,7 @@ sensors come out of it:
 |---|---|
 | `screen_time_today` | Minutes of foreground use since the day boundary, which you set in the app (a "day" can end at 4 AM if that is when you sleep) |
 | `screen_time_yesterday` | The finished total for the day before, for a daily automation that does not race the clock |
-| `most_used_app_today` | The app with the most minutes today; the top five with their minutes in the `top_apps` attribute |
+| `most_used_app_today` | The app with the most minutes today, with its package name and minutes as attributes. The top five with their minutes are the `top_apps` attribute of the two minute sensors |
 
 Both minute sensors carry the day they describe as an attribute, and update as the
 number grows, so a dashboard shows the phone's day as it happens. Every day also goes
@@ -229,11 +229,12 @@ actions:
 ```
 
 ```yaml
-# Yesterday's total in a card, with the top five apps behind it.
-type: entity
-entity: sensor.owen_s_pixel_screen_time_yesterday
-name: Screen time yesterday
-attribute: top_apps
+# Yesterday's total and its top five apps in a card.
+type: markdown
+title: Yesterday on the phone
+content: >-
+  {{ states('sensor.owen_s_pixel_screen_time_yesterday') }} minutes.
+  {{ state_attr('sensor.owen_s_pixel_screen_time_yesterday', 'top_apps') }}
 ```
 
 Screen time is Android only: iOS has no API that lets an app read it. Which apps count
@@ -241,11 +242,22 @@ is decided on the phone, so Home Assistant only ever sees what you chose to send
 
 ## A dashboard to start from
 
-[examples/dashboard.yaml](examples/dashboard.yaml) is a view for one phone: tiles for
-today, the most used app with its top five, a body card, and statistics graphs for
-steps, screen time and heart rate. Paste it into a new dashboard's raw configuration
-editor, replace the phone's name in the entity ids, and drop the rows for types you
-do not sync.
+[examples/dashboard.yaml](examples/dashboard.yaml) is a view for one phone in three
+sections: today's tiles with a body card and the sync times, the phone with its most
+used app, the top five and screen time per day, and history with steps per week and
+heart rate per day. Paste it into a new dashboard's raw configuration editor, replace
+the phone's name in the entity ids, and drop the tiles and rows for types you do not
+sync. The last sleep tile shows hours and minutes once the sensor's unit is set to
+`h` in its settings, with the display precision raised to four decimals; Home
+Assistant converts, and with the native `min` it shows minutes only. The frontend
+rounds down when it splits hours into minutes, so a minute can go missing there.
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="The example dashboard in three sections: Today with coloured tiles for steps, distance, calories, screen time, heart rate and last sleep plus the two sync times; On the phone with the most used app, the top apps of the day and a bar chart of screen time per day; History with steps per week as bars and heart rate per day as a line with its min and max band" width="900">
+</p>
+
+That is the view on a phone that backfilled five months and then went quiet, with the
+two long graphs widened from 90 and 30 days to a year so the backfill shows.
 
 ## History
 
