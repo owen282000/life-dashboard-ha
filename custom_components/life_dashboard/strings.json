@@ -17,7 +17,7 @@
       },
       "reconfigure": {
         "title": "Life Dashboard",
-        "description": "{qr}\n\nScan this to pair the phone again, or a second app.\n\n{by_hand}",
+        "description": "{layout}\n\n{by_hand}",
         "data": {
           "base_url": "Home Assistant address",
           "use_cloud": "Use Home Assistant Cloud instead",
@@ -36,10 +36,10 @@
     },
     "abort": {
       "already_configured": "This phone is already set up.",
-      "reconfigure_successful": "Saved.\n\n{qr}\n\nScan this with the app, or with the phone's camera, and tap **Pair**.\n\n{by_hand}"
+      "reconfigure_successful": "Saved.\n\n{layout}\n\n{by_hand}"
     },
     "create_entry": {
-      "default": "{qr}\n\n**1.** In the app, tap **Scan a pairing code**, or point the phone's camera at this code.\n\n**2.** Check what it is about to fill in and tap **Pair**.\n\n**3.** Tap **Sync now**. The phone appears as a device as soon as the first data arrives.\n\n{by_hand}\n\nCannot reach that address from the phone? Open **Reconfigure** on this integration, change the address, and scan the new code."
+      "default": "{layout}\n\n{by_hand}"
     }
   },
   "entity": {

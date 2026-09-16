@@ -472,8 +472,9 @@ def test_the_qr_element_is_in_every_pairing_text() -> None:
         config["step"]["reconfigure"]["description"],
         config["abort"]["reconfigure_successful"],
     ):
-        assert "{qr}" in text
-        # The secret sits behind the fold, which is HTML and so also a placeholder.
+        # The code and the steps are one HTML table, the secret sits behind the fold;
+        # both are HTML and so placeholders.
+        assert "{layout}" in text
         assert "{by_hand}" in text
         # hassfest refuses HTML in strings.json; the elements live in the placeholders.
         assert "<" not in text

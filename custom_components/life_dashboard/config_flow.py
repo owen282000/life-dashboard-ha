@@ -37,7 +37,7 @@ from .const import (
     URL_CHOICE_EXTERNAL,
     URL_CHOICE_URL,
 )
-from .pairing import by_hand_markup, pairing_url, qr_markup
+from .pairing import by_hand_markup, layout_markup, pairing_url, qr_markup
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -196,6 +196,11 @@ def _pairing_placeholders(url: str, secret: str) -> dict[str, str]:
         "pair_url": pair_url,
         "qr": qr_markup(pair_url),
         "by_hand": by_hand_markup(url, secret),
+        "layout": layout_markup(
+            pair_url,
+            note="Wrong address for the phone? <b>Reconfigure</b> on this integration gives "
+            "a new code for another address.",
+        ),
     }
 
 

@@ -47,7 +47,7 @@ def pairing_url(webhook_url: str, secret: str, *, name: str = DEFAULT_NAME) -> s
     return f"{PAIR_PAGE}#{fragment}"
 
 
-def qr_markup(pair_url: str) -> str:
+def qr_markup(pair_url: str, *, scale: int = 5) -> str:
     """The QR as the frontend renders it inside a dialog description.
 
     hassfest refuses HTML inside strings.json, so the element travels as a
@@ -57,7 +57,10 @@ def qr_markup(pair_url: str) -> str:
     scannable in dark mode. A frontend that does not know the element simply shows
     nothing there, and the URL and secret below it still work.
     """
-    return f'<ha-qr-code data="{pair_url}" scale="5" error-correction-level="medium"></ha-qr-code>'
+    return (
+        f'<ha-qr-code data="{pair_url}" scale="{scale}" error-correction-level="medium">'
+        "</ha-qr-code>"
+    )
 
 
 def by_hand_markup(webhook_url: str, secret: str) -> str:
@@ -74,4 +77,23 @@ def by_hand_markup(webhook_url: str, secret: str) -> str:
         f"<p>URL</p><pre><code>{escape(webhook_url)}</code></pre>"
         f"<p>Signing secret</p><pre><code>{escape(secret)}</code></pre>"
         "</details>"
+    )
+
+
+def layout_markup(pair_url: str, *, note: str = "") -> str:
+    """The code on the left in its own frame, the three steps flowing beside it.
+
+    A one-cell table floated left: the only way Home Assistant's markdown allows text
+    next to an element, and its own table styling turns the cell into a frame around
+    the code. A two-cell table would draw a grid with an empty column under the short
+    steps. HTML rather than markdown because it goes in through a placeholder, and the
+    step texts live here for that reason.
+    """
+    return (
+        '<table align="left"><tr><td>' + qr_markup(pair_url, scale=4) + "</td></tr></table>"
+        "<p><b>Scan with your phone</b></p>"
+        "<p>1. Tap <b>Scan a pairing code</b> in the app, or point the phone's camera at "
+        "the code.</p>"
+        "<p>2. Check what it fills in and tap <b>Pair</b>.</p>"
+        "<p>3. Tap <b>Sync now</b>.</p>" + (f"<p>{note}</p>" if note else "")
     )
