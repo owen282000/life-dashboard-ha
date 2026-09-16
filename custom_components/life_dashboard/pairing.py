@@ -14,6 +14,7 @@ This module imports nothing from Home Assistant.
 
 from __future__ import annotations
 
+from html import escape
 from typing import Final
 from urllib.parse import quote, urlencode
 
@@ -57,3 +58,20 @@ def qr_markup(pair_url: str) -> str:
     nothing there, and the URL and secret below it still work.
     """
     return f'<ha-qr-code data="{pair_url}" scale="5" error-correction-level="medium"></ha-qr-code>'
+
+
+def by_hand_markup(webhook_url: str, secret: str) -> str:
+    """The URL and the secret behind a fold, for whoever cannot scan.
+
+    HTML rather than markdown because it goes in through a placeholder, like the QR:
+    hassfest allows no markup in strings.json, and Home Assistant's markdown renderer
+    only takes details and summary as raw HTML.
+    """
+    return (
+        "<details><summary><b>Or paste by hand</b></summary>"
+        "<p>In the app, open the <b>Webhook</b> card on the Health tab and on the Screen "
+        "Time tab and fill in both.</p>"
+        f"<p>URL</p><pre><code>{escape(webhook_url)}</code></pre>"
+        f"<p>Signing secret</p><pre><code>{escape(secret)}</code></pre>"
+        "</details>"
+    )

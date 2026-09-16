@@ -473,6 +473,18 @@ def test_the_qr_element_is_in_every_pairing_text() -> None:
         config["abort"]["reconfigure_successful"],
     ):
         assert "{qr}" in text
-        assert "{secret}" in text
-        # hassfest refuses HTML in strings.json; the element lives in the placeholder.
+        # The secret sits behind the fold, which is HTML and so also a placeholder.
+        assert "{by_hand}" in text
+        # hassfest refuses HTML in strings.json; the elements live in the placeholders.
         assert "<" not in text
+
+
+async def test_the_fold_carries_the_url_and_the_secret(hass: HomeAssistant) -> None:
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_NAME: "Phone", CONF_BASE_URL: INTERNAL_URL}
+    )
+    fold = result["description_placeholders"]["by_hand"]
+    assert fold.startswith("<details><summary>")
+    assert f"{INTERNAL_URL}/api/webhook/{WEBHOOK_ID}" in fold
+    assert SECRET in fold
