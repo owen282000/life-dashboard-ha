@@ -76,8 +76,8 @@ took most of them, next to the steps and the heart rate of the same phone.
    [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
 
 2. **Add the integration.** *Settings > Devices & services > Add integration*, search for
-   **Life Dashboard**. Give the phone a name and pick the address it should send to
-   (internal is the default and fine at home).
+   **Life Dashboard**. Give the phone a name. The address is filled in with the one your
+   browser is using; keep it, or change it.
 
 3. **Scan the code.** Point the phone's camera at the QR code in the dialog, or tap the
    scan button in the app. The app shows what it is about to fill in and asks you to
@@ -103,13 +103,15 @@ Needs Home Assistant 2026.3 or newer.
 ## Pairing
 
 The dialog asks for a name and an address, then shows the QR code with the URL and the
-signing secret under it.
+signing secret under it. The address is prefilled with the one your browser is using at
+that moment, which is usually the right one; it is a plain text field, so change it
+when it is not.
 
-| Address | When to use it |
+| Address | What it means for the phone |
 |---|---|
-| **Internal URL** | Syncs at home only, and the data never leaves your network. The default. |
-| **External URL** | Also syncs away from home. Home Assistant has to be reachable from outside, through Nabu Casa or your own reverse proxy. |
-| **Home Assistant Cloud** | Also syncs away from home, with no port forwarding. Needs a subscription; the integration creates a cloudhook for you. |
+| **Your home network address**, like `http://192.168.1.10:8123` | Syncs at home only, and the data never leaves your network. |
+| **Your public address**, like `https://home.example.com` | Also syncs away from home. Home Assistant has to be reachable from outside, through your own reverse proxy or Nabu Casa. |
+| **Use Home Assistant Cloud instead** (a checkbox, shown with a subscription) | Also syncs away from home, with no port forwarding. The integration creates a cloudhook for you and the address field is not used. |
 
 Three ways to use the code, all ending in the same confirmation dialog on the phone:
 
@@ -293,12 +295,8 @@ integration is the better choice for everyone else, and the only one with histor
 **The app logs a 401.** The secret in the app is not the one this integration has. Open
 **Reconfigure** to see the current secret, or scan the code again.
 
-**The app cannot reach the URL.** Set your addresses under *Settings > System > Network*,
-then open **Reconfigure** to get the corrected URL. Home Assistant otherwise guesses, and
-in a container that guess can be an address only the container can reach.
-
-**The dialog says no internal or external URL is set.** Same place: *Settings > System >
-Network*.
+**The app cannot reach the URL.** Open **Reconfigure**, put in the address the phone can
+reach (your LAN address at home, your public address elsewhere), and scan the new code.
 
 **Syncing over plain HTTP fails.** The app refuses `http://` unless you enable **Allow
 plain HTTP webhooks** on the tab you are configuring. The pairing dialog offers this when

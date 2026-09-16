@@ -4,6 +4,19 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-16
+
+### Changed
+
+- The pairing dialog no longer asks to choose between the internal and the external
+  URL. It shows the address your browser is using at that moment in a text field, and
+  you change it when the phone should use another one. The choice depended on
+  Settings > System > Network being filled in, which it often is not, and produced "No
+  external URL is set" on a Home Assistant that was plainly reachable at the address
+  in the browser's own address bar. Home Assistant Cloud stays a checkbox, shown with
+  a subscription. Existing pairings keep working; Reconfigure shows the address they
+  resolved to and lets you keep or change it.
+
 ## [0.4.0] - 2026-09-16
 
 ### Added
@@ -85,6 +98,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.5.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.0
 [0.4.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.4.0
 [0.3.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.3.0
 [0.2.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.2.1
