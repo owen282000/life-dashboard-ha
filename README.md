@@ -225,7 +225,7 @@ triggers:
 actions:
   - action: notify.mobile_app_owen_s_pixel
     data:
-      message: "Three hours on the phone today. The top app was {{ states('sensor.owen_s_pixel_screen_time_top_app') }}."
+      message: "Three hours on the phone today. The top app was {{ states('sensor.owen_s_pixel_most_used_app_today') }}."
 ```
 
 ```yaml
