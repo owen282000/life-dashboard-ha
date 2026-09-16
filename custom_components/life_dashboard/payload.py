@@ -168,7 +168,9 @@ class SensorSpec:
     key: str
     unit: str | None = None
     device_class: str | None = None
-    state_class: str | None = STATE_CLASS_MEASUREMENT
+    #: None on every sensor: the recorder's own statistic would sit next to the
+    #: correct one from history.py and, for a latest-value sensor, be wrong.
+    state_class: str | None = None
     precision: int | None = None
     diagnostic: bool = False
 
@@ -258,21 +260,21 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec("height", "m", "distance", precision=2),
         # Day totals. TOTAL rather than TOTAL_INCREASING: Health Connect can revise a
         # day downward after deduplicating, and TOTAL_INCREASING reads that as a reset.
-        SensorSpec("steps_today", "steps", state_class=STATE_CLASS_TOTAL, precision=0),
-        SensorSpec("distance_today", "m", "distance", STATE_CLASS_TOTAL, precision=0),
+        SensorSpec("steps_today", "steps", precision=0),
+        SensorSpec("distance_today", "m", "distance", precision=0),
         # No energy device class for calories: that would offer them to the Energy
         # dashboard, which is not what these are.
-        SensorSpec("active_calories_today", "kcal", state_class=STATE_CLASS_TOTAL, precision=0),
-        SensorSpec("total_calories_today", "kcal", state_class=STATE_CLASS_TOTAL, precision=0),
+        SensorSpec("active_calories_today", "kcal", precision=0),
+        SensorSpec("total_calories_today", "kcal", precision=0),
         # Screen time.
-        SensorSpec("screen_time_today", "min", "duration", STATE_CLASS_TOTAL, precision=0),
-        SensorSpec("screen_time_yesterday", "min", "duration", state_class=None, precision=0),
+        SensorSpec("screen_time_today", "min", "duration", precision=0),
+        SensorSpec("screen_time_yesterday", "min", "duration", precision=0),
         # A text sensor: no unit, no device class and no state class, or Home
         # Assistant refuses a non-numeric state.
-        SensorSpec("screen_time_top_app", state_class=None),
+        SensorSpec("screen_time_top_app"),
         # Diagnostics.
-        SensorSpec(KEY_LAST_HEALTH_SYNC, None, "timestamp", None, diagnostic=True),
-        SensorSpec(KEY_LAST_SCREEN_TIME_SYNC, None, "timestamp", None, diagnostic=True),
+        SensorSpec(KEY_LAST_HEALTH_SYNC, None, "timestamp", diagnostic=True),
+        SensorSpec(KEY_LAST_SCREEN_TIME_SYNC, None, "timestamp", diagnostic=True),
     )
 }
 

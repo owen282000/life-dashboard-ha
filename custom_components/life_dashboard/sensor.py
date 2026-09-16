@@ -187,7 +187,6 @@ class LifeDashboardSensor(RestoreSensor):
     def _apply(self, update: SensorUpdate) -> None:
         """Hold a value, without writing state: callers decide when to do that."""
         self._attr_native_value = update.value
-        self._attr_last_reset = update.last_reset
         self._attr_extra_state_attributes = {
             **update.attributes,
             "measured_at": update.measured_at.isoformat(),

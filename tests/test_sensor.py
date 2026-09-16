@@ -1,14 +1,12 @@
 """Test the sensor entities: what appears, what it says, what survives a restart."""
 
 import json
-from datetime import UTC, datetime
 from http import HTTPStatus
 from zoneinfo import ZoneInfo
 
 import pytest
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.sensor.const import (
-    DEVICE_CLASS_STATE_CLASSES,
     DEVICE_CLASS_UNITS,
 )
 from homeassistant.const import EntityCategory
@@ -163,7 +161,8 @@ async def test_latest_value_sensor(hass: HomeAssistant, hass_client_no_auth, loa
     state = hass.states.get("sensor.owen_s_pixel_heart_rate")
     assert state.state == "61"
     assert state.attributes["unit_of_measurement"] == "bpm"
-    assert state.attributes["state_class"] == SensorStateClass.MEASUREMENT
+    # No state class: the recorder would compile "61 bpm held for an hour".
+    assert "state_class" not in state.attributes
     assert state.attributes["friendly_name"] == "Owen's Pixel Heart rate"
     assert state.attributes["uuid"] == "hr-1"
     assert state.attributes["source"] == "Fitbit"
@@ -173,7 +172,7 @@ async def test_latest_value_sensor(hass: HomeAssistant, hass_client_no_auth, loa
 async def test_day_total_resets_at_local_midnight(
     hass: HomeAssistant, hass_client_no_auth, loaded
 ) -> None:
-    """A day total has to be TOTAL with a last_reset, or statistics mis-sums it."""
+    """A day total is a plain value; its history lives in the statistics, not the state."""
     client = await hass_client_no_auth()
     await _post(
         client,
@@ -183,13 +182,9 @@ async def test_day_total_resets_at_local_midnight(
 
     state = hass.states.get("sensor.owen_s_pixel_steps_today")
     assert state.state == "8421"
-    assert state.attributes["state_class"] == SensorStateClass.TOTAL
+    assert "state_class" not in state.attributes
+    assert "last_reset" not in state.attributes
     assert state.attributes["date"] == "2026-09-15"
-    # Midnight in Amsterdam, which is 22:00 UTC the day before.
-    last_reset = datetime.fromisoformat(state.attributes["last_reset"])
-    # The same instant, whatever object carries the offset.
-    assert last_reset == datetime(2026, 9, 15, 0, 0, tzinfo=AMSTERDAM)
-    assert last_reset.astimezone(UTC) == datetime(2026, 9, 14, 22, 0, tzinfo=UTC)
 
     distance = hass.states.get("sensor.owen_s_pixel_distance_today")
     assert distance.attributes["device_class"] == SensorDeviceClass.DISTANCE
@@ -240,7 +235,7 @@ async def test_screen_time_sensors(hass: HomeAssistant, hass_client_no_auth, loa
 
     today = hass.states.get("sensor.owen_s_pixel_screen_time_today")
     assert today.state == "143"
-    assert today.attributes["state_class"] == SensorStateClass.TOTAL
+    assert "state_class" not in today.attributes
     assert today.attributes["top_apps"] == "Chrome (61 min), WhatsApp (44 min)"
     assert today.attributes["app_count"] == 2
 
@@ -472,14 +467,11 @@ def test_every_unit_is_valid_for_its_device_class() -> None:
         assert spec.unit in allowed, f"{key}: {spec.unit!r} not valid for {device_class}"
 
 
-def test_every_state_class_is_valid_for_its_device_class() -> None:
+def test_no_sensor_carries_a_state_class() -> None:
+    """History lives in long-term statistics written by history.py. A state class would
+    make the recorder compile a second, and for a latest-value sensor a wrong, one."""
     for key, spec in SENSOR_SPECS.items():
-        if not spec.device_class or not spec.state_class:
-            continue
-        device_class = SensorDeviceClass(spec.device_class)
-        state_class = SensorStateClass(spec.state_class)
-        allowed = DEVICE_CLASS_STATE_CLASSES.get(device_class, set())
-        assert state_class in allowed, f"{key}: {state_class} not valid for {device_class}"
+        assert spec.state_class is None, key
 
 
 def test_every_sensor_has_a_name() -> None:

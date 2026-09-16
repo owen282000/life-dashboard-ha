@@ -28,6 +28,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_CLOUDHOOK_URL, CONF_SECRET, CONF_WEBHOOK_ID, DOMAIN
 from .payload import SIGNATURE_HEADER, SensorUpdate, parse_payload, verify_signature
+from .statistics import HistoryWriter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +50,8 @@ class LifeDashboardData:
 
     latest: dict[str, SensorUpdate] = field(default_factory=dict)
     app_version: str | None = None
+    #: The long-term statistics writer; None only before setup finished.
+    history: HistoryWriter | None = None
 
     def apply(self, update: SensorUpdate) -> bool:
         """Record an update, unless it describes a moment we are already past.
@@ -69,6 +72,9 @@ type LifeDashboardConfigEntry = ConfigEntry[LifeDashboardData]
 async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> bool:
     """Set up Life Dashboard from a config entry."""
     entry.runtime_data = LifeDashboardData()
+    history = HistoryWriter(hass, entry)
+    await history.async_load()
+    entry.runtime_data.history = history
 
     webhook.async_register(
         hass,
@@ -87,6 +93,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
 
 async def async_unload_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> bool:
     """Unload a config entry."""
+    if (history := entry.runtime_data.history) is not None:
+        await history.async_flush()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
@@ -149,6 +157,16 @@ def _make_handler(entry: LifeDashboardConfigEntry):
 
         for update in accepted:
             async_dispatcher_send(hass, signal_update(entry.entry_id), update)
+
+        # History goes to long-term statistics, where a backfill can land on the days it
+        # came from. Inside the same try as the parser: a bug here is a 400, not a
+        # silent 200 the app would take as delivered.
+        try:
+            if runtime.history is not None:
+                runtime.history.async_apply(data)
+        except Exception:
+            _LOGGER.exception("Could not record history for %s", entry.title)
+            return web.Response(status=400)
 
         _LOGGER.debug("Took %s of %s updates for %s", len(accepted), len(updates), entry.title)
         return web.Response(status=200)

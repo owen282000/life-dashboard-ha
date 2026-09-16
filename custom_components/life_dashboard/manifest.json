@@ -2,7 +2,8 @@
   "domain": "life_dashboard",
   "name": "Life Dashboard",
   "after_dependencies": [
-    "cloud"
+    "cloud",
+    "recorder"
   ],
   "codeowners": [
     "@owen282000"
