@@ -1,8 +1,11 @@
 """Config flow for Life Dashboard.
 
-Adding the integration asks two things: a name for the phone, and which address the
-phone should send to. Everything else the integration decides: it generates the
-webhook id and the signing secret, and shows both so they can be pasted into the app.
+Adding the integration asks two things: a name for the phone, and the address the
+phone should send to. The address is filled in with the one the browser is using at
+that moment, which is right far more often than a choice between "internal" and
+"external" that depends on Settings > System > Network being filled in. Everything
+else the integration decides: it generates the webhook id and the signing secret, and
+shows both so they can be pasted into the app.
 
 Signing is not a checkbox. An option to turn it off would only produce a worse
 default, and the user has nothing to do for it either way.
@@ -15,18 +18,15 @@ import secrets
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.components import webhook
+from homeassistant.components import http, webhook
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.network import NoURLAvailableError, get_url
-from homeassistant.helpers.selector import (
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
-)
+from yarl import URL
 
 from .const import (
+    CONF_BASE_URL,
     CONF_CLOUDHOOK_URL,
     CONF_SECRET,
     CONF_URL_CHOICE,
@@ -35,13 +35,14 @@ from .const import (
     DOMAIN,
     URL_CHOICE_CLOUD,
     URL_CHOICE_EXTERNAL,
-    URL_CHOICE_INTERNAL,
+    URL_CHOICE_URL,
 )
 from .pairing import pairing_url, qr_markup
 
 _LOGGER = logging.getLogger(__name__)
 
 CONF_REGENERATE_SECRET = "regenerate_secret"
+CONF_USE_CLOUD = "use_cloud"
 
 # The app generates 32 random bytes as 64 hex characters; matching that keeps the
 # two fields the user pastes recognisably alike.
@@ -64,49 +65,86 @@ def _cloud_has_subscription(hass: HomeAssistant) -> bool:
     return cloud.async_active_subscription(hass)
 
 
-@callback
-def _url_choices(hass: HomeAssistant) -> list[str]:
-    """The addresses the user can pick from.
+def _normalise_base_url(value: str) -> str | None:
+    """A full http(s) origin, without a trailing slash, or None if it is not one.
 
-    Cloud is only offered with an active subscription, because without one there is
-    nothing to create a cloudhook on.
+    Anything the phone could not use as a base is refused here rather than at the
+    first sync: a bare host name, a scheme the app does not speak, a pasted webhook
+    URL with a query string.
     """
-    choices = [URL_CHOICE_INTERNAL, URL_CHOICE_EXTERNAL]
-    if _cloud_has_subscription(hass):
-        choices.append(URL_CHOICE_CLOUD)
-    return choices
+    try:
+        url = URL(value.strip())
+    except ValueError:
+        return None
+    if url.scheme not in ("http", "https") or not url.host:
+        return None
+    return str(url.with_query(None).with_fragment(None)).rstrip("/")
 
 
-def _schema(hass: HomeAssistant, *, default_choice: str, reconfigure: bool) -> vol.Schema:
+@callback
+def _suggested_base_url(hass: HomeAssistant) -> str:
+    """The address to prefill: what the browser is using right now.
+
+    Config flows arrive over the REST API, so the request is the user's own. Behind
+    a reverse proxy that Home Assistant has not been told to trust, the scheme comes
+    through as http; the proxy's own header is good enough for a suggestion the user
+    sees and can change. Without a request, the configured URLs are the next best.
+    """
+    if (request := http.current_request.get()) is not None:
+        origin = URL(str(request.url)).origin()
+        if (forwarded := request.headers.get("X-Forwarded-Proto")) in ("http", "https"):
+            origin = origin.with_scheme(forwarded)
+        return str(origin)
+    for allow in ({"allow_external": False}, {"allow_internal": False}):
+        try:
+            return get_url(hass, allow_cloud=False, **allow)
+        except NoURLAvailableError:
+            continue
+    return ""
+
+
+def _schema(
+    hass: HomeAssistant, *, base_url: str, use_cloud: bool, reconfigure: bool
+) -> vol.Schema:
     """Build the form schema. The name is asked when adding, not when reconfiguring."""
     fields: dict[Any, Any] = {}
     if not reconfigure:
         fields[vol.Required(CONF_NAME, default=DEFAULT_NAME)] = str
-    fields[vol.Required(CONF_URL_CHOICE, default=default_choice)] = SelectSelector(
-        SelectSelectorConfig(
-            options=_url_choices(hass),
-            translation_key="url_choice",
-            mode=SelectSelectorMode.LIST,
-        )
-    )
+    fields[vol.Required(CONF_BASE_URL, default=base_url)] = str
+    # Cloud is only offered with an active subscription, because without one there
+    # is nothing to create a cloudhook on.
+    if _cloud_has_subscription(hass):
+        fields[vol.Optional(CONF_USE_CLOUD, default=use_cloud)] = bool
     if reconfigure:
         fields[vol.Optional(CONF_REGENERATE_SECRET, default=False)] = bool
     return vol.Schema(fields)
 
 
-def _plain_url(hass: HomeAssistant, choice: str, webhook_id: str) -> str:
-    """The internal or external webhook URL.
+def _webhook_url(base_url: str, webhook_id: str) -> str:
+    return f"{base_url}{webhook.async_generate_path(webhook_id)}"
 
-    Home Assistant's own async_generate_url never returns a cloud URL, so the cloud
-    case is a cloudhook and handled separately.
+
+@callback
+def _stored_base_url(hass: HomeAssistant, data: dict[str, Any]) -> str:
+    """The address an entry sends to, also for entries from before 0.5.0.
+
+    Those hold an internal or external choice instead of an address; resolving it
+    through Home Assistant's own URL helper gives the same answer they got then.
     """
-    url = get_url(
-        hass,
-        allow_internal=choice == URL_CHOICE_INTERNAL,
-        allow_external=choice == URL_CHOICE_EXTERNAL,
-        allow_cloud=False,
-    )
-    return f"{url}{webhook.async_generate_path(webhook_id)}"
+    if base := data.get(CONF_BASE_URL):
+        return base
+    choice = data.get(CONF_URL_CHOICE)
+    if choice in (URL_CHOICE_URL, URL_CHOICE_CLOUD):
+        return ""
+    try:
+        return get_url(
+            hass,
+            allow_internal=choice != URL_CHOICE_EXTERNAL,
+            allow_external=choice == URL_CHOICE_EXTERNAL,
+            allow_cloud=False,
+        )
+    except NoURLAvailableError:
+        return ""
 
 
 class CloudUnavailable(Exception):
@@ -166,31 +204,33 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Add a phone: name it, pick an address, hand back the URL and the secret."""
+        """Add a phone: name it, confirm the address, hand back the URL and the secret."""
         errors: dict[str, str] = {}
-        choice = URL_CHOICE_INTERNAL
+        base_url = _suggested_base_url(self.hass)
+        use_cloud = False
 
         if user_input is not None:
-            choice = user_input[CONF_URL_CHOICE]
+            base_url = user_input[CONF_BASE_URL]
+            use_cloud = bool(user_input.get(CONF_USE_CLOUD))
             webhook_id = webhook.async_generate_id()
             secret = secrets.token_hex(SECRET_BYTES)
-            data: dict[str, Any] = {
-                CONF_WEBHOOK_ID: webhook_id,
-                CONF_SECRET: secret,
-                CONF_URL_CHOICE: choice,
-            }
+            data: dict[str, Any] = {CONF_WEBHOOK_ID: webhook_id, CONF_SECRET: secret}
 
             try:
-                if choice == URL_CHOICE_CLOUD:
+                if use_cloud:
                     url = await _async_create_cloudhook(self.hass, webhook_id)
+                    data[CONF_URL_CHOICE] = URL_CHOICE_CLOUD
                     data[CONF_CLOUDHOOK_URL] = url
+                elif (normalised := _normalise_base_url(base_url)) is None:
+                    errors["base"] = "invalid_url"
                 else:
-                    url = _plain_url(self.hass, choice, webhook_id)
+                    url = _webhook_url(normalised, webhook_id)
+                    data[CONF_URL_CHOICE] = URL_CHOICE_URL
+                    data[CONF_BASE_URL] = normalised
             except CloudUnavailable:
                 errors["base"] = "cloud_not_connected"
-            except NoURLAvailableError:
-                errors["base"] = f"no_{choice}_url"
-            else:
+
+            if not errors:
                 await self.async_set_unique_id(webhook_id)
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
@@ -201,7 +241,9 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_schema(self.hass, default_choice=choice, reconfigure=False),
+            data_schema=_schema(
+                self.hass, base_url=base_url, use_cloud=use_cloud, reconfigure=False
+            ),
             errors=errors,
         )
 
@@ -211,31 +253,39 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
         """Show the URL and secret again, and change the address or the secret."""
         entry = self._get_reconfigure_entry()
         webhook_id = entry.data[CONF_WEBHOOK_ID]
-        old_choice = entry.data[CONF_URL_CHOICE]
+        was_cloud = entry.data.get(CONF_URL_CHOICE) == URL_CHOICE_CLOUD
         errors: dict[str, str] = {}
+        base_url = _stored_base_url(self.hass, entry.data) or _suggested_base_url(self.hass)
+        use_cloud = was_cloud
 
         if user_input is not None:
-            choice = user_input[CONF_URL_CHOICE]
+            base_url = user_input[CONF_BASE_URL]
+            use_cloud = bool(user_input.get(CONF_USE_CLOUD))
             secret = (
                 secrets.token_hex(SECRET_BYTES)
                 if user_input.get(CONF_REGENERATE_SECRET)
                 else entry.data[CONF_SECRET]
             )
-            data = {**entry.data, CONF_SECRET: secret, CONF_URL_CHOICE: choice}
+            data = {**entry.data, CONF_SECRET: secret}
+            data.pop(CONF_BASE_URL, None)
+            data.pop(CONF_CLOUDHOOK_URL, None)
 
             try:
-                if choice == URL_CHOICE_CLOUD:
+                if use_cloud:
                     url = await _async_create_cloudhook(self.hass, webhook_id)
+                    data[CONF_URL_CHOICE] = URL_CHOICE_CLOUD
                     data[CONF_CLOUDHOOK_URL] = url
+                elif (normalised := _normalise_base_url(base_url)) is None:
+                    errors["base"] = "invalid_url"
                 else:
-                    url = _plain_url(self.hass, choice, webhook_id)
-                    data.pop(CONF_CLOUDHOOK_URL, None)
+                    url = _webhook_url(normalised, webhook_id)
+                    data[CONF_URL_CHOICE] = URL_CHOICE_URL
+                    data[CONF_BASE_URL] = normalised
             except CloudUnavailable:
                 errors["base"] = "cloud_not_connected"
-            except NoURLAvailableError:
-                errors["base"] = f"no_{choice}_url"
-            else:
-                if old_choice == URL_CHOICE_CLOUD and choice != URL_CHOICE_CLOUD:
+
+            if not errors:
+                if was_cloud and not use_cloud:
                     await _async_delete_cloudhook(self.hass, webhook_id)
 
                 # async_update_reload_and_abort takes no description_placeholders, and
@@ -248,18 +298,18 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                     description_placeholders=_pairing_placeholders(url, secret),
                 )
 
-        try:
-            current_url = (
-                entry.data.get(CONF_CLOUDHOOK_URL, "")
-                if old_choice == URL_CHOICE_CLOUD
-                else _plain_url(self.hass, old_choice, webhook_id)
-            )
-        except NoURLAvailableError:
+        if was_cloud:
+            current_url = entry.data.get(CONF_CLOUDHOOK_URL, "")
+        elif stored := _stored_base_url(self.hass, entry.data):
+            current_url = _webhook_url(stored, webhook_id)
+        else:
             current_url = ""
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_schema(self.hass, default_choice=old_choice, reconfigure=True),
+            data_schema=_schema(
+                self.hass, base_url=base_url, use_cloud=use_cloud, reconfigure=True
+            ),
             errors=errors,
             description_placeholders=_pairing_placeholders(current_url, entry.data[CONF_SECRET]),
         )

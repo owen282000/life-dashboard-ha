@@ -10,6 +10,7 @@
   ],
   "config_flow": true,
   "dependencies": [
+    "http",
     "webhook"
   ],
   "documentation": "https://github.com/owen282000/life-dashboard-ha",
@@ -17,5 +18,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/owen282000/life-dashboard-ha/issues",
   "requirements": [],
-  "version": "0.4.0"
+  "version": "0.5.0"
 }
