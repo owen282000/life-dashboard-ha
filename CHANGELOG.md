@@ -4,6 +4,26 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-16
+
+### Added
+
+- History. Every payload now also feeds long-term statistics, so a backfill lands on
+  the days it came from instead of on today. Day sums for steps, distance, active and
+  total calories, sleep, exercise, mindfulness and hydration; hourly mean, minimum and
+  maximum for heart rate, weight, blood pressure and the other measured values. They
+  appear under **life_dashboard:** in the statistics graph card and the energy-style
+  history views, and are stored per phone so a running sum continues across restarts.
+  Step, distance and calorie history for a backfill needs app 1.17.0, which sends the
+  day totals for every window; older apps only fill today's.
+
+### Changed
+
+- The sensors no longer carry a state class. The recorder would otherwise compile a
+  second history from their states, and for a latest-value sensor that history is
+  wrong: "61 bpm, held for an hour". Graphs of the sensors themselves in History are
+  unchanged; use the statistics above for anything over days.
+
 ## [0.2.1] - 2026-09-16
 
 ### Fixed
@@ -51,6 +71,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.3.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.3.0
 [0.2.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.2.1
 [0.2.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.2.0
 [0.1.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.1.0

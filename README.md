@@ -46,9 +46,9 @@ use **Reconfigure** on the integration.
 
 ## What you get
 
-Sensors appear as the data arrives, so you only get the types you actually sync. They
-carry a device class and a state class, so the day totals land in long-term statistics
-and the rest graph properly in History.
+Sensors appear as the data arrives, so you only get the types you actually sync. Each
+one holds the latest value; the past lives in the statistics described under
+[History](#history).
 
 **Day totals**, from Health Connect's own deduplicated figures, resetting at local
 midnight: steps, distance, active calories, total calories.
@@ -75,6 +75,28 @@ payload, so an automation can still use it.
 The iOS app pairs exactly the same way. It sends no day totals, so the four "today"
 sensors stay absent, and iOS has no screen time API that allows exporting, so those
 three sensors are Android only. Everything else behaves identically.
+
+## History
+
+A sensor can only hold now, so on its own a year of backfilled readings would all land
+on today. Instead every payload also feeds long-term statistics, which carry their own
+dates:
+
+| Statistic | What it holds |
+|---|---|
+| steps, distance, active calories, total calories | The day's total, from the app's daily totals |
+| sleep minutes, exercise minutes, mindfulness minutes | The day's total, from the sessions that ended that day |
+| hydration total | Litres drunk that day |
+| heart rate, weight, blood pressure and the other measured values | Mean, minimum and maximum per hour |
+
+Find them in the **Statistics graph** card, or anywhere else that lists statistics,
+under the name of the phone. They are separate from the sensors: the sensor shows the
+latest reading, the statistic shows how it went.
+
+A backfill from the app fills them for the whole window it covers, and sending the
+same window again changes nothing. Step, distance and calorie history needs app 1.17.0
+or newer, which sends the day totals for every backfilled day; older versions only
+send today's, and the log says so when a backfill arrives without them.
 
 ## Why nothing is double counted
 
