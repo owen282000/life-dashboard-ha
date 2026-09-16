@@ -2,7 +2,7 @@
 
 <p align="center">
   Health Connect and screen time from your phone as Home Assistant sensors and long-term statistics.<br>
-  The only way to get how long you looked at your phone, and at what, into Home Assistant.<br>
+  How long you looked at your phone today, and at what, next to your steps and heart rate.<br>
   Paired with a QR code. No MQTT broker, no ports to open, no YAML.
 </p>
 
@@ -22,9 +22,9 @@
   &nbsp;·&nbsp;
   <a href="https://github.com/owen282000/life-dashboard-companion-app-ios">iOS app</a>
   &nbsp;·&nbsp;
-  <a href="CHANGELOG.md">Changelog</a>
-  &nbsp;·&nbsp;
   <a href="https://github.com/owen282000/life-dashboard-ha/discussions">Discussions</a>
+  &nbsp;·&nbsp;
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
@@ -37,16 +37,17 @@ integration is that webhook, inside Home Assistant: it verifies the signature on
 payload, keeps one device per phone with a sensor for each value, and writes the past
 into long-term statistics so a year of history lands on the days it happened.
 
-Health data has other routes into Home Assistant. Screen time has none: no Android app
-exports it, no cloud service offers it, and Home Assistant's own companion app does not
-read it. This is the one that does, with today's minutes, yesterday's, and the app that
-took most of them, next to the steps and the heart rate of the same phone.
+Health data has other routes into Home Assistant: the official companion app reads a
+handful of Health Connect types, and this app's own MQTT route carries all 33. Screen
+time has none of those. No Android app exports it, no cloud service offers it, and the
+companion app does not read it. This integration does, with today's minutes,
+yesterday's, and the app that took most of them, next to the steps and the heart rate of
+the same phone.
 
 ## Why this integration
 
 - **Screen time, finally.** Minutes on the phone today and yesterday, and the most used
-  app with the top five behind it, as sensors that update on the schedule you set. Nothing
-  else brings this into Home Assistant.
+  app with the top five behind it, as sensors that update on the schedule you set.
 - **Two minutes from install to sensors.** Install from HACS, add the integration, scan
   the QR code it shows. Nothing to type, nothing to configure on the phone side.
 - **No broker.** The app talks to Home Assistant directly. If you already run MQTT, that
@@ -64,10 +65,12 @@ took most of them, next to the steps and the heart rate of the same phone.
 
 | App | Status |
 |---|---|
-| [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.16 or newer | **Fully supported.** Health sensors, screen time, statistics, QR pairing, backfill. 1.17 or newer for step, distance and calorie history. |
+| [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.17 or newer | **Fully supported.** Health sensors, screen time, statistics, QR pairing, backfill. |
 | [Life Dashboard Companion for iOS](https://github.com/owen282000/life-dashboard-companion-app-ios) | **Not yet through this integration.** The iOS app reaches Home Assistant through its built-in MQTT Discovery today. Support here is planned; follow [#1](https://github.com/owen282000/life-dashboard-ha/issues/1). |
 
 ## Quick start
+
+Needs Home Assistant 2026.3 or newer, and the Android app.
 
 1. **Install.** Click the button, or add `https://github.com/owen282000/life-dashboard-ha`
    as a custom repository of type *Integration* in HACS. Download **Life Dashboard** and
@@ -98,7 +101,12 @@ took most of them, next to the steps and the heart rate of the same phone.
   </tr>
 </table>
 
-Needs Home Assistant 2026.3 or newer.
+## MQTT or this integration
+
+The app also publishes to MQTT with Home Assistant Discovery, and the sensor names here
+match those. Pick one: running both gives you two devices holding the same numbers. MQTT
+is the better choice if you already have a broker and want the raw records; this
+integration is the better choice for everyone else, and the only one with history.
 
 ## Pairing
 
@@ -226,9 +234,7 @@ entities:
 ```
 
 A backfill from the app fills the statistics for the whole window it covers, and sending
-the same window again changes nothing. Step, distance and calorie history needs app 1.17
-or newer, which sends the day totals for every backfilled day; older versions only send
-today's, and the log says so when a backfill arrives without them.
+the same window again changes nothing.
 
 ## In automations
 
@@ -283,13 +289,6 @@ arriving after a restart cannot overwrite a newer reading.
 - Rotate the secret any time under **Reconfigure**; the app has to be given the new value.
 
 Found a hole in any of this? See [SECURITY.md](SECURITY.md) for private reporting.
-
-## MQTT or this integration
-
-The app also publishes to MQTT with Home Assistant Discovery, and the sensor names here
-match those. Pick one: running both gives you two devices holding the same numbers. MQTT
-is the better choice if you already have a broker and want the raw records; this
-integration is the better choice for everyone else, and the only one with history.
 
 ## Troubleshooting
 
