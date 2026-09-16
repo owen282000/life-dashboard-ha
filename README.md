@@ -1,7 +1,8 @@
 <h1 align="center">Life Dashboard for Home Assistant</h1>
 
 <p align="center">
-  Your phone's health and screen time data as Home Assistant sensors and long-term statistics.<br>
+  Health Connect and screen time from your phone as Home Assistant sensors and long-term statistics.<br>
+  The only way to get how long you looked at your phone, and at what, into Home Assistant.<br>
   Paired with a QR code. No MQTT broker, no ports to open, no YAML.
 </p>
 
@@ -36,8 +37,16 @@ integration is that webhook, inside Home Assistant: it verifies the signature on
 payload, keeps one device per phone with a sensor for each value, and writes the past
 into long-term statistics so a year of history lands on the days it happened.
 
+Health data has other routes into Home Assistant. Screen time has none: no Android app
+exports it, no cloud service offers it, and Home Assistant's own companion app does not
+read it. This is the one that does, with today's minutes, yesterday's, and the app that
+took most of them, next to the steps and the heart rate of the same phone.
+
 ## Why this integration
 
+- **Screen time, finally.** Minutes on the phone today and yesterday, and the most used
+  app with the top five behind it, as sensors that update on the schedule you set. Nothing
+  else brings this into Home Assistant.
 - **Two minutes from install to sensors.** Install from HACS, add the integration, scan
   the QR code it shows. Nothing to type, nothing to configure on the phone side.
 - **No broker.** The app talks to Home Assistant directly. If you already run MQTT, that
@@ -55,7 +64,7 @@ into long-term statistics so a year of history lands on the days it happened.
 
 | App | Status |
 |---|---|
-| [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.16 or newer | **Fully supported.** Sensors, statistics, screen time, QR pairing, backfill. 1.17 or newer for step, distance and calorie history. |
+| [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.16 or newer | **Fully supported.** Health sensors, screen time, statistics, QR pairing, backfill. 1.17 or newer for step, distance and calorie history. |
 | [Life Dashboard Companion for iOS](https://github.com/owen282000/life-dashboard-companion-app-ios) | **Not yet through this integration.** The iOS app reaches Home Assistant through its built-in MQTT Discovery today. Support here is planned; follow [#1](https://github.com/owen282000/life-dashboard-ha/issues/1). |
 
 ## Quick start
@@ -135,7 +144,7 @@ rate, last drink, body fat, lean body mass, bone mass, body water mass, basal me
 rate, VO2 max and height. Each carries the source app and the record id as attributes.
 
 **Screen time**: minutes today, minutes yesterday, and the most used app today with the
-top five as an attribute.
+top five as an attribute. See [Screen time](#screen-time) below.
 
 **Diagnostics**: last health sync and last screen time sync, as timestamps. A **Test**
 ping in the app moves these, which is the quickest way to see that pairing worked.
@@ -144,6 +153,45 @@ Event-like data (workouts, meals, mindfulness sessions, cycle tracking) gets no 
 because a single value cannot represent it honestly. Mindfulness and exercise do count
 towards the day statistics below, and everything is in the webhook payload for an
 automation that wants the raw records.
+
+## Screen time
+
+The app reads Android's usage statistics, the same numbers as the Digital Wellbeing
+screen, and sends them on their own schedule, separate from the health sync. Three
+sensors come out of it:
+
+| Sensor | What it holds |
+|---|---|
+| `screen_time_today` | Minutes of foreground use since the day boundary, which you set in the app (a "day" can end at 4 AM if that is when you sleep) |
+| `screen_time_yesterday` | The finished total for the day before, for a daily automation that does not race the clock |
+| `screen_time_top_app` | The app with the most minutes today; the top five with their minutes in the `top_apps` attribute |
+
+Both minute sensors carry the day they describe as an attribute, and update as the
+number grows, so a dashboard shows the phone's day as it happens. Two things people do
+with it:
+
+```yaml
+# Dim the lights and say something when the phone passes three hours in a day.
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.owen_s_pixel_screen_time_today
+    above: 180
+actions:
+  - action: notify.mobile_app_owen_s_pixel
+    data:
+      message: "Three hours on the phone today. The top app was {{ states('sensor.owen_s_pixel_screen_time_top_app') }}."
+```
+
+```yaml
+# Yesterday's total in a card, with the top five apps behind it.
+type: entity
+entity: sensor.owen_s_pixel_screen_time_yesterday
+name: Screen time yesterday
+attribute: top_apps
+```
+
+Screen time is Android only: iOS has no API that lets an app read it. Which apps count
+is decided on the phone, so Home Assistant only ever sees what you chose to send.
 
 ## History
 
