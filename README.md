@@ -152,8 +152,9 @@ per phone. To see the code again, change the address, or rotate the secret, use
 ## What you get
 
 Sensors appear as data arrives, so you only get the types you actually sync. Each sensor
-holds the latest value; the past lives in the [statistics](#history). Entity ids follow
-the device name: "Owen's Pixel" gives `sensor.owen_s_pixel_steps_today`.
+holds the latest value; the past lives in the [statistics](#history). The tables give the
+last part of each entity id; the first part is the device name, so "Owen's Pixel" gives
+`sensor.owen_s_pixel_steps_today`.
 
 **Day totals**, from Health Connect's own deduplicated figures, resetting at local
 midnight. Each carries the day it describes as a `date` attribute.
@@ -172,8 +173,8 @@ midnight. Each carries the day it describes as a `date` attribute.
 | `heart_rate` | bpm | | `body_temperature` | °C |
 | `resting_heart_rate` | bpm | | `skin_temperature_delta` | °C |
 | `heart_rate_variability` | ms | | `basal_body_temperature` | °C |
-| `sleep_duration` (last sleep) | min | | `respiratory_rate` | breaths/min |
-| `weight` | kg | | `hydration` (last drink) | L |
+| `last_sleep_duration` | min | | `respiratory_rate` | breaths/min |
+| `weight` | kg | | `last_drink` | L |
 | `blood_pressure_systolic` | mmHg | | `body_fat` | % |
 | `blood_pressure_diastolic` | mmHg | | `lean_body_mass` | kg |
 | `blood_glucose` | mmol/L | | `bone_mass` | kg |
@@ -187,7 +188,7 @@ midnight. Each carries the day it describes as a `date` attribute.
 |---|---|---|
 | `screen_time_today` | min | `date` |
 | `screen_time_yesterday` | min | `date` |
-| `screen_time_top_app` | the app's name | `top_apps`, the top five with their minutes |
+| `most_used_app_today` | the app's name | `top_apps`, the top five with their minutes |
 
 **Diagnostic**: `last_health_sync` and `last_screen_time_sync`, as timestamps. A
 **Test** ping in the app moves these, which is the quickest way to see that pairing
@@ -208,7 +209,7 @@ sensors come out of it:
 |---|---|
 | `screen_time_today` | Minutes of foreground use since the day boundary, which you set in the app (a "day" can end at 4 AM if that is when you sleep) |
 | `screen_time_yesterday` | The finished total for the day before, for a daily automation that does not race the clock |
-| `screen_time_top_app` | The app with the most minutes today; the top five with their minutes in the `top_apps` attribute |
+| `most_used_app_today` | The app with the most minutes today; the top five with their minutes in the `top_apps` attribute |
 
 Both minute sensors carry the day they describe as an attribute, and update as the
 number grows, so a dashboard shows the phone's day as it happens. Every day also goes
