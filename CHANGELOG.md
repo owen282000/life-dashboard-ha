@@ -4,6 +4,20 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-16
+
+### Added
+
+- Screen time in long-term statistics: minutes on the phone per day, next to the
+  step and sleep statistics. Every screen time sync carries the last seven days, so a
+  day that was still running when it was sent is corrected by the next sync, and the
+  statistics graph card can show a year of phone use once there is a year of syncs.
+
+### Changed
+
+- The README is written as the listing: badges, real screenshots, and a plain
+  statement of what works on Android and what iOS still needs.
+
 ## [0.3.0] - 2026-09-16
 
 ### Added
@@ -71,6 +85,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.4.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.4.0
 [0.3.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.3.0
 [0.2.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.2.1
 [0.2.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.2.0

@@ -167,8 +167,9 @@ sensors come out of it:
 | `screen_time_top_app` | The app with the most minutes today; the top five with their minutes in the `top_apps` attribute |
 
 Both minute sensors carry the day they describe as an attribute, and update as the
-number grows, so a dashboard shows the phone's day as it happens. Two things people do
-with it:
+number grows, so a dashboard shows the phone's day as it happens. Every day also goes
+into long-term statistics, so a year from now the statistics graph still shows which
+weeks the phone won. Two things people do with it:
 
 ```yaml
 # Dim the lights and say something when the phone passes three hours in a day.
@@ -203,6 +204,7 @@ today. Instead every payload also feeds long-term statistics, which carry their 
 | steps, distance, active calories, total calories | The day's total, from the app's daily totals |
 | sleep minutes, exercise minutes, mindfulness minutes | The day's total, from the sessions that ended that day |
 | hydration total | Litres drunk that day |
+| screen time | Minutes on the phone that day. Every sync carries the last seven days, so a day that was still running when it was sent is corrected by the next one |
 | heart rate, weight, blood pressure and the other measured values | Mean, minimum and maximum per hour |
 
 They show up in the entity picker of the **Statistics graph** card under the phone's
