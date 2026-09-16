@@ -6,19 +6,25 @@ on:
   schedule:
     - cron: "30 4 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
+  # Both actions are used at the branch their documentation names: Home Assistant and HACS
+  # move the checks with each release, and a pinned commit would validate against rules
+  # that no longer apply.
   hassfest:
     name: hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
     name: HACS
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: hacs/action@main
         with:
           category: integration

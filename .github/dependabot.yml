@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned workflow actions up to date (pins never move on their own).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  # The test harness pins Home Assistant; a bump here is how a new core version gets
+  # tested before anyone runs it.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
