@@ -46,6 +46,7 @@ _DAY_UNITS: dict[str, str] = {
     "exercise_minutes": "min",
     "mindfulness_minutes": "min",
     "hydration_total": "L",
+    "screen_time": "min",
 }
 
 

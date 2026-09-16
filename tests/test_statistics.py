@@ -181,3 +181,23 @@ async def test_ids_are_valid_and_a_test_ping_writes_nothing(
     )
     await async_wait_recording_done(hass)
     assert _rows(hass, entry, "steps", "day", {"sum"}) == []
+
+
+async def test_screen_time_becomes_a_day_statistic(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    payload = {
+        "timestamp": "2026-09-16T10:00:00Z",
+        "source": "screen_time",
+        "screen_time": [
+            {"date": "2026-09-15", "total_screen_time_minutes": 180, "apps": []},
+            {"date": "2026-09-16", "total_screen_time_minutes": 25, "apps": []},
+        ],
+    }
+    assert await _post(client, payload) == 200
+    await async_wait_recording_done(hass)
+
+    rows = _rows(hass, entry, "screen_time", "day", {"state", "sum"})
+    assert [(r["state"], r["sum"]) for r in rows] == [(180.0, 180.0), (25.0, 205.0)]

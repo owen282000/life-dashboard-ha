@@ -100,8 +100,12 @@ BUCKETED_KEYS: Final[dict[str, str]] = {
     "skin_temperature": "skin_temperature_delta",
 }
 
+# Minutes on the phone per local day, from the app's own per-day totals. Every screen
+# time sync re-sends the last seven days, so the newest figure for a date always wins.
+SCREEN_TIME_KEY: Final = "screen_time"
+
 DAY_KEYS: Final[frozenset[str]] = frozenset(
-    list(DAILY_TOTAL_KEYS) + [series.key for series in SESSION_SERIES]
+    [*DAILY_TOTAL_KEYS, *(series.key for series in SESSION_SERIES), SCREEN_TIME_KEY]
 )
 HOUR_KEYS: Final[frozenset[str]] = frozenset(series.key for series in MEASURED_SERIES)
 
@@ -242,6 +246,7 @@ def apply_payload(ledger: Ledger, data: dict[str, Any], *, tz: tzinfo) -> Histor
         return HistoryChange()
 
     _apply_daily_totals(ledger, data, day_changes)
+    _apply_screen_time(ledger, data, day_changes)
     _apply_sessions(ledger, data, tz, day_changes)
     _apply_measured(ledger, data, hour_changes)
 
@@ -270,6 +275,29 @@ def _apply_daily_totals(ledger: Ledger, data: dict[str, Any], changes: dict[str,
             if days.get(iso) != amount:
                 days[iso] = amount
                 _note_day(changes, key, day)
+
+
+def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, date]) -> None:
+    """A day's screen time replaces what we had, like a daily total."""
+    entries = data.get("screen_time")
+    if not isinstance(entries, list):
+        return
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            day = date.fromisoformat(entry.get("date", ""))
+        except (TypeError, ValueError):
+            continue
+        minutes = _number(entry.get("total_screen_time_minutes"))
+        if minutes is None:
+            continue
+        days = ledger.days.setdefault(SCREEN_TIME_KEY, {})
+        iso = day.isoformat()
+        if days.get(iso) != minutes:
+            days[iso] = minutes
+            _note_day(changes, SCREEN_TIME_KEY, day)
 
 
 def _apply_sessions(
@@ -466,6 +494,7 @@ def earliest_day(change: HistoryChange) -> date | None:
 __all__ = [
     "DAILY_TOTAL_KEYS",
     "DAY_KEYS",
+    "SCREEN_TIME_KEY",
     "HOUR_KEYS",
     "HistoryChange",
     "HourBucket",

@@ -629,3 +629,50 @@ def test_an_hour_bucket_merges_symmetrically() -> None:
     assert a.merged(b) == b.merged(a)
     assert a.merged(b).count == 5
     assert a.merged(b).mean == (60.0 * 2 + 80.0 * 3) / 5
+
+
+def test_screen_time_lands_on_its_own_day_and_the_newest_figure_wins() -> None:
+    """Every screen time sync re-sends the last seven days, so a date is replaced."""
+    ledger = Ledger()
+    first = apply_payload(
+        ledger,
+        _payload(
+            source="screen_time",
+            screen_time=[
+                {"date": "2026-09-15", "total_screen_time_minutes": 180, "apps": []},
+                {"date": "2026-09-16", "total_screen_time_minutes": 25},
+            ],
+        ),
+        tz=_amsterdam(),
+    )
+    assert ledger.days["screen_time"] == {"2026-09-15": 180.0, "2026-09-16": 25.0}
+    assert first.day_keys["screen_time"] == date(2026, 9, 15)
+
+    # Later in the day the total has grown; the same yesterday changes nothing.
+    second = apply_payload(
+        ledger,
+        _payload(
+            source="screen_time",
+            screen_time=[
+                {"date": "2026-09-15", "total_screen_time_minutes": 180},
+                {"date": "2026-09-16", "total_screen_time_minutes": 61},
+            ],
+        ),
+        tz=_amsterdam(),
+    )
+    assert ledger.days["screen_time"]["2026-09-16"] == 61.0
+    assert second.day_keys == {"screen_time": date(2026, 9, 16)}
+
+    rows = day_rows(ledger, "screen_time", date(2026, 9, 15), tz=_amsterdam())
+    assert [(row["state"], row["sum"]) for row in rows] == [(180.0, 180.0), (61.0, 241.0)]
+    assert "screen_time" in DAY_KEYS
+
+
+def test_a_screen_time_entry_without_a_total_is_skipped() -> None:
+    ledger = Ledger()
+    change = apply_payload(
+        ledger,
+        _payload(source="screen_time", screen_time=[{"date": "2026-09-16"}, {"date": "x"}, 3]),
+        tz=_amsterdam(),
+    )
+    assert change.is_empty and "screen_time" not in ledger.days
