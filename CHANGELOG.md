@@ -4,6 +4,14 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-09-16
+
+### Changed
+
+- The pairing dialog puts the code on the left in its own frame and the three steps
+  beside it, with the pasting fallback folded away underneath. Everything fits without
+  scrolling on a laptop; on a phone the steps move below the code.
+
 ## [0.5.2] - 2026-09-16
 
 ### Changed
@@ -114,6 +122,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.5.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.3
 [0.5.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.2
 [0.5.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.1
 [0.5.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.0
