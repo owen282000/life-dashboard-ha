@@ -418,7 +418,9 @@ arriving after a restart cannot overwrite a newer reading.
   record. The answer never contains the secret, and the phone's reply to it carries ids
   and codes, never values.
 - With the internal URL, nothing leaves your network. With the external URL, use HTTPS;
-  the app refuses plain `http://` unless you allow it on the tab.
+  the app refuses plain `http://` unless you allow it on the tab. Over plain HTTP the
+  signature still guarantees that nothing was changed on the way, but the measurements
+  going to the phone travel readable on that network, like the payloads coming from it.
 - Rotate the secret any time under **Reconfigure**; the app has to be given the new value.
 
 Found a hole in any of this? See [SECURITY.md](SECURITY.md) for private reporting.
@@ -460,7 +462,9 @@ keeps both, because they come from different apps; turn one of the two off.
 Download diagnostics* gives a file with which sensors exist, when each last updated,
 how much history is stored, which entities go to the phone and how many readings wait,
 with the secret and the webhook id redacted and no health data in it. Attach it to the
-issue. For more detail, turn on debug logging:
+issue. The queue itself, `.storage/life_dashboard.<entry>.writeback`, does hold the
+values of the readings waiting for the phone, and goes into Home Assistant backups with
+the rest of `.storage`. For more detail, turn on debug logging:
 
 ```yaml
 logger:
