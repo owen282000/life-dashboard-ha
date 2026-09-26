@@ -35,8 +35,9 @@ from .const import CONF_CLOUDHOOK_URL, CONF_SECRET, CONF_WEBHOOK_ID, DOMAIN
 from .payload import (
     SIGNATURE_HEADER,
     SensorUpdate,
+    frame_answer,
     parse_payload,
-    response_signature_for,
+    response_body,
     verify_signature,
     writeback_request,
 )
@@ -221,8 +222,10 @@ def _make_handler(entry: LifeDashboardConfigEntry):
             return web.Response(status=400)
 
         runtime = entry.runtime_data
-        # One try for everything after the signature: a bug anywhere in here must be
-        # a 400, not the silent 200 the app would take as delivered.
+        now = dt_util.utcnow()
+        # One try for everything after the signature, the bytes of the answer and
+        # its signature included: a bug anywhere in here must be a 400, not the
+        # silent 200 the app would take as delivered.
         try:
             updates = parse_payload(data, tz=dt_util.get_default_time_zone())
             accepted = [update for update in updates if runtime.apply(update)]
@@ -239,30 +242,38 @@ def _make_handler(entry: LifeDashboardConfigEntry):
             if runtime.history is not None:
                 runtime.history.async_apply(data)
 
-            # What the phone confirmed and refused, then what waits for it. Same
-            # try: a bug here would otherwise cost the app an ack round as a 200.
-            answer = runtime.writeback.async_respond(
-                writeback_request(data), in_reply_to=signature or "", now=dt_util.utcnow()
-            )
+            # What the phone confirmed and refused, then what waits for it. Its own
+            # try inside this one: a bug in the direction to the phone must not turn
+            # a sync that was taken into a permanent error on the phone, so it is
+            # answered with the announcement alone, and logged.
+            try:
+                answer = runtime.writeback.async_respond(
+                    writeback_request(data), in_reply_to=signature or "", now=now
+                )
+            except Exception:
+                _LOGGER.exception(
+                    "Could not prepare the readings for %s; answering without them", entry.title
+                )
+                answer = response_body(
+                    version=runtime.version,
+                    in_reply_to=signature or "",
+                    issued_at=now,
+                    configured=runtime.writeback.configured,
+                )
+            raw, answer_signature = frame_answer(entry.data[CONF_SECRET], answer)
         except Exception:
             _LOGGER.exception("Could not read a payload for %s", entry.title)
             return web.Response(status=400)
 
         _LOGGER.debug("Took %s of %s updates for %s", len(accepted), len(updates), entry.title)
-        return _signed(entry.data[CONF_SECRET], answer)
+        return web.Response(
+            status=200,
+            body=raw,
+            content_type="application/json",
+            headers={SIGNATURE_HEADER: answer_signature},
+        )
 
     return handle
-
-
-def _signed(secret: str, answer: dict) -> web.Response:
-    """A 200 with the answer as its body and the signature over those exact bytes."""
-    raw = json.dumps(answer, separators=(",", ":")).encode("utf-8")
-    return web.Response(
-        status=200,
-        body=raw,
-        content_type="application/json",
-        headers={SIGNATURE_HEADER: response_signature_for(secret, raw)},
-    )
 
 
 def _update_sw_version(hass: HomeAssistant, entry: LifeDashboardConfigEntry, version: str) -> None:

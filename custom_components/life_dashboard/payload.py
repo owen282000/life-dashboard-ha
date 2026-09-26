@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
@@ -166,7 +167,14 @@ def response_body(
 
 
 def writeback_request(data: dict[str, Any]) -> dict[str, Any] | None:
-    """The writeback block of a request, if it carries one that is an object."""
+    """The writeback block of a request, if it carries one that counts.
+
+    Only a health payload can ask for readings: the app puts the block in nothing
+    else, and a screen time payload that carries one anyway is not answered with
+    readings. This is the one place that rule lives.
+    """
+    if data.get("source") not in HEALTH_SOURCES:
+        return None
     block = data.get("writeback")
     return block if isinstance(block, dict) else None
 
@@ -180,11 +188,15 @@ def is_heartbeat(data: dict[str, Any]) -> bool:
     """
     if data.get("test") is True or writeback_request(data) is None:
         return False
-    if data.get("source") not in HEALTH_SOURCES:
-        return False
     if isinstance(data.get("daily_totals"), list):
         return False
     return not any(name in HEALTH_ARRAYS for name in data)
+
+
+def frame_answer(secret: str, answer: dict[str, Any]) -> tuple[bytes, str]:
+    """The answer as the exact bytes to send, and the signature over those bytes."""
+    raw = json.dumps(answer, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return raw, response_signature_for(secret, raw)
 
 
 # Java's Instant.toString() and Swift's ISO8601DateFormatter both emit UTC with a Z,

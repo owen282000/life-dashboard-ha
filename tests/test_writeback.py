@@ -682,20 +682,74 @@ async def test_a_transient_refusal_keeps_the_reading(
     assert _our_warnings(caplog) == []
 
 
-async def test_a_queue_failure_is_not_a_success(
-    hass_tz: HomeAssistant, hass_client_no_auth
+async def test_a_queue_failure_costs_the_phone_nothing(
+    hass_tz: HomeAssistant, hass_client_no_auth, caplog
 ) -> None:
+    """A bug in the direction to the phone: the sync is taken, the answer is bare."""
     hass = hass_tz
-    await _load(hass)
+    entry = await _load(hass)
     client = await hass_client_no_auth()
     with patch(
         "custom_components.life_dashboard.writeback.WritebackManager.async_respond",
         side_effect=RuntimeError("boom"),
     ):
         response = await _post(
-            client, {"timestamp": "2026-09-27T06:35:00Z", "source": "health_connect"}
+            client,
+            {
+                "timestamp": "2026-09-27T06:35:00Z",
+                "source": "health_connect",
+                "heart_rate": [{"bpm": 61, "time": "2026-09-27T06:30:00Z"}],
+                "writeback": {"protocol": 1, "types": ["weight"]},
+            },
         )
+    assert response.status == HTTPStatus.OK
+    answer = await response.json()
+    assert answer["life_dashboard"]["writeback"] == 1
+    assert answer["writeback"]["configured"] == ["weight"]
+    assert "pending" not in answer["writeback"]
+    assert entry.runtime_data.latest["heart_rate"].value == 61
+    assert "Could not prepare the readings for Owen's Pixel" in caplog.text
+
+
+async def test_a_failure_to_frame_the_answer_is_not_a_success(
+    hass_tz: HomeAssistant, hass_client_no_auth
+) -> None:
+    """The bytes and the signature are made inside the try: a bug there is a 400."""
+    hass = hass_tz
+    await _load(hass)
+    client = await hass_client_no_auth()
+    body = json.dumps({"timestamp": "2026-09-27T06:35:00Z", "source": "health_connect"}).encode()
+    headers = {"Content-Type": "application/json", SIGNATURE_HEADER: signature_for(SECRET, body)}
+    with patch("custom_components.life_dashboard.payload.json.dumps", side_effect=TypeError("no")):
+        response = await client.post(URL, data=body, headers=headers)
     assert response.status == HTTPStatus.BAD_REQUEST
+    assert await response.read() == b""
+
+
+async def test_a_screen_time_payload_gets_no_readings(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """The app puts the block in health payloads only; one elsewhere is not honoured."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 80.0)
+    await _load(hass)
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, WEIGHT, 81.0)
+    client = await hass_client_no_auth()
+    response = await _post(
+        client,
+        {
+            "timestamp": "2026-09-27T06:35:00Z",
+            "source": "screen_time",
+            "screen_time": [],
+            "writeback": {"protocol": 1, "types": ["weight"]},
+        },
+    )
+    assert response.status == HTTPStatus.OK
+    answer = (await response.json())["writeback"]
+    assert answer["configured"] == ["weight"]
+    assert "pending" not in answer
+    assert len((await _ask(client))["pending"]) == 1
 
 
 async def test_a_newer_protocol_is_answered_with_ours(
