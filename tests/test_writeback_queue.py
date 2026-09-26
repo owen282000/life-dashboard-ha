@@ -291,7 +291,7 @@ def test_a_permanent_failure_is_about_the_offered_version_too() -> None:
     first = queue.offer(_weight(81.0))
     queue.page(["weight"])
     queue.offer(_weight(81.2))
-    failures = queue.fail([{"id": first.id, "code": "out_of_range"}])
+    failures = queue.fail([{"id": first.id, "code": "out_of_range"}], NOW)
     assert failures[0].permanent
     assert queue.pending[first.id].version == 2
     assert first.id not in queue.delivered
@@ -302,7 +302,7 @@ def test_a_refused_reading_is_not_offered_again_with_the_same_value() -> None:
     queue = WritebackQueue()
     reading = queue.offer(_weight(83.1))
     queue.page(["weight"])
-    queue.fail([{"id": reading.id, "code": "permission_denied"}])
+    queue.fail([{"id": reading.id, "code": "permission_denied"}], NOW)
     assert queue.pending == {}
     assert queue.delivered[reading.id]["code"] == "permission_denied"
     assert "83.1" not in str(queue.delivered)
@@ -318,7 +318,7 @@ def test_a_refused_reading_is_not_offered_again_with_the_same_value() -> None:
 def test_a_permanent_failure_leaves_the_queue() -> None:
     queue = WritebackQueue()
     reading = queue.offer(_weight(81.35))
-    failures = queue.fail([{"id": reading.id, "code": "out_of_range"}])
+    failures = queue.fail([{"id": reading.id, "code": "out_of_range"}], NOW)
     assert len(failures) == 1
     assert failures[0].permanent
     assert failures[0].reading.entity_id == "sensor.owen_weight"
@@ -332,7 +332,7 @@ def test_a_transient_failure_stays() -> None:
     queue = WritebackQueue()
     reading = queue.offer(_weight(81.35))
     for code in ("rate_limited", "hc_unavailable"):
-        failures = queue.fail([{"id": reading.id, "code": code}])
+        failures = queue.fail([{"id": reading.id, "code": code}], NOW)
         assert not failures[0].permanent
         assert reading.id in queue.pending
     assert queue.failed_total == {"rate_limited": 1, "hc_unavailable": 1}
@@ -341,12 +341,12 @@ def test_a_transient_failure_stays() -> None:
 def test_permission_denied_earns_a_repair_until_the_type_is_acked() -> None:
     queue = WritebackQueue()
     first = queue.offer(_weight(81.35))
-    queue.fail([{"id": first.id, "code": "permission_denied"}])
+    queue.fail([{"id": first.id, "code": "permission_denied"}], NOW)
     assert queue.refused == {"weight": "permission_denied"}
     assert first.id not in queue.pending
 
     second = queue.offer(_weight(82.0, T0 + timedelta(days=1)))
-    queue.fail([{"id": second.id, "code": "unsupported_type"}])
+    queue.fail([{"id": second.id, "code": "unsupported_type"}], NOW)
     assert queue.refused == {"weight": "unsupported_type"}
 
     third = queue.offer(_weight(82.5, T0 + timedelta(days=2)))
@@ -358,18 +358,20 @@ def test_an_unknown_code_is_treated_as_transient() -> None:
     """A newer app may have a reason we do not know; keeping is bounded, dropping is not."""
     queue = WritebackQueue()
     reading = queue.offer(_weight(81.35))
-    failures = queue.fail([{"id": reading.id, "code": "moon_phase"}])
+    failures = queue.fail([{"id": reading.id, "code": "moon_phase"}], NOW)
     assert not failures[0].permanent
     assert reading.id in queue.pending
     # A missing code reads as invalid, which is permanent.
-    failures = queue.fail([{"id": reading.id}])
+    failures = queue.fail([{"id": reading.id}], NOW)
     assert failures[0].code == "invalid"
     assert reading.id not in queue.pending
 
 
 def test_failures_for_unknown_ids_are_counted_not_reported() -> None:
     queue = WritebackQueue()
-    assert queue.fail([{"id": "sensor.gone@1", "code": "invalid"}, "junk", {"code": "x"}]) == []
+    assert (
+        queue.fail([{"id": "sensor.gone@1", "code": "invalid"}, "junk", {"code": "x"}], NOW) == []
+    )
     assert queue.failed_total == {"invalid": 1}
 
 
@@ -482,7 +484,7 @@ def test_the_queue_survives_a_round_trip() -> None:
     pressure = queue.offer(_pressure(128.0, 82.0, T0 + timedelta(minutes=2)))
     done = queue.offer(_weight(80.0, T0 - timedelta(days=1)))
     queue.ack([done.id], NOW)
-    queue.fail([{"id": weight.id, "code": "rate_limited"}])
+    queue.fail([{"id": weight.id, "code": "rate_limited"}], NOW)
 
     queue.page(["weight"])
 
@@ -512,6 +514,23 @@ def test_a_broken_store_is_not_fatal(caplog) -> None:
     assert restored.offered == {}
     assert restored.seen == {}
     assert "Dropped an unreadable pending reading x" in caplog.text
+    # A 0 queued by a version without the range check is dropped on the way in.
+    zero = _weight(81.35)
+    object.__setattr__(zero, "values", {"kilograms": 0.0})
+    restored = WritebackQueue.from_dict({"pending": {zero.id: zero.to_dict()}})
+    assert restored.pending == {}
+
+
+def test_a_refusal_is_dated_when_it_arrives() -> None:
+    """The delivered ring prunes on that date; an old reading refused today must
+    stay remembered for the full ninety days, not be forgotten by its own age."""
+    queue = WritebackQueue()
+    old = queue.offer(_weight(81.35, NOW - timedelta(days=85)))
+    queue.page(["weight"])
+    queue.fail([{"id": old.id, "code": "too_old"}], NOW)
+    assert queue.delivered[old.id]["at"] == NOW.isoformat()
+    queue.prune(NOW + timedelta(days=10))
+    assert old.id in queue.delivered
 
 
 def test_counts_carry_no_value_and_no_moment_of_a_pending_reading() -> None:

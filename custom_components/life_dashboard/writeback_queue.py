@@ -449,7 +449,7 @@ class WritebackQueue:
             self.last_ack_at = now
         return acked
 
-    def fail(self, entries: list[Any]) -> list[Failure]:
+    def fail(self, entries: list[Any], now: datetime) -> list[Failure]:
         """Take the ids the phone refused, with their codes.
 
         A permanent code takes the offered version out of pending and remembers it,
@@ -479,7 +479,7 @@ class WritebackQueue:
                     self.delivered[entry["id"]] = {
                         "v": version,
                         "t": reading.type,
-                        "at": reading.time.astimezone(UTC).isoformat(),
+                        "at": now.astimezone(UTC).isoformat(),
                         "h": _values_hash(reading.values),
                         "code": code,
                     }
@@ -609,10 +609,15 @@ class WritebackQueue:
         queue = cls()
         for key, raw in (data.get("pending") or {}).items():
             try:
-                queue.pending[key] = Reading.from_dict(raw)
+                reading = Reading.from_dict(raw)
             except (KeyError, TypeError, ValueError) as err:
                 _LOGGER.debug("Dropped an unreadable pending reading %s: %s", key, err)
                 continue
+            if out_of_range(reading.type, reading.values) is not None:
+                # Queued by a version that did not check the range yet.
+                _LOGGER.debug("Dropped a pending reading %s: out of range", key)
+                continue
+            queue.pending[key] = reading
         queue.offered = {
             key: int(version)
             for key, version in (data.get("offered") or {}).items()

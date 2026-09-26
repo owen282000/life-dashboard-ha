@@ -575,8 +575,15 @@ class WritebackManager:
                 events.extend((state.last_changed, role, state) for state in changes)
             events.sort(key=lambda event: event[0])
 
+            # Merged per id first, the last value winning: several rows within the
+            # window of one timestamp entity value (a correction, a weight and then
+            # the weight with impedance) are one reading, and offering them one by
+            # one would bump the version on every press of the button.
+            merged: dict[str, tuple[dict[str, float], datetime, str | None]] = {}
             for values, moment in self._readings_from(kind, events, last_known):
                 measured_at, time_source = _time_from(timestamps, moment)
+                merged[reading_id(mapping.anchor, measured_at)] = (values, measured_at, time_source)
+            for values, measured_at, time_source in merged.values():
                 if (stored := self._offer(mapping, values, measured_at, time_source)) is not None:
                     offered_ids.append(stored.id)
 
@@ -593,6 +600,12 @@ class WritebackManager:
     ) -> list[tuple[dict[str, float], datetime]]:
         """Values and moments from recorded changes, in time order.
 
+        A row that repeats the value of the row before it is not a change: the
+        recorder never writes one for an unchanged value, so such a row is the state
+        Home Assistant restored after a restart, stamped with the boot time, and the
+        listeners skip that too. A row that still carries the restored attribute is
+        skipped for the same reason.
+
         Blood pressure is two entities, and the recorder keeps a row only for a value
         that changed: a reading whose diastolic equals the previous one has a
         systolic row and no diastolic row. A change of one half within the window of
@@ -600,31 +613,32 @@ class WritebackManager:
         last known value of the other half.
         """
         readings: list[tuple[dict[str, float], datetime]] = []
-        if kind != TYPE_BLOOD_PRESSURE:
-            for moment, _, state in events:
-                value = self._converted(kind, state.entity_id, state)
-                if value is not None:
-                    readings.append(({VALUE_FIELDS[kind]: value}, moment))
-            return readings
-
-        consumed: set[int] = set()
-        for index, (moment, role, state) in enumerate(events):
-            if index in consumed:
+        changes: list[tuple[datetime, str, float]] = []
+        previous: dict[str, float] = dict(last_known)
+        for moment, role, state in events:
+            if state.attributes.get(ATTR_RESTORED):
                 continue
             value = self._converted(kind, state.entity_id, state)
-            if value is None:
+            if value is None or previous.get(role) == value:
+                continue
+            previous[role] = value
+            changes.append((moment, role, value))
+
+        if kind != TYPE_BLOOD_PRESSURE:
+            return [({VALUE_FIELDS[kind]: value}, moment) for moment, _, value in changes]
+
+        consumed: set[int] = set()
+        for index, (moment, role, value) in enumerate(changes):
+            if index in consumed:
                 continue
             last_known[role] = value
             other_role = CONF_DIASTOLIC if role == CONF_SYSTOLIC else CONF_SYSTOLIC
             partner: tuple[int, float, datetime] | None = None
-            for later in range(index + 1, len(events)):
-                later_moment, later_role, later_state = events[later]
+            for later in range(index + 1, len(changes)):
+                later_moment, later_role, later_value = changes[later]
                 if later_moment - moment > WINDOW:
                     break
-                if later in consumed or later_role != other_role:
-                    continue
-                later_value = self._converted(kind, later_state.entity_id, later_state)
-                if later_value is not None:
+                if later not in consumed and later_role == other_role:
                     partner = (later, later_value, later_moment)
                     break
             if partner is not None:
@@ -669,7 +683,11 @@ class WritebackManager:
                 _LOGGER.debug("%s wrote %s of %s readings", self._entry.title, len(acked), len(ack))
             failed = request.get("failed")
             if isinstance(failed, list) and failed:
-                self._report(self.queue.fail(failed))
+                self._report(self.queue.fail(failed, now))
+            if ack or failed:
+                # Saved before the page is formed: what the phone reported must not
+                # be lost to a bug further down that answers without readings.
+                self._save()
             if isinstance(raw_types := request.get("types"), list):
                 types = raw_types
 

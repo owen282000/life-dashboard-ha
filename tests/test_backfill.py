@@ -337,6 +337,114 @@ async def test_the_first_change_counts_when_the_entity_existed_before_the_window
     assert [r["kilograms"] for r in pending] == [81.0]
 
 
+async def test_a_restart_is_not_a_measurement(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """The restored state after a restart is a recorder row on the boot time with the
+    old value; a restart within the window must not become a weighing."""
+    hass = amsterdam
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, WEIGHT, 0.0)
+    freezer.move_to(START - timedelta(days=2))
+    await _set(hass, WEIGHT, 81.0)
+    weighed = START - timedelta(days=2)
+    # The restart: Home Assistant writes the restored value as a new row.
+    boot = START - timedelta(days=1)
+    freezer.move_to(boot)
+    hass.states.async_remove(WEIGHT)
+    await _set(hass, WEIGHT, 81.0, "kg", restored=True)
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(seconds=30))
+    await _set(hass, WEIGHT, 81.0)  # the integration polls and writes the value again
+    await _recorded(hass)
+    freezer.move_to(START)
+    await _load(hass, {"writeback": {"weight": {"entity": WEIGHT}}})
+
+    await hass.services.async_call(DOMAIN, "queue_history", {}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client))["pending"]
+    assert [r["id"] for r in pending] == [_id(WEIGHT, weighed)]
+
+
+async def test_a_restart_is_not_a_blood_pressure_reading_either(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    hass = amsterdam
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, SYSTOLIC, 0, "mmHg")
+    await _set(hass, DIASTOLIC, 0, "mmHg")
+    freezer.move_to(START - timedelta(days=2))
+    await _set(hass, SYSTOLIC, 130, "mmHg")
+    await _set(hass, DIASTOLIC, 82, "mmHg")
+    measured = START - timedelta(days=2)
+    for restart in (START - timedelta(days=1), START - timedelta(hours=6)):
+        freezer.move_to(restart)
+        hass.states.async_remove(SYSTOLIC)
+        hass.states.async_remove(DIASTOLIC)
+        await _set(hass, SYSTOLIC, 130, "mmHg", restored=True)
+        await _set(hass, DIASTOLIC, 82, "mmHg", restored=True)
+        freezer.tick(timedelta(seconds=30))
+        await _set(hass, SYSTOLIC, 130, "mmHg")
+        await _set(hass, DIASTOLIC, 82, "mmHg")
+    await _recorded(hass)
+    freezer.move_to(START)
+    await _load(
+        hass, {"writeback": {"blood_pressure": {"systolic": SYSTOLIC, "diastolic": DIASTOLIC}}}
+    )
+
+    await hass.services.async_call(DOMAIN, "queue_history", {}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client, types=["blood_pressure"]))["pending"]
+    assert [(r["id"], r["systolic"], r["diastolic"]) for r in pending] == [
+        (_id(SYSTOLIC, measured), 130.0, 82.0)
+    ]
+
+
+async def test_backfill_with_a_timestamp_entity_is_idempotent(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer, caplog
+) -> None:
+    """Several rows within the window of one timestamp value are one reading with
+    the last value; a second press bumps no version."""
+    hass = amsterdam
+    freezer.move_to(START - timedelta(days=2))
+    await _set(hass, WEIGHT, 0.0)
+    await _set(hass, WEIGHED_AT, "2026-09-25T06:00:00+00:00", None, device_class="timestamp")
+    freezer.move_to(START - timedelta(days=1))
+    await _set(hass, WEIGHED_AT, "2026-09-26T06:29:40+00:00", None, device_class="timestamp")
+    freezer.tick(timedelta(seconds=2))
+    await _set(hass, WEIGHT, 83.7)
+    freezer.tick(timedelta(seconds=3))
+    await _set(hass, WEIGHT, 84.2)  # the weight with impedance, rounded differently
+    freezer.tick(timedelta(seconds=3))
+    await _set(hass, WEIGHT, 84.4)  # a correction
+    await _recorded(hass)
+    freezer.move_to(START)
+    await _load(hass, {"writeback": {"weight": {"entity": WEIGHT, "time_entity": WEIGHED_AT}}})
+    measured = datetime(2026, 9, 26, 6, 29, 40, tzinfo=UTC)
+
+    await hass.services.async_call(DOMAIN, "queue_history", {}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client))["pending"]
+    assert [(r["id"], r["version"], r["kilograms"]) for r in pending] == [
+        (_id(WEIGHT, measured), 1, 84.4)
+    ]
+
+    caplog.clear()
+    await hass.services.async_call(DOMAIN, "queue_history", {"days": 90}, blocking=True)
+    await hass.async_block_till_done()
+    assert (await _ask(client))["pending"] == pending
+    assert "Queued 0 readings" in caplog.text
+
+    # Also after the phone wrote it: nothing comes back, no version moves.
+    await _ask(client, ack=[pending[0]["id"]])
+    await hass.services.async_call(DOMAIN, "queue_history", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert (await _ask(client))["pending"] == []
+
+
 # --- The same assembly as live ----------------------------------------------------
 
 
