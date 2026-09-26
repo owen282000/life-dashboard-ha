@@ -33,9 +33,12 @@ in Docker and restarts it (see the script for the two variables it takes).
   optional, and never send anything back the app does not expect.
 - **User-facing text lives in `strings.json`**, mirrored in `translations/en.json`; the
   two files stay identical. Translations are welcome as `translations/<locale>.json`.
-- **Keep pure logic free of Home Assistant imports.** `payload.py`, `history.py` and
-  `pairing.py` are plain Python with plain tests; the Home Assistant glue sits in
-  `__init__.py`, `config_flow.py`, `sensor.py` and `statistics.py`. Follow that split.
+- **Keep pure logic free of Home Assistant imports.** `payload.py`, `history.py`,
+  `writeback_queue.py` and `pairing.py` are plain Python with plain tests; the Home
+  Assistant glue sits in `__init__.py`, `config_flow.py`, `sensor.py`, `button.py`,
+  `statistics.py` and `writeback.py`. Follow that split.
+- **No health value in a log line above debug, or in diagnostics.** Entity ids, counts
+  and codes are fine; what was measured is not.
 - **Commit messages** follow the style in the history: `feat:`, `fix:`, `docs:`, `ci:`,
   `build:`, `test:`, `refactor:`, with a subject that says what changed for a user.
 

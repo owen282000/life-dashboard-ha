@@ -3,6 +3,7 @@
 <p align="center">
   Health Connect and screen time from your phone as Home Assistant sensors and long-term statistics.<br>
   How long you looked at your phone today, and at what, next to your steps and heart rate.<br>
+  And the other way: the weight from the scale in the bathroom into Health Connect on the phone.<br>
   Paired with a QR code. No MQTT broker, no ports to open, no YAML.
 </p>
 
@@ -35,7 +36,10 @@ The [Life Dashboard Companion](https://github.com/owen282000/life-dashboard-comp
 app reads Health Connect and screen time on the phone and posts them to a webhook. This
 integration is that webhook, inside Home Assistant: it verifies the signature on every
 payload, keeps one device per phone with a sensor for each value, and writes the past
-into long-term statistics so a year of history lands on the days it happened.
+into long-term statistics so a year of history lands on the days it happened. It also
+answers: measurements that arrive in Home Assistant from a scale or a blood pressure
+monitor go back to the phone in that same exchange, and the app writes them to Health
+Connect, where Samsung Health and Google Health read them.
 
 Health data has other routes into Home Assistant: the official companion app reads a
 handful of Health Connect types, and this app's own MQTT route carries all 33. Screen
@@ -69,12 +73,15 @@ sync fills in whatever happened meanwhile.
   the app's normal behaviour, and the integration is built for it.
 - **Local by default.** With the internal URL your data never leaves your network. The
   external URL and Home Assistant Cloud are there for syncing away from home.
+- **Both ways.** A weight, a body composition or a blood pressure that Home Assistant
+  already has goes to the phone's Health Connect, per type, from the entity you choose.
+  Nothing else on the phone has to change: it collects on its next sync.
 
 ## Works with
 
 | App | Status |
 |---|---|
-| [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.17 or newer | **Fully supported.** Health sensors, screen time, statistics, QR pairing, backfill. |
+| [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.17 or newer | **Fully supported.** Health sensors, screen time, statistics, QR pairing, backfill. Receiving measurements on the phone needs 1.20 or newer. |
 | [Life Dashboard Companion for iOS](https://github.com/owen282000/life-dashboard-companion-app-ios) | **Not yet through this integration.** The iOS app reaches Home Assistant through its built-in MQTT Discovery today. Support here is planned; follow [#1](https://github.com/owen282000/life-dashboard-ha/issues/1). |
 
 ## Quick start
@@ -290,6 +297,70 @@ entities:
 A backfill from the app fills the statistics for the whole window it covers, and sending
 the same window again changes nothing.
 
+## Sending measurements to the phone
+
+The other direction. A scale that Home Assistant sees over Bluetooth, a blood pressure
+monitor that an integration polls, a height you keep in an input number: **Configure**
+on the integration maps one entity per Health Connect type to a phone, and the app
+writes every new value to Health Connect. What shows up in Samsung Health or Google
+Health from there is theirs to decide: Samsung documents weight, body fat, height and
+blood pressure as synchronised, and does not list lean body mass, bone mass or body
+water mass. Health Connect itself is what this integration and the app can promise.
+
+| Type | What the entity needs | Health Connect record |
+|---|---|---|
+| Weight, lean body mass, bone mass, body water mass | A mass unit (kg, g, lb, st, oz) | WeightRecord, LeanBodyMassRecord, BoneMassRecord, BodyWaterMassRecord |
+| Height | A length unit (m, cm, ft, in) | HeightRecord |
+| Body fat | % | BodyFatRecord |
+| Blood pressure | Two entities, systolic and diastolic, in mmHg or kPa | BloodPressureRecord, with the body position and cuff location you set |
+
+BMI, muscle mass and visceral fat are not offered: Health Connect has no record for
+them, and Samsung Health computes BMI itself from weight and height.
+
+How it goes:
+
+1. **Configure** on the integration: open the section for the type, pick the entity,
+   save. Each type has an optional **Measured at** slot for a timestamp sensor that holds
+   when the measurement was taken, such as BodyMiScale's last measurement time or an
+   Omron's timestamp; without one, the moment the value changed in Home Assistant is
+   used, and the app's log says so.
+2. In the app, on the Health Connect tab, open **Receive** and turn on the types you
+   want. Each asks for its write permission once. The app lists only the types you
+   mapped here.
+3. Step on the scale. On its next sync (or its next heartbeat, when there is nothing to
+   send) the phone collects the reading and writes it. The app shows what it wrote.
+
+Values are converted to what Health Connect wants, on the unit the entity carries at
+that moment, without rounding. The same value reported again within ten minutes is the
+same measurement, so a scale that advertises one weighing for a while, or an
+integration that polls an unchanged value, produces one record; the same weight the
+next morning is a new one. A different value on the same moment is a correction and
+replaces the earlier record. Systolic and diastolic that change within ninety seconds of
+each other are one record, timed on the systolic.
+
+A reading waits until the phone confirms it, so a failed delivery, a lost outbox or a
+reinstalled app costs nothing: Health Connect treats a reading it already has as the
+same record. A phone that never comes back does not grow the queue without end: ninety
+days and five hundred readings per entity, oldest out first.
+
+A measurement that came in through Home Assistant does not appear a second time as the
+phone's own sensor: the app skips what it wrote itself when it reads Health Connect, and
+this integration ignores those records too. The weight is already in Home Assistant.
+
+**Send history to phone**, a button on the device, queues the last thirty days of the
+mapped entities from the recorder, for the measurements from before you set this up or
+from a restart that missed one. The `life_dashboard.queue_history` service does the
+same with a window of up to 366 days and a choice of types. Readings older than thirty
+days only arrive with **Accept older measurements** on in the app, and a value that
+stayed the same is one row in the recorder, so two equal weighings in a row come back as
+one. Pressing twice changes nothing.
+
+With two phones in the house, each phone has its own mapping: Owen's weight goes to
+Owen's phone, and nothing goes to the other one unless you map it there. A phone that
+refuses a type (no permission, or an app too old for it) gets a repair on the entry that
+says what to do, and the refused readings are not offered again; the button sends them
+once the permission is there.
+
 ## In automations
 
 The sensors are ordinary sensors. Two that people set up first:
@@ -338,6 +409,12 @@ arriving after a restart cannot overwrite a newer reading.
   its contents.
 - The webhook id is a long random path, so the URL is not guessable either. The signature
   is what makes a leaked URL harmless.
+- The answer that carries readings to the phone is signed as well, over its exact bytes,
+  with a key derived from the secret rather than the secret itself, and bound to the
+  request it answers. The app verifies that before it writes anything, also over plain
+  HTTP, so a proxy or anyone on the network cannot put a measurement in your health
+  record. The answer never contains the secret, and the phone's reply to it carries ids
+  and codes, never values.
 - With the internal URL, nothing leaves your network. With the external URL, use HTTPS;
   the app refuses plain `http://` unless you allow it on the tab.
 - Rotate the secret any time under **Reconfigure**; the app has to be given the new value.
@@ -363,10 +440,25 @@ are unaffected.
 **A backfill left the step history empty.** The app is older than 1.17; update it and run
 the backfill again. The log names the window when this happens.
 
+**A measurement is not reaching the phone.** Check that the type is on under **Receive**
+in the app and that the app is 1.20 or newer; a repair on the entry says when the phone
+refused it. A weight reported with the same value within ten minutes of the last one is
+the same measurement on purpose. The phone collects on its next sync, so a quiet phone
+takes until then.
+
+**A measurement arrived with the wrong time.** Map a timestamp sensor in the **Measured
+at** slot; without one the moment the value changed in Home Assistant is used, which is
+when the scale was seen, not necessarily when you stood on it.
+
+**The same weight twice in Health Connect.** Another app on the phone (Zepp, Withings,
+Omron Connect) writes the same weighing from the scale's own connection. Health Connect
+keeps both, because they come from different apps; turn one of the two off.
+
 **Reporting a bug.** *Settings > Devices & services > Life Dashboard > three dots >
-Download diagnostics* gives a file with which sensors exist, when each last updated and
-how much history is stored, with the secret and the webhook id redacted and no health
-data in it. Attach it to the issue. For more detail, turn on debug logging:
+Download diagnostics* gives a file with which sensors exist, when each last updated,
+how much history is stored, which entities go to the phone and how many readings wait,
+with the secret and the webhook id redacted and no health data in it. Attach it to the
+issue. For more detail, turn on debug logging:
 
 ```yaml
 logger:

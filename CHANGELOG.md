@@ -4,6 +4,36 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-26
+
+### Added
+
+- Measurements from Home Assistant to the phone. **Configure** on the integration
+  maps an entity per Health Connect type (weight, height, body fat, lean body mass,
+  bone mass, body water mass, blood pressure) to a phone; the app writes them to
+  Health Connect once **Receive** is on there, per type, with the app 1.20 or newer.
+  Every accepted payload is now answered with a signed JSON body that carries the
+  readings waiting for that phone; the phone confirms them in its next request.
+  Readings are identified by entity and measured moment, so a lost delivery or a
+  reinstalled app costs nothing and a corrected value replaces the earlier one.
+- A **Send history to phone** button on the device and a `life_dashboard.queue_history`
+  service, which read the recorder's past states of the mapped entities and queue
+  them the same way.
+- A repair on the entry when the phone refuses a type for a missing permission or
+  because the app is too old, gone as soon as that type is written again.
+- Diagnostics list the mapped entities and how many readings wait or were written,
+  never a value.
+
+### Changed
+
+- Records the app wrote to Health Connect on Home Assistant's behalf come back at
+  the next sync with the app's own package as source. They no longer feed a sensor or
+  the history: the weight that went out through Home Assistant is already in Home
+  Assistant.
+- The answer to a payload is a JSON body with `Content-Type: application/json`,
+  signed in `X-Signature` with a key derived from the secret. Apps before 1.20 never
+  read it and see no difference.
+
 ## [0.6.0] - 2026-09-16
 
 ### Added

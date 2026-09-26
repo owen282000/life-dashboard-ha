@@ -18,6 +18,7 @@ from custom_components.life_dashboard.const import (
     URL_CHOICE_URL,
 )
 from custom_components.life_dashboard.payload import SIGNATURE_HEADER, signature_for
+from custom_components.life_dashboard.writeback_queue import epoch_ms
 
 WEBHOOK_ID = "a" * 64
 SECRET = "b" * 64
@@ -34,12 +35,18 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, hass_client_no_auth
             CONF_URL_CHOICE: URL_CHOICE_URL,
             CONF_BASE_URL: "http://homeassistant.local:8123",
         },
+        options={"writeback": {"weight": {"entity": "sensor.scale_weight"}}},
     )
     entry.add_to_hass(hass)
+    hass.states.async_set("sensor.scale_weight", "80.0", {"unit_of_measurement": "kg"})
     # Before any client exists: the diagnostics views cannot register on a frozen router.
     assert await async_setup_component(hass, "diagnostics", {})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    # A reading waits for the phone: 81.35 kg, measured now.
+    hass.states.async_set("sensor.scale_weight", "81.35", {"unit_of_measurement": "kg"})
+    await hass.async_block_till_done()
+    measured = hass.states.get("sensor.scale_weight").last_changed
 
     payload = {
         "timestamp": "2026-09-16T10:00:00Z",
@@ -73,3 +80,15 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, hass_client_no_auth
         "last": "2026-09-16",
     }
     assert "1234" not in json.dumps(result["history"])
+    # Which entities go to the phone and how many readings wait, never a value or
+    # the moment one was measured.
+    assert result["writeback"]["configured"] == {
+        "weight": {"entities": {"entity": "sensor.scale_weight"}, "time_entity": None}
+    }
+    assert result["writeback"]["pending"] == {"weight": 1}
+    assert result["writeback"]["delivered"] == {}
+    assert result["writeback"]["acked_total"] == 0
+    dump = json.dumps(result["writeback"])
+    assert "81.35" not in dump
+    assert measured.isoformat() not in dump
+    assert str(epoch_ms(measured)) not in dump
