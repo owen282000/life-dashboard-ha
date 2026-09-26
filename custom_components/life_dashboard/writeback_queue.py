@@ -136,6 +136,32 @@ TIME_SOURCE_STATE: Final = "state"
 
 DEBOUNCE: Final = timedelta(minutes=10)
 MAX_AGE: Final = timedelta(days=90)
+
+# What the app accepts (section 8.2 of the protocol). A value outside these is
+# refused there as out_of_range, so it is not worth queueing; exactly 0 never is a
+# measurement, and a scale or a helper that starts at 0 must not produce one.
+_RANGES_BY_TYPE: Final[dict[str, dict[str, tuple[float, float]]]] = {
+    TYPE_WEIGHT: {"kilograms": (1.0, 500.0)},
+    TYPE_HEIGHT: {"meters": (0.3, 2.8)},
+    TYPE_BODY_FAT: {"percentage": (1.0, 80.0)},
+    TYPE_LEAN_BODY_MASS: {"kilograms": (1.0, 300.0)},
+    TYPE_BONE_MASS: {"kilograms": (0.1, 30.0)},
+    TYPE_BODY_WATER_MASS: {"kilograms": (1.0, 300.0)},
+    TYPE_BLOOD_PRESSURE: {FIELD_SYSTOLIC: (30.0, 300.0), FIELD_DIASTOLIC: (10.0, 250.0)},
+}
+
+
+def out_of_range(kind: str, values: dict[str, float]) -> str | None:
+    """The field the app would refuse as out_of_range, or None when all fit."""
+    for name, (low, high) in _RANGES_BY_TYPE.get(kind, {}).items():
+        value = values.get(name)
+        if value is None or not math.isfinite(value) or value == 0 or not low <= value <= high:
+            return name
+    if kind == TYPE_BLOOD_PRESSURE and values[FIELD_DIASTOLIC] >= values[FIELD_SYSTOLIC]:
+        return FIELD_DIASTOLIC
+    return None
+
+
 MAX_PER_ENTITY: Final = 500
 PAGE_SIZE: Final = 200
 #: The serialised readings of a page stay under this, well inside the 256 KiB the app
@@ -645,5 +671,6 @@ __all__ = [
     "WritebackQueue",
     "configured_types",
     "epoch_ms",
+    "out_of_range",
     "reading_id",
 ]

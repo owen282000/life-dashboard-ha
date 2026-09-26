@@ -350,10 +350,12 @@ this integration ignores those records too. The weight is already in Home Assist
 **Send history to phone**, a button on the device, queues the last thirty days of the
 mapped entities from the recorder, for the measurements from before you set this up or
 from a restart that missed one. The `life_dashboard.queue_history` service does the
-same with a window of up to 366 days and a choice of types. Readings older than thirty
-days only arrive with **Accept older measurements** on in the app, and a value that
-stayed the same is one row in the recorder, so two equal weighings in a row come back as
-one. Pressing twice changes nothing.
+same with a window of up to ninety days, which is how long the queue keeps a reading,
+and a choice of types. Readings older than thirty days only arrive with **Accept older
+measurements** on in the app, and a value that stayed the same is one row in the
+recorder, so two equal weighings in a row come back as one; for blood pressure the half
+that did not change takes its last known value. Pressing twice changes nothing, and a
+reading the phone already wrote or refused is not queued again.
 
 With two phones in the house, each phone has its own mapping: Owen's weight goes to
 Owen's phone, and nothing goes to the other one unless you map it there. A phone that

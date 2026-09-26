@@ -288,7 +288,7 @@
   "services": {
     "queue_history": {
       "name": "Send history to phone",
-      "description": "Queues the past measurements of the entities mapped to a phone, from the recorder, so the app writes them to Health Connect at its next sync. Measurements older than 30 days only arrive when Accept older measurements is on in the app. A value that stayed the same is one row in the recorder, so two equal weighings in a row come back as one. The queue keeps 90 days.",
+      "description": "Queues the past measurements of the entities mapped to a phone, from the recorder, so the app writes them to Health Connect at its next sync. At most 90 days back, which is how long the queue keeps a reading. Measurements older than 30 days only arrive when Accept older measurements is on in the app. A value that stayed the same is one row in the recorder, so two equal weighings in a row come back as one; for blood pressure the half that did not change takes its last known value. A reading the phone already wrote or refused is not queued again.",
       "fields": {
         "config_entry": {
           "name": "Phone",
@@ -296,7 +296,7 @@
         },
         "days": {
           "name": "Days",
-          "description": "How far back to read, from today."
+          "description": "How far back to read, from today. At most 90."
         },
         "types": {
           "name": "Types",

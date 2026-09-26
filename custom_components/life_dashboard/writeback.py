@@ -27,6 +27,7 @@ What a state event becomes:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import partial
@@ -74,6 +75,7 @@ from .writeback_queue import (
     CODE_TOO_OLD,
     FIELD_DIASTOLIC,
     FIELD_SYSTOLIC,
+    MAX_AGE,
     RECORDING_ACTIVE,
     RECORDING_AUTO,
     RECORDING_MANUAL,
@@ -86,6 +88,7 @@ from .writeback_queue import (
     Reading,
     WritebackQueue,
     configured_types,
+    out_of_range,
     reading_id,
 )
 
@@ -110,10 +113,10 @@ DEVICE_TYPE_SCALE: Final = "scale"
 DEVICE_TYPE_UNKNOWN: Final = "unknown"
 DEVICE_CLASS_WEIGHT: Final = "weight"
 
-#: The backfill: the default window, the most the service accepts, and the most
-#: states read per entity per call.
+#: The backfill: the default window, the most the service accepts (the queue keeps
+#: no more than that anyway), and the most states taken per entity per call.
 BACKFILL_DEFAULT_DAYS: Final = 30
-BACKFILL_MAX_DAYS: Final = 366
+BACKFILL_MAX_DAYS: Final = MAX_AGE.days
 BACKFILL_MAX_PER_ENTITY: Final = 1000
 
 
@@ -413,6 +416,10 @@ class WritebackManager:
             value = float(state.state)
         except ValueError:
             return None
+        if not math.isfinite(value):
+            # "nan" and "inf" parse as floats; neither is a measurement, and either
+            # would make the answer unreadable for the phone.
+            return None
         unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
         converted = UNIT_FAMILIES[kind].convert(value, unit)
         if converted is None and entity_id not in self._warned_units:
@@ -441,6 +448,13 @@ class WritebackManager:
         time_source: str | None,
     ) -> Reading | None:
         anchor = mapping.anchor
+        if (bad := out_of_range(mapping.kind, values)) is not None:
+            # The app would refuse it as out_of_range; a 0 from a scale that has just
+            # been created, or a helper's initial value, is not worth a round trip.
+            _LOGGER.debug(
+                "Skipped a %s reading from %s: %s is out of range", mapping.kind, anchor, bad
+            )
+            return None
         reading = Reading(
             id=reading_id(anchor, measured_at),
             version=1,
@@ -498,11 +512,20 @@ class WritebackManager:
         """Offer the recorder's past states of the mapped entities, as if they were live.
 
         The same id rule and the same pairing as the listeners use, so a reading the
-        live path already queued or delivered is recognised and not queued again, and a
-        second press changes nothing. From the recorder's states, not from long-term
-        statistics: an hourly mean is not a measurement. The recorder keeps only one
-        row for a value that did not change, so two equal weighings in a row come back
-        as one.
+        live path already queued, or the phone already wrote or refused, is
+        recognised and not queued again, and a second press changes nothing. From the
+        recorder's states, not from long-term statistics: an hourly mean is not a
+        measurement.
+
+        The window is at most what the queue keeps, and of the changes inside it the
+        newest BACKFILL_MAX_PER_ENTITY count. Home Assistant's history only reverses
+        a query's result in Python, so a limit in the query would take the oldest
+        rows; the cap is applied here instead. The state the entity held when the
+        window opened is asked for as well: it is not a reading (it is older than the
+        window), but it says that the entity existed before, and for blood pressure
+        it is the last known value of a half that did not change. Without it, the
+        first change in the window is the entity's creation and is skipped, as the
+        listeners skip an entity's first state.
         """
         if "recorder" not in self._hass.config.components:
             raise ServiceValidationError(
@@ -512,11 +535,13 @@ class WritebackManager:
         from homeassistant.components.recorder import get_instance, history
 
         now = dt_util.utcnow()
-        start = now - timedelta(days=max(1, min(days, BACKFILL_MAX_DAYS)))
+        days = max(1, min(days, BACKFILL_MAX_DAYS))
+        start = now - timedelta(days=days)
         wanted = [kind for kind in (types or self.configured) if kind in self.mappings]
-        queued = 0
+        offered_ids: list[str] = []
 
-        async def _states(entity_id: str) -> list[State]:
+        async def _states(entity_id: str) -> tuple[State | None, list[State]]:
+            """The state at the window's start, if any, and the changes inside it."""
             found = await get_instance(self._hass).async_add_executor_job(
                 partial(
                     history.state_changes_during_period,
@@ -524,45 +549,99 @@ class WritebackManager:
                     start,
                     now,
                     entity_id,
-                    limit=BACKFILL_MAX_PER_ENTITY,
-                    include_start_time_state=False,
+                    include_start_time_state=True,
                 )
             )
-            return found.get(entity_id, [])
+            rows = found.get(entity_id, [])
+            before = [row for row in rows if row.last_changed <= start]
+            inside = [row for row in rows if row.last_changed > start]
+            if not before and inside:
+                inside = inside[1:]
+            return (before[-1] if before else None), inside[-BACKFILL_MAX_PER_ENTITY:]
 
         for kind in wanted:
             mapping = self.mappings[kind]
-            timestamps = (
-                _timestamps(await _states(mapping.time_entity)) if mapping.time_entity else []
-            )
+            timestamps: list[tuple[datetime, datetime]] = []
+            if mapping.time_entity:
+                timestamps = _timestamps((await _states(mapping.time_entity))[1])
             events: list[tuple[datetime, str, State]] = []
+            last_known: dict[str, float] = {}
             for role, entity_id in mapping.entities.items():
-                events.extend(
-                    (state.last_changed, role, state) for state in await _states(entity_id)
-                )
+                opening, changes = await _states(entity_id)
+                if opening is not None:
+                    value = self._converted(kind, entity_id, opening)
+                    if value is not None:
+                        last_known[role] = value
+                events.extend((state.last_changed, role, state) for state in changes)
             events.sort(key=lambda event: event[0])
 
-            pairer = BloodPressurePairer()
-            for moment, role, state in events:
-                value = self._converted(kind, state.entity_id, state)
-                if value is None:
-                    continue
-                if kind == TYPE_BLOOD_PRESSURE:
-                    pair = pairer.offer(role, value, moment)
-                    if pair is None:
-                        continue
-                    systolic, diastolic, moment = pair
-                    values = {FIELD_SYSTOLIC: systolic, FIELD_DIASTOLIC: diastolic}
-                else:
-                    values = {VALUE_FIELDS[kind]: value}
+            for values, moment in self._readings_from(kind, events, last_known):
                 measured_at, time_source = _time_from(timestamps, moment)
-                if self._offer(mapping, values, measured_at, time_source) is not None:
-                    queued += 1
+                if (stored := self._offer(mapping, values, measured_at, time_source)) is not None:
+                    offered_ids.append(stored.id)
 
+        # What the queue will not keep does not count.
+        self.queue.prune(now)
+        queued = sum(1 for reading_key in offered_ids if reading_key in self.queue.pending)
         _LOGGER.info(
             "Queued %s readings from the last %s days for %s", queued, days, self._entry.title
         )
         return queued
+
+    def _readings_from(
+        self, kind: str, events: list[tuple[datetime, str, State]], last_known: dict[str, float]
+    ) -> list[tuple[dict[str, float], datetime]]:
+        """Values and moments from recorded changes, in time order.
+
+        Blood pressure is two entities, and the recorder keeps a row only for a value
+        that changed: a reading whose diastolic equals the previous one has a
+        systolic row and no diastolic row. A change of one half within the window of
+        the other pairs with it, timed on the systolic; a change on its own takes the
+        last known value of the other half.
+        """
+        readings: list[tuple[dict[str, float], datetime]] = []
+        if kind != TYPE_BLOOD_PRESSURE:
+            for moment, _, state in events:
+                value = self._converted(kind, state.entity_id, state)
+                if value is not None:
+                    readings.append(({VALUE_FIELDS[kind]: value}, moment))
+            return readings
+
+        consumed: set[int] = set()
+        for index, (moment, role, state) in enumerate(events):
+            if index in consumed:
+                continue
+            value = self._converted(kind, state.entity_id, state)
+            if value is None:
+                continue
+            last_known[role] = value
+            other_role = CONF_DIASTOLIC if role == CONF_SYSTOLIC else CONF_SYSTOLIC
+            partner: tuple[int, float, datetime] | None = None
+            for later in range(index + 1, len(events)):
+                later_moment, later_role, later_state = events[later]
+                if later_moment - moment > WINDOW:
+                    break
+                if later in consumed or later_role != other_role:
+                    continue
+                later_value = self._converted(kind, later_state.entity_id, later_state)
+                if later_value is not None:
+                    partner = (later, later_value, later_moment)
+                    break
+            if partner is not None:
+                consumed.add(partner[0])
+                last_known[other_role] = partner[1]
+                other_value, other_moment = partner[1], partner[2]
+            elif other_role in last_known:
+                other_value, other_moment = last_known[other_role], moment
+            else:
+                continue
+            if role == CONF_SYSTOLIC:
+                values = {FIELD_SYSTOLIC: value, FIELD_DIASTOLIC: other_value}
+                readings.append((values, moment))
+            else:
+                values = {FIELD_SYSTOLIC: other_value, FIELD_DIASTOLIC: value}
+                readings.append((values, other_moment))
+        return readings
 
     # --- The answer -------------------------------------------------------------------
 

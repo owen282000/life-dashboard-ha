@@ -8,8 +8,10 @@ recognised and a second press changes nothing.
 import json
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import patch
 
 import pytest
+import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.core_config import async_process_ha_core_config
 from homeassistant.exceptions import ServiceValidationError
@@ -81,10 +83,12 @@ async def _recorded(hass: HomeAssistant) -> None:
     await async_wait_recording_done(hass)
 
 
-async def _ask(client, types=("weight",), *, ack=None) -> dict:
+async def _ask(client, types=("weight",), *, ack=None, failed=None) -> dict:
     block: dict = {"protocol": 1, "types": list(types), "history": True}
     if ack is not None:
         block["ack"] = ack
+    if failed is not None:
+        block["failed"] = failed
     payload = {
         "timestamp": "2026-09-27T06:35:00Z",
         "app_version": "1.20.0",
@@ -113,7 +117,13 @@ async def amsterdam(hass: HomeAssistant, freezer) -> HomeAssistant:
 
 
 async def _three_weighings(hass: HomeAssistant, freezer) -> list[datetime]:
-    """Three mornings in the recorder, an hour past the day boundary each."""
+    """Three mornings in the recorder, an hour past the day boundary each.
+
+    The entity is created first, with the 0 a helper starts at: that row is the
+    creation state and no measurement, live or from the recorder.
+    """
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, WEIGHT, 0.0, "kg", device_class="weight")
     moments = []
     for day, value in enumerate((80.0, 80.5, 81.0)):
         moment = START - timedelta(days=3 - day) + timedelta(hours=1)
@@ -165,8 +175,6 @@ async def test_backfill_gives_the_same_ids_as_live_and_a_second_press_changes_no
     amsterdam: HomeAssistant, hass_client_no_auth, freezer
 ) -> None:
     hass = amsterdam
-    freezer.move_to(START - timedelta(days=4))
-    await _set(hass, WEIGHT, 79.0)
     await _load(hass, {"writeback": {"weight": {"entity": WEIGHT}}})
     moments = await _three_weighings(hass, freezer)
 
@@ -177,15 +185,16 @@ async def test_backfill_gives_the_same_ids_as_live_and_a_second_press_changes_no
     for _ in range(2):
         await hass.services.async_call("button", "press", {"entity_id": BUTTON}, blocking=True)
         await hass.async_block_till_done()
-    pending = (await _ask(client))["pending"]
-    # The three live readings are recognised; only the weighing from before the
-    # mapping existed is new, and once.
-    assert pending[1:] == live
-    assert pending[0]["id"] == _id(WEIGHT, START - timedelta(days=4))
-    assert pending[0]["kilograms"] == 79.0
+    # The three live readings are recognised, and the creation state is no reading.
+    assert (await _ask(client))["pending"] == live
 
-    # Also after the phone confirmed them: a delivered reading is not queued again.
-    await _ask(client, ack=[r["id"] for r in pending])
+    # Also after the phone confirmed two and refused one for good: neither a
+    # delivered nor a refused reading is queued again.
+    await _ask(
+        client,
+        ack=[r["id"] for r in live[:2]],
+        failed=[{"id": live[2]["id"], "code": "permission_denied"}],
+    )
     await hass.services.async_call("button", "press", {"entity_id": BUTTON}, blocking=True)
     await hass.async_block_till_done()
     assert (await _ask(client))["pending"] == []
@@ -250,11 +259,82 @@ async def test_the_service_needs_to_know_which_phone(amsterdam: HomeAssistant) -
     assert refused.value.translation_key == "phone_not_loaded"
 
 
-async def test_the_service_refuses_a_window_out_of_range(amsterdam: HomeAssistant) -> None:
+async def test_the_window_is_at_most_what_the_queue_keeps(amsterdam: HomeAssistant) -> None:
+    """Ninety days: anything older would be pruned at the next answer anyway."""
     hass = amsterdam
+    entry = await _load(hass, {"writeback": {"weight": {"entity": WEIGHT}}})
+    await hass.services.async_call(DOMAIN, "queue_history", {"days": 90}, blocking=True)
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(DOMAIN, "queue_history", {"days": 91}, blocking=True)
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(DOMAIN, "queue_history", {"days": 0}, blocking=True)
+    # The manager clamps a window handed to it directly, too.
+    with patch(
+        "homeassistant.components.recorder.history.state_changes_during_period", return_value={}
+    ) as read:
+        await entry.runtime_data.writeback.async_queue_history(days=200)
+    start = read.call_args.args[1]
+    assert (read.call_args.args[2] - start).days == 90
+
+
+async def test_the_newest_rows_count_when_there_are_too_many(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """A limit in the recorder's query would take the oldest rows; ours takes the newest."""
+    hass = amsterdam
+    moments = await _three_weighings(hass, freezer)
     await _load(hass, {"writeback": {"weight": {"entity": WEIGHT}}})
-    with pytest.raises(Exception, match="days"):
-        await hass.services.async_call(DOMAIN, "queue_history", {"days": 400}, blocking=True)
+    with patch("custom_components.life_dashboard.writeback.BACKFILL_MAX_PER_ENTITY", 2):
+        await hass.services.async_call(DOMAIN, "queue_history", {}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client))["pending"]
+    assert [r["id"] for r in pending] == [_id(WEIGHT, moment) for moment in moments[1:]]
+
+
+async def test_the_creation_state_and_a_value_out_of_range_are_skipped(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer, caplog
+) -> None:
+    """A helper starts at 0, a scale integration may start at a placeholder."""
+    hass = amsterdam
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, WEIGHT, 75.0)  # a plausible creation state
+    freezer.move_to(START - timedelta(days=2))
+    await _set(hass, WEIGHT, 0.0)  # what the app refuses as out_of_range
+    freezer.move_to(START - timedelta(days=1))
+    await _set(hass, WEIGHT, 81.0)
+    await _recorded(hass)
+    freezer.move_to(START)
+    await _load(hass, {"writeback": {"weight": {"entity": WEIGHT}}})
+
+    await hass.services.async_call(DOMAIN, "queue_history", {}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client))["pending"]
+    assert [r["kilograms"] for r in pending] == [81.0]
+    assert "Queued 1 readings" in caplog.text
+    assert not [r for r in caplog.records if r.levelname == "WARNING" and "range" in r.message]
+
+
+async def test_the_first_change_counts_when_the_entity_existed_before_the_window(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    hass = amsterdam
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, WEIGHT, 75.0)
+    freezer.move_to(START - timedelta(days=1))
+    await _set(hass, WEIGHT, 81.0)
+    await _recorded(hass)
+    freezer.move_to(START)
+    await _load(hass, {"writeback": {"weight": {"entity": WEIGHT}}})
+
+    # A two-day window: the state from three days ago is what the entity held when the
+    # window opened, so the change inside it is the first reading, not the creation.
+    await hass.services.async_call(DOMAIN, "queue_history", {"days": 2}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client))["pending"]
+    assert [r["kilograms"] for r in pending] == [81.0]
 
 
 # --- The same assembly as live ----------------------------------------------------
@@ -264,6 +344,9 @@ async def test_blood_pressure_pairs_from_the_recorder(
     amsterdam: HomeAssistant, hass_client_no_auth, freezer
 ) -> None:
     hass = amsterdam
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, SYSTOLIC, 0, "mmHg")
+    await _set(hass, DIASTOLIC, 0, "mmHg")
     readings = ((128, 82), (131, 84))
     moments = []
     for day, (systolic, diastolic) in enumerate(readings):
@@ -272,7 +355,8 @@ async def test_blood_pressure_pairs_from_the_recorder(
         freezer.tick(timedelta(seconds=10))
         await _set(hass, DIASTOLIC, diastolic, "mmHg")
         moments.append(START - timedelta(days=2 - day))
-    # A lone systolic change with no diastolic near it belongs to nothing.
+    # A systolic change on its own: the diastolic did not change, so the recorder has
+    # no row for it, and the reading takes the last known diastolic.
     freezer.move_to(START - timedelta(hours=5))
     await _set(hass, SYSTOLIC, 140, "mmHg")
     await _recorded(hass)
@@ -298,15 +382,47 @@ async def test_blood_pressure_pairs_from_the_recorder(
     assert [(r["id"], r["systolic"], r["diastolic"]) for r in pending] == [
         (_id(SYSTOLIC, moments[0]), 128.0, 82.0),
         (_id(SYSTOLIC, moments[1]), 131.0, 84.0),
+        (_id(SYSTOLIC, START - timedelta(hours=5)), 140.0, 84.0),
     ]
     assert pending[0]["body_position"] == "sitting_down"
     assert pending[0]["recording_method"] == "active"
+
+
+async def test_a_half_takes_its_value_from_before_the_window(
+    amsterdam: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """Yesterday 128/82, today 131/82: the recorder has no diastolic row today."""
+    hass = amsterdam
+    freezer.move_to(START - timedelta(days=3))
+    await _set(hass, SYSTOLIC, 128, "mmHg")
+    await _set(hass, DIASTOLIC, 82, "mmHg")
+    freezer.move_to(START - timedelta(days=1))
+    await _set(hass, SYSTOLIC, 131, "mmHg")
+    freezer.move_to(START - timedelta(hours=3))
+    await _set(hass, DIASTOLIC, 79, "mmHg")
+    await _recorded(hass)
+    freezer.move_to(START)
+    await _load(
+        hass, {"writeback": {"blood_pressure": {"systolic": SYSTOLIC, "diastolic": DIASTOLIC}}}
+    )
+
+    await hass.services.async_call(DOMAIN, "queue_history", {"days": 2}, blocking=True)
+    await hass.async_block_till_done()
+    client = await hass_client_no_auth()
+    pending = (await _ask(client, types=["blood_pressure"]))["pending"]
+    assert [(r["id"], r["systolic"], r["diastolic"]) for r in pending] == [
+        (_id(SYSTOLIC, START - timedelta(days=1)), 131.0, 82.0),
+        (_id(SYSTOLIC, START - timedelta(hours=3)), 131.0, 79.0),
+    ]
 
 
 async def test_the_timestamp_entity_is_read_from_the_recorder_too(
     amsterdam: HomeAssistant, hass_client_no_auth, freezer
 ) -> None:
     hass = amsterdam
+    freezer.move_to(START - timedelta(days=2))
+    await _set(hass, WEIGHT, 0.0)
+    await _set(hass, WEIGHED_AT, "2026-09-25T06:00:00+00:00", None, device_class="timestamp")
     freezer.move_to(START - timedelta(days=1))
     await _set(hass, WEIGHT, 80.0)
     freezer.tick(timedelta(seconds=5))
