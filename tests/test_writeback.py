@@ -397,6 +397,25 @@ async def test_kilopascal_is_converted_to_mmhg(
     assert reading["diastolic"] == pytest.approx(81.8, abs=0.05)
 
 
+async def test_an_unchanged_diastolic_reported_again_pairs(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """The common case: systolic changed, diastolic did not, and the integration wrote
+    both again, so the diastolic is a report rather than a change."""
+    hass = hass_tz
+    await _set(hass, SYSTOLIC, 128, "mmHg")
+    await _set(hass, DIASTOLIC, 82, "mmHg")
+    await _load(hass, PRESSURE)
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, SYSTOLIC, 131, "mmHg")
+    await _set(hass, DIASTOLIC, 82, "mmHg")  # state_reported
+
+    client = await hass_client_no_auth()
+    pending = (await _ask(client, types=["blood_pressure"]))["pending"]
+    assert [(r["systolic"], r["diastolic"]) for r in pending] == [(131.0, 82.0)]
+    assert pending[0]["id"] == _id(SYSTOLIC, START + timedelta(minutes=1))
+
+
 async def test_half_a_blood_pressure_is_nothing(
     hass_tz: HomeAssistant, hass_client_no_auth, freezer
 ) -> None:
@@ -413,6 +432,107 @@ async def test_half_a_blood_pressure_is_nothing(
     freezer.tick(timedelta(minutes=2))
     await _set(hass, DIASTOLIC, 82, "mmHg")
     assert (await _ask(client, types=["blood_pressure"]))["pending"] == []
+
+
+# --- Units ------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("kind", "unit", "value", "field", "expected"),
+    [
+        ("weight", "st", 12.5, "kilograms", 79.3786),
+        ("weight", "oz", 2800.0, "kilograms", 79.3786),
+        ("weight", "g", 79378.6, "kilograms", 79.3786),
+        ("height", "in", 71.0, "meters", 1.8034),
+        ("height", "ft", 6.0, "meters", 1.8288),
+        ("height", "mm", 1803.0, "meters", 1.803),
+        ("lean_body_mass", "lb", 130.0, "kilograms", 58.967),
+        ("body_fat", "%", 21.4, "percentage", 21.4),
+    ],
+)
+async def test_every_unit_of_a_family_lands_in_health_connects(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer, kind, unit, value, field, expected
+) -> None:
+    hass = hass_tz
+    await _set(hass, WEIGHT, value - 1, unit)
+    await _load(hass, {"writeback": {kind: {"entity": WEIGHT}}})
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, WEIGHT, value, unit)
+    client = await hass_client_no_auth()
+    reading = (await _ask(client, types=[kind]))["pending"][0]
+    assert reading["type"] == kind
+    assert reading[field] == pytest.approx(expected, abs=0.001)
+
+
+async def test_hectopascal_is_a_pressure_unit_too(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    hass = hass_tz
+    await _set(hass, SYSTOLIC, 160.0, "hPa")
+    await _set(hass, DIASTOLIC, 100.0, "hPa")
+    await _load(hass, PRESSURE)
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, SYSTOLIC, 170.0, "hPa")
+    await _set(hass, DIASTOLIC, 109.0, "hPa")
+    client = await hass_client_no_auth()
+    reading = (await _ask(client, types=["blood_pressure"]))["pending"][0]
+    assert reading["systolic"] == pytest.approx(127.5, abs=0.05)
+    assert reading["diastolic"] == pytest.approx(81.8, abs=0.05)
+
+
+async def test_a_unit_that_changes_after_configuration_is_converted_per_event(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """Switching Home Assistant to imperial changes the state's unit; each event
+    is converted on the unit it carries, never on the one seen at configuration."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 80.0, "kg")
+    await _load(hass)
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, WEIGHT, 81.0, "kg")
+    freezer.tick(timedelta(hours=1))
+    await _set(hass, WEIGHT, 180.0, "lb")
+    client = await hass_client_no_auth()
+    pending = (await _ask(client))["pending"]
+    assert [r["kilograms"] for r in pending] == [81.0, pytest.approx(81.6466, abs=0.001)]
+
+
+async def test_percent_is_taken_literally_only(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer, caplog
+) -> None:
+    """Body fat needs the % sign; "percent" or a mass unit is not a percentage."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 20.0, "percent")
+    await _load(hass, {"writeback": {"body_fat": {"entity": WEIGHT}}})
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, WEIGHT, 21.0, "percent")
+    client = await hass_client_no_auth()
+    assert (await _ask(client, types=["body_fat"]))["pending"] == []
+    assert any("not a percentage unit" in message for message in _our_warnings(caplog))
+
+
+async def test_a_zero_or_a_nan_state_makes_no_reading(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """A scale that resets to 0, a template that fails to nan: no record, no broken answer."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 80.0)
+    await _load(hass)
+    for value in ("0", "0.0", "nan", "inf", "-inf", "1e400", "600"):
+        freezer.tick(timedelta(minutes=1))
+        await _set(hass, WEIGHT, value)
+    client = await hass_client_no_auth()
+    response = await _post(
+        client,
+        {
+            "timestamp": "2026-09-27T06:45:00Z",
+            "source": "health_connect",
+            "writeback": {"protocol": 1, "types": ["weight"]},
+        },
+    )
+    raw = await response.read()
+    assert b"NaN" not in raw and b"Infinity" not in raw
+    assert json.loads(raw)["writeback"]["pending"] == []
 
 
 # --- The measured moment --------------------------------------------------------------
