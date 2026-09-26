@@ -113,6 +113,12 @@ def _id(entity_id: str, moment: datetime) -> str:
     return f"{entity_id}@{epoch_ms(moment)}"
 
 
+def loaded_queue(hass: HomeAssistant):
+    """The queue of the one entry, for looking before the phone asks."""
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    return entry.runtime_data.writeback.queue
+
+
 def _our_warnings(caplog) -> list[str]:
     return [
         record.message
@@ -445,12 +451,12 @@ async def test_a_timestamp_that_follows_its_value_moves_the_reading(
     # Yesterday's timestamp is well outside the window when the weight arrives.
     freezer.tick(timedelta(minutes=5))
     await _set(hass, WEIGHT, 81.0)
-    client = await hass_client_no_auth()
-    provisional = (await _ask(client))["pending"][0]
-    assert provisional["time_source"] == "state"
+    provisional = _id(WEIGHT, START + timedelta(minutes=5))
+    assert provisional in loaded_queue(hass).pending
 
     freezer.tick(timedelta(seconds=3))
     await _set(hass, WEIGHED_AT, "2026-09-27T06:30:40+00:00", None, device_class="timestamp")
+    client = await hass_client_no_auth()
     pending = (await _ask(client))["pending"]
     assert [r["id"] for r in pending] == [_id(WEIGHT, datetime(2026, 9, 27, 6, 30, 40, tzinfo=UTC))]
     assert "time_source" not in pending[0]
@@ -459,6 +465,25 @@ async def test_a_timestamp_that_follows_its_value_moves_the_reading(
     freezer.tick(timedelta(minutes=5))
     await _set(hass, WEIGHED_AT, "2026-09-27T06:36:00+00:00", None, device_class="timestamp")
     assert [r["id"] for r in (await _ask(client))["pending"]] == [pending[0]["id"]]
+
+
+async def test_a_reading_the_phone_has_seen_does_not_move(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """Once offered, the id may be written on the phone; moving it would double it."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 80.0)
+    await _set(hass, WEIGHED_AT, "2026-09-26T21:00:00+00:00", None, device_class="timestamp")
+    await _load(hass, TIMED)
+    freezer.tick(timedelta(minutes=5))
+    await _set(hass, WEIGHT, 81.0)
+    client = await hass_client_no_auth()
+    offered = (await _ask(client))["pending"][0]
+    assert offered["time_source"] == "state"
+
+    freezer.tick(timedelta(seconds=3))
+    await _set(hass, WEIGHED_AT, "2026-09-27T06:30:40+00:00", None, device_class="timestamp")
+    assert (await _ask(client))["pending"] == [offered]
 
 
 async def test_a_stale_timestamp_entity_falls_back_to_last_changed(
@@ -533,6 +558,31 @@ async def test_an_input_number_is_a_manual_entry(
     assert reading["meters"] == pytest.approx(1.81)
     assert reading["recording_method"] == "manual"
     assert "device" not in reading
+
+
+async def test_removing_a_mapping_drops_its_pending_readings(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """The way out of a queue stuck on one type: take the mapping away."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 80.0)
+    await _set(hass, SYSTOLIC, 120, "mmHg")
+    await _set(hass, DIASTOLIC, 80, "mmHg")
+    entry = await _load(hass, {"writeback": {**WEIGHT_ONLY["writeback"], **PRESSURE["writeback"]}})
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, WEIGHT, 81.0)
+    await _set(hass, SYSTOLIC, 128, "mmHg")
+    await _set(hass, DIASTOLIC, 82, "mmHg")
+    client = await hass_client_no_auth()
+    assert len((await _ask(client, types=["weight", "blood_pressure"]))["pending"]) == 2
+
+    hass.config_entries.async_update_entry(entry, options=PRESSURE)
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    answer = await _ask(client, types=["weight", "blood_pressure"])
+    assert answer["configured"] == ["blood_pressure"]
+    assert [r["type"] for r in answer["pending"]] == ["blood_pressure"]
 
 
 # --- Two phones -------------------------------------------------------------------------

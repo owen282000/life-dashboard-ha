@@ -21,6 +21,8 @@ The facts the design rests on:
   a night's silence is a new one.
 - The phone answers with ids and codes only, never with a value, and the codes form
   a closed set: some mean "do not offer this again", the rest "try again next time".
+  An answer is about the version that was offered: a reading corrected between the
+  offer and the answer stays in the queue with its higher version.
 
 Nothing here imports from Home Assistant, so the whole of it is tested on its own;
 writeback.py is the thin layer that listens to states and talks to the store.
@@ -30,11 +32,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import math
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from .payload import format_instant, parse_instant
+
+_LOGGER = logging.getLogger(__name__)
 
 # The types of phase 1, in the order the phone shows them. Each is a Health Connect
 # record the app can write; BMI, muscle mass and visceral fat are not offered because
@@ -132,6 +138,9 @@ DEBOUNCE: Final = timedelta(minutes=10)
 MAX_AGE: Final = timedelta(days=90)
 MAX_PER_ENTITY: Final = 500
 PAGE_SIZE: Final = 200
+#: The serialised readings of a page stay under this, well inside the 256 KiB the app
+#: accepts for the whole body.
+PAGE_BYTES: Final = 200_000
 DELIVERED_MAX: Final = 2000
 
 _EPOCH: Final = datetime(1970, 1, 1, tzinfo=UTC)
@@ -193,6 +202,14 @@ class Reading:
     device: dict[str, str] | None = None
     time_source: str | None = None
     extra: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # A NaN or an infinity would serialise as a token that is not JSON, and the
+        # phone would then reject every answer that carries it, for as long as it
+        # stays in the queue. So it never gets in.
+        for name, value in self.values.items():
+            if not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise ValueError(f"{name} is not a finite number")
 
     def to_wire(self) -> dict[str, Any]:
         """The reading as the phone reads it (section 4.3 of the protocol)."""
@@ -278,13 +295,17 @@ class WritebackQueue:
     """Everything one phone's queue remembers.
 
     pending: id -> the reading, until the phone confirms it or refuses it for good.
+    offered: id -> the version the last page carried, which is what an answer is about.
     delivered: id -> version, type, moment and value fingerprint, so a re-offer of a
-    confirmed reading is recognised without keeping its value around.
+    confirmed reading is recognised without keeping its value around. A reading the
+    phone refused for good is here too, with its code: it is not offered again with
+    the same value, not even by the backfill; a corrected value is a new version.
     seen: entity -> the last accepted measurement, for the debounce.
     refused: type -> the code that earned it a repair issue, until an ack clears it.
     """
 
     pending: dict[str, Reading] = field(default_factory=dict)
+    offered: dict[str, int] = field(default_factory=dict)
     delivered: dict[str, dict[str, Any]] = field(default_factory=dict)
     seen: dict[str, _Seen] = field(default_factory=dict)
     refused: dict[str, str] = field(default_factory=dict)
@@ -299,10 +320,12 @@ class WritebackQueue:
 
         None when it is the measurement the queue already knows: the same value within
         the debounce of the last time it was seen for that entity, or an id already
-        pending or delivered with the same value. A different value on an id that is
-        known is a correction and comes back with the next version. Anything else is
-        version 1.
+        pending, delivered or refused with the same value. A different value on an id
+        that is known is a correction and comes back with the next version. Anything
+        else is version 1.
         """
+        if not all(math.isfinite(value) for value in reading.values.values()):
+            return None
         last = self.seen.get(reading.entity_id)
         if (
             last is not None
@@ -312,7 +335,10 @@ class WritebackQueue:
             # The window slides: a value reported every few minutes stays one reading.
             last.time = reading.time
             return None
+        return self._place(reading)
 
+    def _place(self, reading: Reading) -> Reading | None:
+        """Put a reading in pending under the version rule, or recognise it."""
         if (existing := self.pending.get(reading.id)) is not None:
             if existing.values == reading.values:
                 self._note_seen(reading)
@@ -332,15 +358,21 @@ class WritebackQueue:
         return stored
 
     def rekey(self, old_id: str, measured_at: datetime) -> Reading | None:
-        """Move a pending reading to another measured moment, as version 1 of that id.
+        """Move a pending reading to another measured moment.
 
         For the timestamp entity that updates just after the value it belongs to: the
         reading was queued on last_changed, and the better moment arrived seconds
-        later. Only a pending reading moves; a delivered one is the phone's already.
+        later. Only a reading the phone has not seen moves: one that was offered may
+        already be written under its id, and moving it would make a second record.
+        The new id follows the same version rule as a fresh offer, so it never
+        overwrites a version the phone already has.
         """
-        reading = self.pending.pop(old_id, None)
+        if old_id in self.offered:
+            return None
+        reading = self.pending.get(old_id)
         if reading is None:
             return None
+        del self.pending[old_id]
         moved = replace(
             reading,
             id=reading_id(reading.entity_id, measured_at),
@@ -348,11 +380,10 @@ class WritebackQueue:
             time=measured_at,
             time_source=None,
         )
-        self.pending[moved.id] = moved
         seen = self.seen.get(moved.entity_id)
         if seen is not None and seen.time == reading.time:
             seen.time = measured_at
-        return moved
+        return self._place(moved)
 
     def _note_seen(self, reading: Reading) -> None:
         """Remember the newest measurement per entity; a backfill never moves it back."""
@@ -363,20 +394,28 @@ class WritebackQueue:
     # --- What the phone said -----------------------------------------------------
 
     def ack(self, ids: list[Any], now: datetime) -> list[Reading]:
-        """Take the ids the phone wrote; they leave pending for delivered."""
+        """Take the ids the phone wrote; the offered version leaves pending for delivered.
+
+        A reading corrected since it was offered stays pending with its higher
+        version: the phone wrote the older one, and the correction still has to go.
+        """
         acked: list[Reading] = []
         for raw in ids:
             if not isinstance(raw, str):
                 continue
-            reading = self.pending.pop(raw, None)
+            reading = self.pending.get(raw)
             if reading is None:
                 continue
-            self.delivered[raw] = {
-                "v": reading.version,
+            version = self.offered.pop(raw, reading.version)
+            done: dict[str, Any] = {
+                "v": version,
                 "t": reading.type,
                 "at": now.astimezone(UTC).isoformat(),
-                "h": _values_hash(reading.values),
             }
+            if version >= reading.version:
+                del self.pending[raw]
+                done["h"] = _values_hash(reading.values)
+            self.delivered[raw] = done
             self.refused.pop(reading.type, None)
             acked.append(reading)
         if acked:
@@ -387,10 +426,12 @@ class WritebackQueue:
     def fail(self, entries: list[Any]) -> list[Failure]:
         """Take the ids the phone refused, with their codes.
 
-        A permanent code takes the reading out of pending; a transient one leaves it
-        for the next round. A code outside the set is treated as transient: an app
-        newer than this integration may have a reason we do not know, and offering
-        the reading again is bounded by the age limit, whereas dropping it is not.
+        A permanent code takes the offered version out of pending and remembers it,
+        so the same value is not offered again, not even by the backfill; a
+        transient one leaves it for the next round. A code outside the set is
+        treated as transient: an app newer than this integration may have a reason we
+        do not know, and offering the reading again is bounded by the age limit,
+        whereas dropping it is not.
         """
         failures: list[Failure] = []
         for entry in entries:
@@ -406,7 +447,16 @@ class WritebackQueue:
                 continue
             permanent = code in PERMANENT_CODES
             if permanent:
-                del self.pending[entry["id"]]
+                version = self.offered.pop(entry["id"], reading.version)
+                if version >= reading.version:
+                    del self.pending[entry["id"]]
+                    self.delivered[entry["id"]] = {
+                        "v": version,
+                        "t": reading.type,
+                        "at": reading.time.astimezone(UTC).isoformat(),
+                        "h": _values_hash(reading.values),
+                        "code": code,
+                    }
                 if code in REPAIR_CODES:
                     self.refused[reading.type] = code
             failures.append(Failure(entry["id"], code, reading, permanent))
@@ -444,17 +494,48 @@ class WritebackQueue:
             for key in ordered[: len(self.delivered) - DELIVERED_MAX]:
                 del self.delivered[key]
 
-    def page(self, types: list[Any], *, limit: int = PAGE_SIZE) -> tuple[list[Reading], bool]:
+        for key in [key for key in self.offered if key not in self.pending]:
+            del self.offered[key]
+
+    def clear_type(self, kind: str) -> int:
+        """Drop the pending readings of a type, for a mapping that was removed.
+
+        Without this a reading of a type nobody maps any more would stay at the front
+        of every page for ninety days; with it, taking a mapping away is the way out
+        of a queue that got stuck. Delivered ids stay, so a mapping put back does not
+        re-offer what the phone has.
+        """
+        gone = [key for key, reading in self.pending.items() if reading.type == kind]
+        for key in gone:
+            del self.pending[key]
+            self.offered.pop(key, None)
+        return len(gone)
+
+    def page(
+        self, types: list[Any], *, limit: int = PAGE_SIZE, byte_budget: int = PAGE_BYTES
+    ) -> tuple[list[Reading], bool]:
         """The readings for one answer: the oldest first, only the types asked for.
 
-        The second value says whether more are waiting, so the phone asks again.
+        At most `limit` readings and about `byte_budget` bytes of them serialised,
+        whichever comes first; the second value says whether more are waiting, so the
+        phone asks again. What goes out is remembered per id with its version, which
+        is what the phone's ack or refusal will be about.
         """
         wanted = {kind for kind in types if isinstance(kind, str)}
         matching = sorted(
             (r for r in self.pending.values() if r.type in wanted),
             key=lambda r: (r.time, r.id),
         )
-        return matching[:limit], len(matching) > limit
+        chosen: list[Reading] = []
+        size = 0
+        for reading in matching:
+            size += len(json.dumps(reading.to_wire(), separators=(",", ":"))) + 1
+            if len(chosen) >= limit or (chosen and size > byte_budget):
+                break
+            chosen.append(reading)
+        for reading in chosen:
+            self.offered[reading.id] = reading.version
+        return chosen, len(chosen) < len(matching)
 
     # --- Persistence and diagnostics ------------------------------------------------
 
@@ -464,12 +545,16 @@ class WritebackQueue:
         for reading in self.pending.values():
             pending[reading.type] = pending.get(reading.type, 0) + 1
         delivered: dict[str, int] = {}
+        dropped: dict[str, int] = {}
         for done in self.delivered.values():
             kind = str(done.get("t", "?"))
-            delivered[kind] = delivered.get(kind, 0) + 1
+            bucket = dropped if done.get("code") else delivered
+            bucket[kind] = bucket.get(kind, 0) + 1
         return {
             "pending": dict(sorted(pending.items())),
+            "offered": len(self.offered),
             "delivered": dict(sorted(delivered.items())),
+            "dropped": dict(sorted(dropped.items())),
             "acked_total": self.acked_total,
             "failed": dict(sorted(self.failed_total.items())),
             "last_ack_at": self.last_ack_at.isoformat() if self.last_ack_at else None,
@@ -479,6 +564,7 @@ class WritebackQueue:
     def to_dict(self) -> dict[str, Any]:
         return {
             "pending": {key: reading.to_dict() for key, reading in self.pending.items()},
+            "offered": dict(self.offered),
             "delivered": dict(self.delivered),
             "seen": {
                 entity_id: {"values": seen.values, "time": seen.time.astimezone(UTC).isoformat()}
@@ -498,8 +584,14 @@ class WritebackQueue:
         for key, raw in (data.get("pending") or {}).items():
             try:
                 queue.pending[key] = Reading.from_dict(raw)
-            except (KeyError, TypeError, ValueError):
+            except (KeyError, TypeError, ValueError) as err:
+                _LOGGER.debug("Dropped an unreadable pending reading %s: %s", key, err)
                 continue
+        queue.offered = {
+            key: int(version)
+            for key, version in (data.get("offered") or {}).items()
+            if key in queue.pending and isinstance(version, int)
+        }
         queue.delivered = {
             key: dict(value)
             for key, value in (data.get("delivered") or {}).items()
@@ -540,6 +632,7 @@ __all__ = [
     "MAX_AGE",
     "MAX_PER_ENTITY",
     "MEASUREMENT_LOCATIONS",
+    "PAGE_BYTES",
     "PAGE_SIZE",
     "PERMANENT_CODES",
     "REPAIR_CODES",

@@ -15,6 +15,7 @@ from custom_components.life_dashboard.writeback_queue import (
     DELIVERED_MAX,
     MAX_AGE,
     MAX_PER_ENTITY,
+    PAGE_BYTES,
     PAGE_SIZE,
     Reading,
     WritebackQueue,
@@ -212,9 +213,34 @@ def test_rekey_moves_a_pending_reading_to_the_better_moment() -> None:
     assert list(queue.pending) == [moved.id]
     # The debounce follows: the same value seconds later is still the same reading.
     assert queue.offer(_weight(81.35, T0 + timedelta(seconds=9))) is None
-    # A delivered reading is the phone's; it does not move.
+    # A reading the phone has seen does not move: it may be written under that id.
+    queue.page(["weight"])
+    assert queue.rekey(moved.id, late) is None
+    assert list(queue.pending) == [moved.id]
     queue.ack([moved.id], NOW)
     assert queue.rekey(moved.id, late) is None
+
+
+def test_rekey_follows_the_version_rule_on_the_new_id() -> None:
+    """The target id may already exist, pending or delivered; it is never overwritten."""
+    queue = WritebackQueue()
+    # Delivered with the same value: the moved reading is what the phone has.
+    done = queue.offer(_weight(81.35))
+    queue.page(["weight"])
+    queue.ack([done.id], NOW)
+    provisional = queue.offer(_weight(81.35, T0 + timedelta(hours=1)))
+    assert queue.rekey(provisional.id, T0) is None
+    assert queue.pending == {}
+    # Delivered with another value: a correction, version 2.
+    provisional = queue.offer(_weight(81.5, T0 + timedelta(hours=2)))
+    moved = queue.rekey(provisional.id, T0)
+    assert moved.id == done.id
+    assert moved.version == 2
+    # Pending with another value: also a correction of that pending reading.
+    provisional = queue.offer(_weight(81.7, T0 + timedelta(hours=3)))
+    moved = queue.rekey(provisional.id, T0)
+    assert moved.version == 3
+    assert list(queue.pending) == [done.id]
 
 
 # --- What the phone said --------------------------------------------------------
@@ -232,6 +258,61 @@ def test_ack_moves_a_reading_to_delivered() -> None:
     assert queue.last_ack_at == NOW
     # No value survives in the delivered record.
     assert "81.35" not in str(queue.delivered)
+
+
+def test_an_ack_is_about_the_offered_version() -> None:
+    """A correction between the offer and the ack must still reach the phone."""
+    queue = WritebackQueue()
+    first = queue.offer(_weight(81.0))
+    page, _ = queue.page(["weight"])
+    assert [r.version for r in page] == [1]
+    corrected = queue.offer(_weight(81.2))
+    assert corrected.version == 2
+
+    acked = queue.ack([first.id], NOW)
+    assert [r.id for r in acked] == [first.id]
+    # Version 1 is delivered; version 2 still waits.
+    assert queue.delivered[first.id]["v"] == 1
+    assert "h" not in queue.delivered[first.id]
+    assert queue.pending[first.id].version == 2
+    assert queue.offered == {}
+
+    page, _ = queue.page(["weight"])
+    assert [r.version for r in page] == [2]
+    queue.ack([first.id], NOW)
+    assert queue.pending == {}
+    assert queue.delivered[first.id]["v"] == 2
+    # And the same value again is recognised as delivered.
+    assert queue.offer(_weight(81.2)) is None
+
+
+def test_a_permanent_failure_is_about_the_offered_version_too() -> None:
+    queue = WritebackQueue()
+    first = queue.offer(_weight(81.0))
+    queue.page(["weight"])
+    queue.offer(_weight(81.2))
+    failures = queue.fail([{"id": first.id, "code": "out_of_range"}])
+    assert failures[0].permanent
+    assert queue.pending[first.id].version == 2
+    assert first.id not in queue.delivered
+
+
+def test_a_refused_reading_is_not_offered_again_with_the_same_value() -> None:
+    """The backfill offers the recorder's past again; a refusal must hold."""
+    queue = WritebackQueue()
+    reading = queue.offer(_weight(83.1))
+    queue.page(["weight"])
+    queue.fail([{"id": reading.id, "code": "permission_denied"}])
+    assert queue.pending == {}
+    assert queue.delivered[reading.id]["code"] == "permission_denied"
+    assert "83.1" not in str(queue.delivered)
+
+    assert queue.offer(_weight(83.1)) is None
+    assert queue.pending == {}
+    # A corrected value is a new version and goes.
+    again = queue.offer(_weight(83.3))
+    assert again.version == 2
+    assert queue.counts()["dropped"] == {"weight": 1}
 
 
 def test_a_permanent_failure_leaves_the_queue() -> None:
@@ -318,6 +399,48 @@ def test_an_entity_keeps_at_most_the_cap_oldest_out_first() -> None:
     assert any(r.entity_id == "sensor.partner_weight" for r in queue.pending.values())
 
 
+def test_readings_of_a_removed_mapping_are_dropped() -> None:
+    queue = WritebackQueue()
+    queue.offer(_weight(81.35))
+    queue.offer(_weight(82.0, T0 + timedelta(days=1)))
+    queue.page(["weight"])
+    queue.offer(_pressure(128.0, 82.0))
+    assert queue.clear_type("weight") == 2
+    assert [r.type for r in queue.pending.values()] == ["blood_pressure"]
+    assert queue.offered == {}
+    assert queue.clear_type("weight") == 0
+
+
+def test_a_page_stays_under_the_byte_budget() -> None:
+    queue = WritebackQueue()
+    long_id = "sensor." + "x" * 900
+    for i in range(20):
+        queue.offer(_weight(70.0 + i, T0 + timedelta(minutes=15 * i), entity_id=long_id))
+    page, more = queue.page(["weight"], byte_budget=5000)
+    assert 0 < len(page) < 20
+    assert more is True
+    assert sum(len(str(r.to_wire())) for r in page) < 5000 + 1200
+    # The default budget fits a full page of ordinary readings.
+    assert PAGE_BYTES > PAGE_SIZE * 400
+
+
+def test_a_non_finite_value_never_gets_in() -> None:
+    queue = WritebackQueue()
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError):
+            _weight(bad)
+    # A reading built around the check is still refused by the queue.
+    reading = _weight(81.35)
+    object.__setattr__(reading, "values", {"kilograms": float("nan")})
+    assert queue.offer(reading) is None
+    assert queue.pending == {}
+    # And one that got into a store is dropped when reading it back, with a debug line.
+    restored = WritebackQueue.from_dict(
+        {"pending": {reading.id: {**_weight(81.35).to_dict(), "kilograms": float("inf")}}}
+    )
+    assert restored.pending == {}
+
+
 def test_delivered_is_a_ring() -> None:
     queue = WritebackQueue()
     start = NOW - timedelta(days=60)
@@ -361,8 +484,11 @@ def test_the_queue_survives_a_round_trip() -> None:
     queue.ack([done.id], NOW)
     queue.fail([{"id": weight.id, "code": "rate_limited"}])
 
+    queue.page(["weight"])
+
     restored = WritebackQueue.from_dict(queue.to_dict())
     assert restored.pending == {weight.id: weight, pressure.id: pressure}
+    assert restored.offered == {weight.id: 1}
     assert restored.delivered == queue.delivered
     assert restored.acked_total == 1
     assert restored.failed_total == {"rate_limited": 1}
@@ -373,13 +499,19 @@ def test_the_queue_survives_a_round_trip() -> None:
     assert restored.offer(_weight(80.0, T0 - timedelta(days=1))) is None
 
 
-def test_a_broken_store_is_not_fatal() -> None:
+def test_a_broken_store_is_not_fatal(caplog) -> None:
     assert WritebackQueue.from_dict(None).pending == {}
     restored = WritebackQueue.from_dict(
-        {"pending": {"x": {"type": "weight"}}, "seen": {"sensor.x": {"time": "bad"}}}
+        {
+            "pending": {"x": {"type": "weight"}},
+            "offered": {"x": 1, "y": 2},
+            "seen": {"sensor.x": {"time": "bad"}},
+        }
     )
     assert restored.pending == {}
+    assert restored.offered == {}
     assert restored.seen == {}
+    assert "Dropped an unreadable pending reading x" in caplog.text
 
 
 def test_counts_carry_no_value_and_no_moment_of_a_pending_reading() -> None:
@@ -390,7 +522,9 @@ def test_counts_carry_no_value_and_no_moment_of_a_pending_reading() -> None:
     counts = queue.counts()
     assert counts == {
         "pending": {"weight": 1},
+        "offered": 0,
         "delivered": {"blood_pressure": 1},
+        "dropped": {},
         "acked_total": 1,
         "failed": {},
         "last_ack_at": NOW.isoformat(),

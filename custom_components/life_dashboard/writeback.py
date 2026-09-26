@@ -287,7 +287,20 @@ class WritebackManager:
 
     @callback
     def async_start(self) -> None:
-        """Listen to the mapped entities, changed and reported alike."""
+        """Listen to the mapped entities, changed and reported alike.
+
+        A type whose mapping is gone loses its pending readings first: taking a
+        mapping away is the way out of a queue that got stuck on one.
+        """
+        for kind in {reading.type for reading in self.queue.pending.values()}:
+            if kind not in self.mappings and (gone := self.queue.clear_type(kind)):
+                _LOGGER.info(
+                    "Dropped %s pending %s readings for %s: the type is no longer mapped",
+                    gone,
+                    kind,
+                    self._entry.title,
+                )
+                self._save()
         self._seed()
         self._sync_issues()
         entity_ids = [*self._roles, *self._timed]
