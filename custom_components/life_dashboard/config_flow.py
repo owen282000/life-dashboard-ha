@@ -9,6 +9,10 @@ shows both so they can be pasted into the app.
 
 Signing is not a checkbox. An option to turn it off would only produce a worse
 default, and the user has nothing to do for it either way.
+
+The options flow is the other direction: which entities go to this phone, one slot
+per Health Connect type in a collapsed section, validated on the entity's unit when
+saved. Saving reloads the entry so the listeners are set again.
 """
 
 from __future__ import annotations
@@ -19,10 +23,24 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components import http, webhook
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_NAME
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
+from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.network import NoURLAvailableError, get_url
+from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 from yarl import URL
 
 from .const import (
@@ -38,6 +56,22 @@ from .const import (
     URL_CHOICE_URL,
 )
 from .pairing import by_hand_markup, layout_markup, pairing_url, qr_markup
+from .writeback import (
+    CONF_BODY_POSITION,
+    CONF_DIASTOLIC,
+    CONF_ENTITY,
+    CONF_MEASUREMENT_LOCATION,
+    CONF_SYSTOLIC,
+    CONF_TIME_ENTITY,
+    OPTION_WRITEBACK,
+    unit_error,
+)
+from .writeback_queue import (
+    BODY_POSITIONS,
+    MEASUREMENT_LOCATIONS,
+    TYPE_BLOOD_PRESSURE,
+    WRITEBACK_TYPES,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -209,6 +243,12 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> WritebackOptionsFlow:
+        """The options are the entities that go to this phone."""
+        return WritebackOptionsFlow()
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Add a phone: name it, confirm the address, hand back the URL and the secret."""
         errors: dict[str, str] = {}
@@ -318,4 +358,123 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders=_pairing_placeholders(current_url, entry.data[CONF_SECRET]),
+        )
+
+
+# --- Options: what goes to the phone --------------------------------------------
+
+_ROLES: dict[str, tuple[str, ...]] = {
+    kind: (CONF_SYSTOLIC, CONF_DIASTOLIC) if kind == TYPE_BLOOD_PRESSURE else (CONF_ENTITY,)
+    for kind in WRITEBACK_TYPES
+}
+
+
+@callback
+def _own_entities(hass: HomeAssistant, entry: ConfigEntry) -> list[str]:
+    """This phone's own sensors: mapping one of those would send its data back to it."""
+    return [
+        registry_entry.entity_id
+        for registry_entry in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+    ]
+
+
+def _options_schema(own: list[str]) -> vol.Schema:
+    """One collapsed section per type; entity pickers without a device class filter.
+
+    No device class filter on purpose: a scale integration's weight may carry none,
+    and a filter would hide exactly the entity the user came for. The unit is checked
+    when saving instead.
+    """
+    picker = EntitySelector(
+        EntitySelectorConfig(domain=["sensor", "number", "input_number"], exclude_entities=own)
+    )
+    time_picker = EntitySelector(EntitySelectorConfig(domain="sensor", device_class="timestamp"))
+    fields: dict[Any, Any] = {}
+    for kind in WRITEBACK_TYPES:
+        inner: dict[Any, Any] = {vol.Optional(role): picker for role in _ROLES[kind]}
+        inner[vol.Optional(CONF_TIME_ENTITY)] = time_picker
+        if kind == TYPE_BLOOD_PRESSURE:
+            inner[vol.Optional(CONF_BODY_POSITION, default=BODY_POSITIONS[0])] = SelectSelector(
+                SelectSelectorConfig(
+                    options=list(BODY_POSITIONS),
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key=CONF_BODY_POSITION,
+                )
+            )
+            inner[vol.Optional(CONF_MEASUREMENT_LOCATION, default=MEASUREMENT_LOCATIONS[0])] = (
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(MEASUREMENT_LOCATIONS),
+                        mode=SelectSelectorMode.DROPDOWN,
+                        translation_key=CONF_MEASUREMENT_LOCATION,
+                    )
+                )
+            )
+        fields[vol.Required(kind)] = section(vol.Schema(inner), {"collapsed": True})
+    return vol.Schema(fields)
+
+
+@callback
+def _entity_unit(hass: HomeAssistant, entity_id: str) -> str | None:
+    """The unit from the state, or from the registry for an entity without one."""
+    if (state := hass.states.get(entity_id)) is not None:
+        return state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+    registry_entry = er.async_get(hass).async_get(entity_id)
+    return registry_entry.unit_of_measurement if registry_entry else None
+
+
+@callback
+def _validate_mapping(
+    hass: HomeAssistant, user_input: dict[str, Any], own: list[str]
+) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
+    """The mapping to store, or the first error and the entity it is about."""
+    mapping: dict[str, Any] = {}
+    used: set[str] = set()
+    for kind in WRITEBACK_TYPES:
+        slots = user_input.get(kind) or {}
+        chosen = {role: slots[role] for role in _ROLES[kind] if slots.get(role)}
+        if not chosen:
+            continue
+        if len(chosen) < len(_ROLES[kind]):
+            return {}, {"base": "blood_pressure_incomplete"}, {}
+        for entity_id in chosen.values():
+            if entity_id in own:
+                return {}, {"base": "entity_is_own_sensor"}, {"entity": entity_id}
+            if entity_id in used:
+                return {}, {"base": "entity_twice"}, {"entity": entity_id}
+            if (error := unit_error(kind, _entity_unit(hass, entity_id))) is not None:
+                return {}, {"base": error}, {"entity": entity_id}
+            used.add(entity_id)
+        stored: dict[str, Any] = dict(chosen)
+        if slots.get(CONF_TIME_ENTITY):
+            stored[CONF_TIME_ENTITY] = slots[CONF_TIME_ENTITY]
+        if kind == TYPE_BLOOD_PRESSURE:
+            for name in (CONF_BODY_POSITION, CONF_MEASUREMENT_LOCATION):
+                if slots.get(name):
+                    stored[name] = slots[name]
+        mapping[kind] = stored
+    return mapping, {}, {}
+
+
+class WritebackOptionsFlow(OptionsFlowWithReload):
+    """Choose per type which entity goes to this phone."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        own = _own_entities(self.hass, self.config_entry)
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
+        if user_input is not None:
+            mapping, errors, placeholders = _validate_mapping(self.hass, user_input, own)
+            if not errors:
+                return self.async_create_entry(
+                    data={**self.config_entry.options, OPTION_WRITEBACK: mapping}
+                )
+
+        current = self.config_entry.options.get(OPTION_WRITEBACK)
+        suggested = user_input if user_input is not None else current
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(_options_schema(own), suggested),
+            errors=errors,
+            description_placeholders=placeholders,
         )
