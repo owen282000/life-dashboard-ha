@@ -170,6 +170,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.7.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.7.0
 [0.6.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.6.0
 [0.5.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.3
 [0.5.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.5.2
