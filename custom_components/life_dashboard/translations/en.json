@@ -135,5 +135,15 @@
         "name": "Last screen time sync"
       }
     }
+  },
+  "issues": {
+    "writeback_permission_denied": {
+      "title": "{phone} refuses {type} from Home Assistant",
+      "description": "The Life Dashboard Companion app on {phone} has no permission to write {type} to Health Connect. Open the app, go to Receive on the Health Connect tab and turn {type} on again to grant it. The readings that were refused are not offered again; use Send history to phone once the permission is granted."
+    },
+    "writeback_unsupported_type": {
+      "title": "{phone} does not know {type}",
+      "description": "The Life Dashboard Companion app on {phone} is too old to write {type} to Health Connect. Update the app. The readings that were refused are not offered again; use Send history to phone after the update."
+    }
   }
 }

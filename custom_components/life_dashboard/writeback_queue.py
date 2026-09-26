@@ -13,9 +13,12 @@ The facts the design rests on:
   what lets this queue offer a reading again after every kind of loss (an outbox
   dropped on the phone, a crash while writing, a reinstall) without an exchange of
   uuids.
-- A scale advertises the same reading for seconds, and Home Assistant reports an
-  unchanged state as an event of its own. The same value within ten minutes of the
-  previous measurement of an entity is therefore that measurement, not a new one.
+- A scale advertises the same reading for seconds, a polled integration writes an
+  unchanged value every few minutes, and Home Assistant reports an unchanged state as
+  an event of its own. The same value within ten minutes of the last time it was seen
+  is therefore that measurement, not a new one; the window slides with every report,
+  so a value that is polled all day stays one reading and a value that returns after
+  a night's silence is a new one.
 - The phone answers with ids and codes only, never with a value, and the codes form
   a closed set: some mean "do not offer this again", the rest "try again next time".
 
@@ -295,9 +298,10 @@ class WritebackQueue:
         """Take a measurement, and say what it became.
 
         None when it is the measurement the queue already knows: the same value within
-        the debounce of the previous one for that entity, or an id already pending or
-        delivered with the same value. A different value on an id that is known is a
-        correction and comes back with the next version. Anything else is version 1.
+        the debounce of the last time it was seen for that entity, or an id already
+        pending or delivered with the same value. A different value on an id that is
+        known is a correction and comes back with the next version. Anything else is
+        version 1.
         """
         last = self.seen.get(reading.entity_id)
         if (
@@ -305,6 +309,8 @@ class WritebackQueue:
             and last.values == reading.values
             and timedelta(0) <= reading.time - last.time <= DEBOUNCE
         ):
+            # The window slides: a value reported every few minutes stays one reading.
+            last.time = reading.time
             return None
 
         if (existing := self.pending.get(reading.id)) is not None:

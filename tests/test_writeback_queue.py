@@ -108,6 +108,17 @@ def test_the_same_value_within_the_debounce_is_the_same_measurement() -> None:
     assert len(queue.pending) == 1
 
 
+def test_the_debounce_slides_with_every_report() -> None:
+    """A polled integration writes the same value every five minutes all day long."""
+    queue = WritebackQueue()
+    assert queue.offer(_weight(81.35)) is not None
+    for minutes in range(5, 24 * 60, 5):
+        assert queue.offer(_weight(81.35, T0 + timedelta(minutes=minutes))) is None
+    assert len(queue.pending) == 1
+    # Silence for a night, then the same value: that is the next morning's weighing.
+    assert queue.offer(_weight(81.35, T0 + timedelta(days=2))) is not None
+
+
 def test_the_same_value_after_the_debounce_is_a_new_measurement() -> None:
     """Two identical morning weights on two days are two readings."""
     queue = WritebackQueue()

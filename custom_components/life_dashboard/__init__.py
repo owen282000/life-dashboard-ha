@@ -32,11 +32,12 @@ from .payload import (
     SIGNATURE_HEADER,
     SensorUpdate,
     parse_payload,
-    response_body,
     response_signature_for,
     verify_signature,
+    writeback_request,
 )
 from .statistics import HistoryWriter
+from .writeback import WritebackManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +63,8 @@ class LifeDashboardData:
     version: str = "0"
     #: The long-term statistics writer; None only before setup finished.
     history: HistoryWriter | None = None
+    #: The queue of measurements for the phone; None only before setup finished.
+    writeback: WritebackManager | None = None
 
     def apply(self, update: SensorUpdate) -> bool:
         """Record an update, unless it describes a moment we are already past.
@@ -87,6 +90,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     history = HistoryWriter(hass, entry)
     await history.async_load()
     entry.runtime_data.history = history
+    writeback = WritebackManager(hass, entry)
+    await writeback.async_load()
+    entry.runtime_data.writeback = writeback
+    writeback.async_start()
 
     webhook.async_register(
         hass,
@@ -107,6 +114,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntr
     """Unload a config entry."""
     if (history := entry.runtime_data.history) is not None:
         await history.async_flush()
+    if (writeback := entry.runtime_data.writeback) is not None:
+        await writeback.async_flush()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
@@ -130,8 +139,8 @@ def _make_handler(entry: LifeDashboardConfigEntry):
     permanent errors it logs without retrying, 200 means accepted.
 
     An accepted POST is answered with a signed JSON body: what this integration is,
-    and, for a phone that asked, the measurements waiting for it. The refusals carry
-    no body at all.
+    and, for a phone that asked, the measurements waiting for it (writeback.py). The
+    refusals carry no body at all.
     """
 
     async def handle(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
@@ -175,11 +184,10 @@ def _make_handler(entry: LifeDashboardConfigEntry):
             if runtime.history is not None:
                 runtime.history.async_apply(data)
 
-            answer = response_body(
-                version=runtime.version,
-                in_reply_to=signature or "",
-                issued_at=dt_util.utcnow(),
-                configured=[],
+            # What the phone confirmed and refused, then what waits for it. Same
+            # try: a bug here would otherwise cost the app an ack round as a 200.
+            answer = runtime.writeback.async_respond(
+                writeback_request(data), in_reply_to=signature or "", now=dt_util.utcnow()
             )
         except Exception:
             _LOGGER.exception("Could not read a payload for %s", entry.title)
