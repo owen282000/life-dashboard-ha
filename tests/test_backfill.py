@@ -313,7 +313,15 @@ async def test_the_creation_state_and_a_value_out_of_range_are_skipped(
     pending = (await _ask(client))["pending"]
     assert [r["kilograms"] for r in pending] == [81.0]
     assert "Queued 1 readings" in caplog.text
-    assert not [r for r in caplog.records if r.levelname == "WARNING" and "range" in r.message]
+    # Only the integration's own warnings: on Python 3.14 asyncio logs a slow-callback
+    # warning that quotes this test's name, which itself contains "range".
+    assert not [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING"
+        and r.name.startswith("custom_components.life_dashboard")
+        and "range" in r.getMessage()
+    ]
 
 
 async def test_the_first_change_counts_when_the_entity_existed_before_the_window(
