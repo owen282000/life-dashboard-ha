@@ -29,7 +29,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlowWithReload,
 )
-from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, CONF_NAME
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import entity_registry as er
@@ -388,7 +388,9 @@ def _options_schema(own: list[str]) -> vol.Schema:
     picker = EntitySelector(
         EntitySelectorConfig(domain=["sensor", "number", "input_number"], exclude_entities=own)
     )
-    time_picker = EntitySelector(EntitySelectorConfig(domain="sensor", device_class="timestamp"))
+    time_picker = EntitySelector(
+        EntitySelectorConfig(domain="sensor", device_class="timestamp", exclude_entities=own)
+    )
     fields: dict[Any, Any] = {}
     for kind in WRITEBACK_TYPES:
         inner: dict[Any, Any] = {vol.Optional(role): picker for role in _ROLES[kind]}
@@ -424,10 +426,27 @@ def _entity_unit(hass: HomeAssistant, entity_id: str) -> str | None:
 
 
 @callback
+def _entity_device_class(hass: HomeAssistant, entity_id: str) -> str | None:
+    """The device class from the state, or from the registry for an entity without one."""
+    if (state := hass.states.get(entity_id)) is not None:
+        return state.attributes.get(ATTR_DEVICE_CLASS)
+    registry_entry = er.async_get(hass).async_get(entity_id)
+    if registry_entry is None:
+        return None
+    return registry_entry.device_class or registry_entry.original_device_class
+
+
+@callback
 def _validate_mapping(
     hass: HomeAssistant, user_input: dict[str, Any], own: list[str]
 ) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
-    """The mapping to store, or the first error and the entity it is about."""
+    """The mapping to store, or the first error and the entity it is about.
+
+    The timestamp entities are checked after every value entity is known, so a
+    timestamp that is also a value of a later type is caught too. One timestamp
+    may time several types: a scale writes one last measurement time for all of
+    its values.
+    """
     mapping: dict[str, Any] = {}
     used: set[str] = set()
     for kind in WRITEBACK_TYPES:
@@ -453,6 +472,16 @@ def _validate_mapping(
                 if slots.get(name):
                     stored[name] = slots[name]
         mapping[kind] = stored
+
+    for stored in mapping.values():
+        if (time_entity := stored.get(CONF_TIME_ENTITY)) is None:
+            continue
+        if time_entity in own:
+            return {}, {"base": "entity_is_own_sensor"}, {"entity": time_entity}
+        if time_entity in used:
+            return {}, {"base": "entity_twice"}, {"entity": time_entity}
+        if _entity_device_class(hass, time_entity) != "timestamp":
+            return {}, {"base": "time_entity_not_timestamp"}, {"entity": time_entity}
     return mapping, {}, {}
 
 

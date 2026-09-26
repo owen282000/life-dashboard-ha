@@ -142,7 +142,8 @@
       "unit_not_length": "{entity} has no length unit. A height needs m, cm, mm, ft or in.",
       "unit_not_percentage": "{entity} is not a percentage. Body fat needs %.",
       "unit_not_pressure": "{entity} has no pressure unit. Blood pressure needs mmHg or kPa.",
-      "blood_pressure_incomplete": "Blood pressure needs both systolic and diastolic, or neither."
+      "blood_pressure_incomplete": "Blood pressure needs both systolic and diastolic, or neither.",
+      "time_entity_not_timestamp": "{entity} is not a timestamp sensor. Measured at needs a sensor with the device class timestamp."
     }
   },
   "entity": {

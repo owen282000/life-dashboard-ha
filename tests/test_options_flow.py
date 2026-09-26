@@ -102,7 +102,9 @@ async def test_every_slot_of_a_full_mapping(hass: HomeAssistant, entry: MockConf
     _set(hass, "sensor.scale_water", "45", "kg")
     _set(hass, SYSTOLIC, "128", "mmHg")
     _set(hass, DIASTOLIC, "82", "kPa")
-    _set(hass, "sensor.scale_time", "2026-09-27T06:30:00+00:00", None)
+    hass.states.async_set(
+        "sensor.scale_time", "2026-09-27T06:30:00+00:00", {"device_class": "timestamp"}
+    )
 
     result = await _submit(
         hass,
@@ -271,6 +273,72 @@ async def test_blood_pressure_needs_pressure_units_and_both_halves(
     assert result["errors"] == {"base": "blood_pressure_incomplete"}
 
 
+async def test_the_timestamp_entity_is_checked_too(
+    hass: HomeAssistant, entry: MockConfigEntry, entity_registry: er.EntityRegistry
+) -> None:
+    """The phone's own last sync would make every weighing the sync time."""
+    _set(hass, SCALE, "81.4", "kg")
+    _set(hass, FAT, "20.1", "%")
+    hass.states.async_set(
+        "sensor.scale_time", "2026-09-27T06:30:00+00:00", {"device_class": "timestamp"}
+    )
+    own = entity_registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_last_health_sync",
+        suggested_object_id="owen_s_pixel_last_health_sync",
+        config_entry=entry,
+        original_device_class="timestamp",
+    )
+    hass.states.async_set(own.entity_id, "2026-09-27T06:00:00+00:00", {"device_class": "timestamp"})
+
+    # The picker leaves the phone's own sensors out; underneath, they are refused too.
+    result = await _start(hass, entry)
+    weight_section = next(marker for marker in result["data_schema"].schema if marker == "weight")
+    inner = result["data_schema"].schema[weight_section].schema.schema
+    picker = next(value for marker, value in inner.items() if marker == "time_entity")
+    assert picker.config["exclude_entities"] == [own.entity_id]
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], _form(weight={"entity": SCALE, "time_entity": own.entity_id})
+        )
+    _, errors, placeholders = _validate_mapping(
+        hass, _form(weight={"entity": SCALE, "time_entity": own.entity_id}), [own.entity_id]
+    )
+    assert errors == {"base": "entity_is_own_sensor"}
+    assert placeholders == {"entity": own.entity_id}
+
+    # A value entity, of this type or of another, is not a timestamp.
+    result = await _submit(hass, entry, _form(weight={"entity": SCALE, "time_entity": SCALE}))
+    assert result["errors"] == {"base": "entity_twice"}
+    result = await _submit(
+        hass, entry, _form(weight={"entity": SCALE, "time_entity": FAT}, body_fat={"entity": FAT})
+    )
+    assert result["errors"] == {"base": "entity_twice"}
+    assert result["description_placeholders"] == {"entity": FAT}
+
+    # A sensor without the timestamp device class cannot give a moment.
+    _set(hass, "sensor.scale_impedance", "512", "Ω")
+    result = await _submit(
+        hass, entry, _form(weight={"entity": SCALE, "time_entity": "sensor.scale_impedance"})
+    )
+    assert result["errors"] == {"base": "time_entity_not_timestamp"}
+    assert result["description_placeholders"] == {"entity": "sensor.scale_impedance"}
+
+    # One timestamp for several types is what a scale gives.
+    result = await _submit(
+        hass,
+        entry,
+        _form(
+            weight={"entity": SCALE, "time_entity": "sensor.scale_time"},
+            body_fat={"entity": FAT, "time_entity": "sensor.scale_time"},
+        ),
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["writeback"]["weight"]["time_entity"] == "sensor.scale_time"
+    assert entry.options["writeback"]["body_fat"]["time_entity"] == "sensor.scale_time"
+
+
 # --- The texts -------------------------------------------------------------------
 
 
@@ -296,4 +364,5 @@ def test_every_section_slot_and_error_has_a_text() -> None:
         "unit_not_percentage",
         "unit_not_pressure",
         "blood_pressure_incomplete",
+        "time_entity_not_timestamp",
     }
