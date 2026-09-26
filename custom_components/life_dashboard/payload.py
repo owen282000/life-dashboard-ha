@@ -15,6 +15,12 @@ and docs/webhook-schema.json. The facts this module depends on:
   "bucket_start" as the reliable discriminator.
 - The iOS app sends the same field names but no daily_totals, and its blood pressure
   records can lack "diastolic".
+
+Since 0.7.0 the contract has a second half: the integration answers every accepted
+POST with a JSON body, signed with a key derived from the same secret, so the phone can
+receive measurements from Home Assistant. The request side of that (the "writeback"
+block, the heartbeat) is read here; what goes into the answer is decided in
+writeback_queue.py, and this module only signs and frames it.
 """
 
 from __future__ import annotations
@@ -23,11 +29,23 @@ import hashlib
 import hmac
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Final
 
 SIGNATURE_HEADER: Final = "X-Signature"
 SIGNATURE_PREFIX: Final = "sha256="
+
+# The Android app's application id. Records it wrote to Health Connect itself come back
+# with this as their source at the next sync; they are what Home Assistant sent it, so
+# they feed neither a sensor nor the ledger. The app skips them too; this is the second
+# layer, for an app older than the one that learned to.
+APP_PACKAGE: Final = "com.owen282000.lifedashboard"
+
+# The protocol version of the answer, and the label the answer key is derived with. The
+# key is HMAC(secret, label) rather than the secret itself, so a captured request can
+# never be replayed as an answer: the two directions verify against different keys.
+RESPONSE_PROTOCOL: Final = 1
+RESPONSE_KEY_LABEL: Final = b"life-dashboard-response-v1"
 
 # Payload sources the app can send. healthkit_ios is the iOS companion app.
 SOURCE_HEALTH_CONNECT: Final = "health_connect"
@@ -99,6 +117,74 @@ def verify_signature(secret: str, body: bytes, header_value: str | None) -> bool
     if not header_value:
         return False
     return hmac.compare_digest(signature_for(secret, body), header_value)
+
+
+def response_key(secret: str) -> bytes:
+    """The key the answer is signed with: the 32 raw bytes of HMAC(secret, label)."""
+    return hmac.new(secret.encode("utf-8"), RESPONSE_KEY_LABEL, hashlib.sha256).digest()
+
+
+def response_signature_for(secret: str, body: bytes) -> str:
+    """Build the X-Signature header value the integration puts on its answer."""
+    digest = hmac.new(response_key(secret), body, hashlib.sha256).hexdigest()
+    return f"{SIGNATURE_PREFIX}{digest}"
+
+
+def format_instant(moment: datetime) -> str:
+    """An instant as the app expects it: UTC, whole seconds, with a Z."""
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def response_body(
+    *,
+    version: str,
+    in_reply_to: str,
+    issued_at: datetime,
+    configured: list[str],
+    pending: list[dict[str, Any]] | None = None,
+    more: bool | None = None,
+) -> dict[str, Any]:
+    """The answer to an accepted POST, as a JSON object.
+
+    Every accepted POST gets one, also a test ping and a request from an app that will
+    never read it: the announcement is how a newer app learns that this integration can
+    send measurements. pending and more only appear when the caller decided the request
+    asked for readings; a request without writeback.types gets neither key.
+    """
+    writeback: dict[str, Any] = {
+        "in_reply_to": in_reply_to,
+        "issued_at": format_instant(issued_at),
+        "configured": list(configured),
+    }
+    if pending is not None:
+        writeback["pending"] = pending
+        writeback["more"] = bool(more)
+    return {
+        "life_dashboard": {"version": version, "writeback": RESPONSE_PROTOCOL},
+        "writeback": writeback,
+    }
+
+
+def writeback_request(data: dict[str, Any]) -> dict[str, Any] | None:
+    """The writeback block of a request, if it carries one that is an object."""
+    block = data.get("writeback")
+    return block if isinstance(block, dict) else None
+
+
+def is_heartbeat(data: dict[str, Any]) -> bool:
+    """A POST the app sends only to collect readings: a writeback block and no records.
+
+    With nothing to sync the app used to stay silent; with receiving on it posts the
+    minimal body instead, so there is a response to carry the readings. It is not a
+    sync, so it moves no sensor, not even the last-sync timestamp.
+    """
+    if data.get("test") is True or writeback_request(data) is None:
+        return False
+    if data.get("source") not in HEALTH_SOURCES:
+        return False
+    if isinstance(data.get("daily_totals"), list):
+        return False
+    return not any(name in HEALTH_ARRAYS for name in data)
 
 
 # Java's Instant.toString() and Swift's ISO8601DateFormatter both emit UTC with a Z,
@@ -284,6 +370,11 @@ def _midnight(day: date, tz: tzinfo) -> datetime:
     return datetime.combine(day, time.min, tzinfo=tz)
 
 
+def is_own_record(record: dict[str, Any]) -> bool:
+    """Whether a record is one the app wrote to Health Connect on our behalf."""
+    return record.get("source") == APP_PACKAGE
+
+
 def _record_attributes(record: dict[str, Any]) -> dict[str, Any]:
     """Attributes shared by every latest-value sensor."""
     attributes: dict[str, Any] = {}
@@ -305,7 +396,7 @@ def _latest_from_records(
     """
     best: tuple[dict[str, Any], datetime, float | int] | None = None
     for record in records:
-        if not isinstance(record, dict):
+        if not isinstance(record, dict) or is_own_record(record):
             continue
         try:
             measured_at = parse_instant(record.get(spec.time_field))
@@ -570,6 +661,10 @@ def parse_payload(data: dict[str, Any], *, tz: tzinfo) -> list[SensorUpdate]:
     if data.get("test") is True:
         key = KEY_LAST_SCREEN_TIME_SYNC if source == SOURCE_SCREEN_TIME else KEY_LAST_HEALTH_SYNC
         return [_sync_update(data, key, tz)]
+
+    # A heartbeat only asks for readings; there was no sync.
+    if is_heartbeat(data):
+        return []
 
     if source == SOURCE_SCREEN_TIME:
         return _parse_screen_time(data, tz)

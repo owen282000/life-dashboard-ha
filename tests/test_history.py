@@ -19,6 +19,7 @@ from custom_components.life_dashboard.history import (
     hour_rows,
     prune,
 )
+from custom_components.life_dashboard.payload import APP_PACKAGE
 
 
 def _amsterdam() -> ZoneInfo:
@@ -676,3 +677,28 @@ def test_a_screen_time_entry_without_a_total_is_skipped() -> None:
         tz=_amsterdam(),
     )
     assert change.is_empty and "screen_time" not in ledger.days
+
+
+# --- What the app wrote for us -------------------------------------------
+
+
+def test_own_records_stay_out_of_the_ledger() -> None:
+    """A weight received from Home Assistant must not come back as a second reading."""
+    ledger = Ledger()
+    change = apply_payload(
+        ledger,
+        _payload(
+            weight=[
+                {"kilograms": 81.35, "time": "2026-09-27T06:30:00Z", "source": APP_PACKAGE},
+                {"kilograms": 80.0, "time": "2026-09-27T07:30:00Z", "source": "Zepp"},
+            ],
+            hydration=[
+                {"liters": 0.3, "end_time": "2026-09-27T08:00:00Z", "source": APP_PACKAGE},
+            ],
+        ),
+        tz=_amsterdam(),
+    )
+    assert ledger.hours["weight"]["2026-09-27T07:00:00+00:00"].count == 1
+    assert "2026-09-27T06:00:00+00:00" not in ledger.hours["weight"]
+    assert "hydration_total" not in ledger.sessions
+    assert set(change.hour_keys) == {"weight"}

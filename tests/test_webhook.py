@@ -6,7 +6,10 @@ outbox and comes back later. Answering wrongly here either loses data silently o
 makes the phone retry forever.
 """
 
+import hashlib
+import hmac
 import json
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import AsyncMock, patch
 
@@ -194,6 +197,123 @@ async def test_health_payload_dispatches(
     assert keys == {"steps_today", "heart_rate", KEY_LAST_HEALTH_SYNC}
     assert loaded.runtime_data.latest["heart_rate"].value == 61
     assert loaded.runtime_data.app_version == "1.15.0"
+
+
+# --- The answer ------------------------------------------------------------
+
+
+def _reference_signature(secret: str, body: bytes) -> str:
+    """The answer signature as the app computes it, written out independently."""
+    key = hmac.new(secret.encode(), b"life-dashboard-response-v1", hashlib.sha256).digest()
+    return "sha256=" + hmac.new(key, body, hashlib.sha256).hexdigest()
+
+
+def _manifest_version() -> str:
+    with open("custom_components/life_dashboard/manifest.json") as handle:
+        return json.load(handle)["version"]
+
+
+async def test_an_old_app_gets_the_announcement(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """A request without a writeback block is answered with who we are, nothing more.
+
+    The app before 1.20 never reads the body; a newer one learns from it that this
+    integration can send measurements, and only then asks for them.
+    """
+    client = await hass_client_no_auth()
+    response = await _post(
+        client, _health(heart_rate=[{"bpm": 61, "time": "2026-09-15T12:00:00Z"}])
+    )
+    assert response.status == HTTPStatus.OK
+    assert response.content_type == "application/json"
+
+    answer = await response.json()
+    assert answer["life_dashboard"] == {"version": _manifest_version(), "writeback": 1}
+    assert answer["writeback"]["configured"] == []
+    assert "pending" not in answer["writeback"]
+    assert "more" not in answer["writeback"]
+
+
+async def test_the_answer_is_signed_with_the_derived_key(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """Signed over the exact bytes sent, bound to the request it answers, and dated."""
+    client = await hass_client_no_auth()
+    body = json.dumps(_health()).encode()
+    request_signature = signature_for(SECRET, body)
+    before = datetime.now(UTC).replace(microsecond=0)
+    response = await client.post(
+        URL,
+        data=body,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature},
+    )
+    raw = await response.read()
+
+    assert response.headers[SIGNATURE_HEADER] == _reference_signature(SECRET, raw)
+    # Not the request key: the phone verifies with the derived one only.
+    assert response.headers[SIGNATURE_HEADER] != signature_for(SECRET, raw)
+
+    answer = json.loads(raw)
+    assert answer["writeback"]["in_reply_to"] == request_signature
+    issued = datetime.strptime(answer["writeback"]["issued_at"], "%Y-%m-%dT%H:%M:%SZ")
+    assert before <= issued.replace(tzinfo=UTC) <= datetime.now(UTC)
+
+
+async def test_a_test_ping_announces_too(hass: HomeAssistant, hass_client_no_auth, loaded) -> None:
+    """The green Test in the app is also when it learns what it can receive."""
+    client = await hass_client_no_auth()
+    response = await _post(
+        client, {"test": True, "timestamp": "2026-09-15T16:55:02Z", "source": "health_connect"}
+    )
+    assert response.status == HTTPStatus.OK
+    answer = await response.json()
+    assert answer["life_dashboard"]["writeback"] == 1
+    assert answer["writeback"]["in_reply_to"].startswith("sha256=")
+
+
+async def test_refusals_carry_no_body(hass: HomeAssistant, hass_client_no_auth, loaded) -> None:
+    client = await hass_client_no_auth()
+    unsigned = await _post(client, _health(), secret=None)
+    assert unsigned.status == HTTPStatus.UNAUTHORIZED
+    assert await unsigned.read() == b""
+    assert SIGNATURE_HEADER not in unsigned.headers
+    broken = await _post(client, None, raw=b"not json")
+    assert broken.status == HTTPStatus.BAD_REQUEST
+    assert await broken.read() == b""
+
+
+async def test_a_heartbeat_moves_no_sensor(
+    hass: HomeAssistant, hass_client_no_auth, loaded, updates
+) -> None:
+    """The minimal body the app posts when it only wants to collect readings."""
+    client = await hass_client_no_auth()
+    response = await _post(
+        client,
+        {
+            "timestamp": "2026-09-27T06:35:00Z",
+            "app_version": "1.20.0",
+            "source": "health_connect",
+            "writeback": {"protocol": 1, "types": ["weight"], "history": False},
+        },
+    )
+    assert response.status == HTTPStatus.OK
+    await hass.async_block_till_done()
+    assert updates == []
+    assert (await response.json())["writeback"]["configured"] == []
+
+
+async def test_a_history_failure_is_not_a_success(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """Everything after the signature shares one try: a bug anywhere is a 400."""
+    client = await hass_client_no_auth()
+    with patch(
+        "custom_components.life_dashboard.statistics.HistoryWriter.async_apply",
+        side_effect=RuntimeError("boom"),
+    ):
+        response = await _post(client, _health())
+    assert response.status == HTTPStatus.BAD_REQUEST
 
 
 # --- The ordering rule -----------------------------------------------------

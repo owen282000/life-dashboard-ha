@@ -24,10 +24,18 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
 from .const import CONF_CLOUDHOOK_URL, CONF_SECRET, CONF_WEBHOOK_ID, DOMAIN
-from .payload import SIGNATURE_HEADER, SensorUpdate, parse_payload, verify_signature
+from .payload import (
+    SIGNATURE_HEADER,
+    SensorUpdate,
+    parse_payload,
+    response_body,
+    response_signature_for,
+    verify_signature,
+)
 from .statistics import HistoryWriter
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +58,8 @@ class LifeDashboardData:
 
     latest: dict[str, SensorUpdate] = field(default_factory=dict)
     app_version: str | None = None
+    #: This integration's own version, announced to the phone in every answer.
+    version: str = "0"
     #: The long-term statistics writer; None only before setup finished.
     history: HistoryWriter | None = None
 
@@ -72,6 +82,8 @@ type LifeDashboardConfigEntry = ConfigEntry[LifeDashboardData]
 async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> bool:
     """Set up Life Dashboard from a config entry."""
     entry.runtime_data = LifeDashboardData()
+    integration = await async_get_integration(hass, DOMAIN)
+    entry.runtime_data.version = str(integration.version)
     history = HistoryWriter(hass, entry)
     await history.async_load()
     entry.runtime_data.history = history
@@ -116,14 +128,17 @@ def _make_handler(entry: LifeDashboardConfigEntry):
     the app would read as a successful delivery and never retry. So everything is
     caught here and answered with a status the app understands: 401 and 400 are
     permanent errors it logs without retrying, 200 means accepted.
+
+    An accepted POST is answered with a signed JSON body: what this integration is,
+    and, for a phone that asked, the measurements waiting for it. The refusals carry
+    no body at all.
     """
 
     async def handle(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
         body = await request.read()
+        signature = request.headers.get(SIGNATURE_HEADER)
 
-        if not verify_signature(
-            entry.data[CONF_SECRET], body, request.headers.get(SIGNATURE_HEADER)
-        ):
+        if not verify_signature(entry.data[CONF_SECRET], body, signature):
             _LOGGER.warning(
                 "Refused a payload for %s: the signature is missing or does not match. "
                 "Check that the secret in the app is the one this integration shows",
@@ -141,37 +156,50 @@ def _make_handler(entry: LifeDashboardConfigEntry):
             _LOGGER.warning("Refused a payload for %s: the body is not a JSON object", entry.title)
             return web.Response(status=400)
 
+        runtime = entry.runtime_data
+        # One try for everything after the signature: a bug anywhere in here must be
+        # a 400, not the silent 200 the app would take as delivered.
         try:
             updates = parse_payload(data, tz=dt_util.get_default_time_zone())
+            accepted = [update for update in updates if runtime.apply(update)]
+
+            if (version := data.get("app_version")) and version != runtime.app_version:
+                runtime.app_version = version
+                _update_sw_version(hass, entry, version)
+
+            for update in accepted:
+                async_dispatcher_send(hass, signal_update(entry.entry_id), update)
+
+            # History goes to long-term statistics, where a backfill can land on the
+            # days it came from.
+            if runtime.history is not None:
+                runtime.history.async_apply(data)
+
+            answer = response_body(
+                version=runtime.version,
+                in_reply_to=signature or "",
+                issued_at=dt_util.utcnow(),
+                configured=[],
+            )
         except Exception:
-            # A parser bug must not masquerade as a successful delivery.
             _LOGGER.exception("Could not read a payload for %s", entry.title)
             return web.Response(status=400)
 
-        runtime = entry.runtime_data
-        accepted = [update for update in updates if runtime.apply(update)]
-
-        if (version := data.get("app_version")) and version != runtime.app_version:
-            runtime.app_version = version
-            _update_sw_version(hass, entry, version)
-
-        for update in accepted:
-            async_dispatcher_send(hass, signal_update(entry.entry_id), update)
-
-        # History goes to long-term statistics, where a backfill can land on the days it
-        # came from. Inside the same try as the parser: a bug here is a 400, not a
-        # silent 200 the app would take as delivered.
-        try:
-            if runtime.history is not None:
-                runtime.history.async_apply(data)
-        except Exception:
-            _LOGGER.exception("Could not record history for %s", entry.title)
-            return web.Response(status=400)
-
         _LOGGER.debug("Took %s of %s updates for %s", len(accepted), len(updates), entry.title)
-        return web.Response(status=200)
+        return _signed(entry.data[CONF_SECRET], answer)
 
     return handle
+
+
+def _signed(secret: str, answer: dict) -> web.Response:
+    """A 200 with the answer as its body and the signature over those exact bytes."""
+    raw = json.dumps(answer, separators=(",", ":")).encode("utf-8")
+    return web.Response(
+        status=200,
+        body=raw,
+        content_type="application/json",
+        headers={SIGNATURE_HEADER: response_signature_for(secret, raw)},
+    )
 
 
 def _update_sw_version(hass: HomeAssistant, entry: LifeDashboardConfigEntry, version: str) -> None:

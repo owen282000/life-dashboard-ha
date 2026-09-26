@@ -10,12 +10,17 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from custom_components.life_dashboard.payload import (
+    APP_PACKAGE,
     KEY_LAST_HEALTH_SYNC,
     KEY_LAST_SCREEN_TIME_SYNC,
     SENSOR_SPECS,
     SensorUpdate,
+    is_heartbeat,
     parse_instant,
     parse_payload,
+    response_body,
+    response_key,
+    response_signature_for,
     signature_for,
     verify_signature,
 )
@@ -58,6 +63,48 @@ def test_signature_rejects() -> None:
     assert not verify_signature("secret", body, "")
     assert not verify_signature("secret", body, good.upper())
     assert not verify_signature("secret", body, good.removeprefix("sha256="))
+
+
+def test_response_key_is_derived_not_the_secret() -> None:
+    """The answer is signed with HMAC(secret, label), never with the secret itself.
+
+    Reference values computed independently, so the app's test can carry the same
+    vector: secret "key", the fox as body.
+    """
+    body = b"The quick brown fox jumps over the lazy dog"
+    assert response_key("key").hex() == (
+        "231a58ff1a4b95092f9b57457cebbb954207bafa208a00982abe19b95a0303c8"
+    )
+    assert response_signature_for("key", body) == (
+        "sha256=1f5e6e7bf7761bb81dcbbb34f09b6ba176523cdeba9e80d9a28dce3f34791e9b"
+    )
+    # A request signature can never pass as an answer signature.
+    assert response_signature_for("key", body) != signature_for("key", body)
+
+
+def test_response_body_announces_and_only_pages_when_asked() -> None:
+    issued = datetime(2026, 9, 27, 6, 35, 1, 500000, tzinfo=UTC)
+    plain = response_body(
+        version="0.7.0", in_reply_to="sha256=abc", issued_at=issued, configured=["weight"]
+    )
+    assert plain == {
+        "life_dashboard": {"version": "0.7.0", "writeback": 1},
+        "writeback": {
+            "in_reply_to": "sha256=abc",
+            "issued_at": "2026-09-27T06:35:01Z",
+            "configured": ["weight"],
+        },
+    }
+    paged = response_body(
+        version="0.7.0",
+        in_reply_to="sha256=abc",
+        issued_at=issued,
+        configured=["weight"],
+        pending=[],
+        more=False,
+    )
+    assert paged["writeback"]["pending"] == []
+    assert paged["writeback"]["more"] is False
 
 
 # --- Timestamps ------------------------------------------------------------
@@ -370,6 +417,52 @@ def test_unmapped_types_ignored_but_counted() -> None:
     )
     assert [u.key for u in updates] == [KEY_LAST_HEALTH_SYNC]
     assert updates[0].attributes["record_count"] == 4
+
+
+def test_own_records_feed_no_sensor() -> None:
+    """What the app wrote to Health Connect for us comes back at the next sync.
+
+    It is what Home Assistant sent, so the sensor keeps the value from the app's
+    other sources and looks further back when the own record is the newest.
+    """
+    updates = _by_key(
+        parse_payload(
+            {
+                "timestamp": "2026-09-27T07:00:00Z",
+                "source": "health_connect",
+                "weight": [
+                    {"kilograms": 81.35, "time": "2026-09-27T06:30:00Z", "source": APP_PACKAGE},
+                    {"kilograms": 80.0, "time": "2026-09-26T06:30:00Z", "source": "Zepp"},
+                ],
+                "body_fat": [
+                    {"percentage": 20.1, "time": "2026-09-27T06:30:00Z", "source": APP_PACKAGE}
+                ],
+            },
+            tz=_amsterdam(),
+        )
+    )
+    assert updates["weight"].value == 80.0
+    assert "body_fat" not in updates
+
+
+def test_heartbeat_yields_nothing() -> None:
+    """A heartbeat asks for readings; it is not a sync and moves no sensor."""
+    beat = {
+        "timestamp": "2026-09-27T06:35:00Z",
+        "app_version": "1.20.0",
+        "source": "health_connect",
+        "writeback": {"protocol": 1, "types": ["weight"], "history": False},
+    }
+    assert is_heartbeat(beat)
+    assert parse_payload(beat, tz=_amsterdam()) == []
+    # With records it is an ordinary sync that happens to carry the block.
+    sync = {**beat, "weight": [{"kilograms": 80.0, "time": "2026-09-27T06:30:00Z"}]}
+    assert not is_heartbeat(sync)
+    assert "weight" in _by_key(parse_payload(sync, tz=_amsterdam()))
+    # A test ping and a screen time payload are never heartbeats.
+    assert not is_heartbeat({**beat, "test": True})
+    assert not is_heartbeat({**beat, "source": "screen_time"})
+    assert not is_heartbeat({**beat, "daily_totals": []})
 
 
 def test_bad_record_skipped() -> None:

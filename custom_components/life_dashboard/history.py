@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, tzinfo
 from typing import Any, Final
 
-from .payload import parse_instant
+from .payload import is_own_record, parse_instant
 
 # Day sums that come from Health Connect's own aggregate. Never summed from raw records:
 # a phone and a watch both record the same walk, and only the aggregate deduplicates that.
@@ -310,7 +310,7 @@ def _apply_sessions(
             continue
 
         for record in records:
-            if not isinstance(record, dict):
+            if not isinstance(record, dict) or is_own_record(record):
                 continue
             try:
                 moment = parse_instant(record.get(series.time_field))
@@ -354,7 +354,9 @@ def _apply_measured(ledger: Ledger, data: dict[str, Any], changes: dict[str, dat
             continue
 
         for record in records:
-            if not isinstance(record, dict):
+            # What the app wrote for us is already in Home Assistant; counting it
+            # again would put every received weight in the hourly history twice.
+            if not isinstance(record, dict) or is_own_record(record):
                 continue
             try:
                 moment = parse_instant(record.get(series.time_field))
