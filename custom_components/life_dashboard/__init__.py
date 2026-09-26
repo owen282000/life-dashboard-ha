@@ -17,13 +17,17 @@ import json
 import logging
 from dataclasses import dataclass, field
 
+import voluptuous as vol
 from aiohttp import web
 from homeassistant.components import webhook
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
@@ -37,11 +41,28 @@ from .payload import (
     writeback_request,
 )
 from .statistics import HistoryWriter
-from .writeback import WritebackManager
+from .writeback import BACKFILL_DEFAULT_DAYS, BACKFILL_MAX_DAYS, WritebackManager
+from .writeback_queue import WRITEBACK_TYPES
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+SERVICE_QUEUE_HISTORY = "queue_history"
+ATTR_CONFIG_ENTRY = "config_entry"
+ATTR_DAYS = "days"
+ATTR_TYPES = "types"
+QUEUE_HISTORY_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+        vol.Optional(ATTR_DAYS, default=BACKFILL_DEFAULT_DAYS): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=BACKFILL_MAX_DAYS)
+        ),
+        vol.Optional(ATTR_TYPES): vol.All(cv.ensure_list, [vol.In(WRITEBACK_TYPES)]),
+    }
+)
 
 
 def signal_update(entry_id: str) -> str:
@@ -80,6 +101,40 @@ class LifeDashboardData:
 
 
 type LifeDashboardConfigEntry = ConfigEntry[LifeDashboardData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the service; it is one per integration, not one per phone."""
+
+    async def _queue_history(call: ServiceCall) -> None:
+        entry = _entry_for_service(hass, call.data.get(ATTR_CONFIG_ENTRY))
+        await entry.runtime_data.writeback.async_queue_history(
+            days=call.data[ATTR_DAYS], types=call.data.get(ATTR_TYPES)
+        )
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_QUEUE_HISTORY, _queue_history, schema=QUEUE_HISTORY_SCHEMA
+    )
+    return True
+
+
+def _entry_for_service(hass: HomeAssistant, entry_id: str | None) -> LifeDashboardConfigEntry:
+    """The phone a service call means: the one named, or the only one there is."""
+    if entry_id is not None:
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None or entry.domain != DOMAIN or entry.state is not ConfigEntryState.LOADED:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="phone_not_loaded"
+            )
+        return entry
+    loaded = [
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.state is ConfigEntryState.LOADED
+    ]
+    if len(loaded) != 1:
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="choose_a_phone")
+    return loaded[0]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> bool:

@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from functools import partial
 from typing import Any, Final
 
 from homeassistant.config_entries import ConfigEntry
@@ -51,6 +52,7 @@ from homeassistant.core import (
     State,
     callback,
 )
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
@@ -107,6 +109,12 @@ WINDOW: Final = timedelta(seconds=90)
 DEVICE_TYPE_SCALE: Final = "scale"
 DEVICE_TYPE_UNKNOWN: Final = "unknown"
 DEVICE_CLASS_WEIGHT: Final = "weight"
+
+#: The backfill: the default window, the most the service accepts, and the most
+#: states read per entity per call.
+BACKFILL_DEFAULT_DAYS: Final = 30
+BACKFILL_MAX_DAYS: Final = 366
+BACKFILL_MAX_PER_ENTITY: Final = 1000
 
 
 # --- Units -----------------------------------------------------------------------
@@ -407,14 +415,10 @@ class WritebackManager:
 
     def _measured_time(self, mapping: TypeMapping, moment: datetime) -> tuple[datetime, str | None]:
         """The timestamp entity's value if it changed within the window, else the event."""
+        candidates: list[tuple[datetime, datetime]] = []
         if mapping.time_entity and (state := self._hass.states.get(mapping.time_entity)):
-            try:
-                measured_at = parse_instant(state.state)
-            except ValueError:
-                measured_at = None
-            if measured_at is not None and abs(state.last_changed - moment) <= WINDOW:
-                return measured_at, None
-        return moment, TIME_SOURCE_STATE
+            candidates = _timestamps([state])
+        return _time_from(candidates, moment)
 
     def _offer(
         self,
@@ -474,6 +478,78 @@ class WritebackManager:
             if device.model:
                 info["model"] = device.model
         return info
+
+    # --- The backfill -----------------------------------------------------------------
+
+    async def async_queue_history(self, *, days: int, types: list[str] | None = None) -> int:
+        """Offer the recorder's past states of the mapped entities, as if they were live.
+
+        The same id rule and the same pairing as the listeners use, so a reading the
+        live path already queued or delivered is recognised and not queued again, and a
+        second press changes nothing. From the recorder's states, not from long-term
+        statistics: an hourly mean is not a measurement. The recorder keeps only one
+        row for a value that did not change, so two equal weighings in a row come back
+        as one.
+        """
+        if "recorder" not in self._hass.config.components:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="recorder_missing"
+            )
+        # Imported here: recorder is an after_dependency and may be absent.
+        from homeassistant.components.recorder import get_instance, history
+
+        now = dt_util.utcnow()
+        start = now - timedelta(days=max(1, min(days, BACKFILL_MAX_DAYS)))
+        wanted = [kind for kind in (types or self.configured) if kind in self.mappings]
+        queued = 0
+
+        async def _states(entity_id: str) -> list[State]:
+            found = await get_instance(self._hass).async_add_executor_job(
+                partial(
+                    history.state_changes_during_period,
+                    self._hass,
+                    start,
+                    now,
+                    entity_id,
+                    limit=BACKFILL_MAX_PER_ENTITY,
+                    include_start_time_state=False,
+                )
+            )
+            return found.get(entity_id, [])
+
+        for kind in wanted:
+            mapping = self.mappings[kind]
+            timestamps = (
+                _timestamps(await _states(mapping.time_entity)) if mapping.time_entity else []
+            )
+            events: list[tuple[datetime, str, State]] = []
+            for role, entity_id in mapping.entities.items():
+                events.extend(
+                    (state.last_changed, role, state) for state in await _states(entity_id)
+                )
+            events.sort(key=lambda event: event[0])
+
+            pairer = BloodPressurePairer()
+            for moment, role, state in events:
+                value = self._converted(kind, state.entity_id, state)
+                if value is None:
+                    continue
+                if kind == TYPE_BLOOD_PRESSURE:
+                    pair = pairer.offer(role, value, moment)
+                    if pair is None:
+                        continue
+                    systolic, diastolic, moment = pair
+                    values = {FIELD_SYSTOLIC: systolic, FIELD_DIASTOLIC: diastolic}
+                else:
+                    values = {VALUE_FIELDS[kind]: value}
+                measured_at, time_source = _time_from(timestamps, moment)
+                if self._offer(mapping, values, measured_at, time_source) is not None:
+                    queued += 1
+
+        _LOGGER.info(
+            "Queued %s readings from the last %s days for %s", queued, days, self._entry.title
+        )
+        return queued
 
     # --- The answer -------------------------------------------------------------------
 
@@ -575,6 +651,31 @@ class WritebackManager:
                 translation_key=f"writeback_{code}",
                 translation_placeholders={"phone": self._entry.title, "type": kind},
             )
+
+
+def _timestamps(states: list[State]) -> list[tuple[datetime, datetime]]:
+    """(changed at, value) for the states of a timestamp entity that hold one."""
+    found: list[tuple[datetime, datetime]] = []
+    for state in states:
+        try:
+            found.append((state.last_changed, parse_instant(state.state)))
+        except ValueError:
+            continue
+    return found
+
+
+def _time_from(
+    candidates: list[tuple[datetime, datetime]], moment: datetime
+) -> tuple[datetime, str | None]:
+    """The timestamp that changed closest to the moment, inside the window, or the moment."""
+    inside = [
+        (abs(changed - moment), value)
+        for changed, value in candidates
+        if abs(changed - moment) <= WINDOW
+    ]
+    if inside:
+        return min(inside)[1], None
+    return moment, TIME_SOURCE_STATE
 
 
 def _zone_offset(moment: datetime) -> str:

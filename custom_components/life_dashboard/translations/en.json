@@ -237,6 +237,11 @@
       "last_screen_time_sync": {
         "name": "Last screen time sync"
       }
+    },
+    "button": {
+      "queue_history": {
+        "name": "Send history to phone"
+      }
     }
   },
   "issues": {
@@ -267,6 +272,48 @@
         "left_upper_arm": "Left upper arm",
         "right_upper_arm": "Right upper arm"
       }
+    },
+    "writeback_type": {
+      "options": {
+        "weight": "Weight",
+        "height": "Height",
+        "body_fat": "Body fat",
+        "lean_body_mass": "Lean body mass",
+        "bone_mass": "Bone mass",
+        "body_water_mass": "Body water mass",
+        "blood_pressure": "Blood pressure"
+      }
+    }
+  },
+  "services": {
+    "queue_history": {
+      "name": "Send history to phone",
+      "description": "Queues the past measurements of the entities mapped to a phone, from the recorder, so the app writes them to Health Connect at its next sync. Measurements older than 30 days only arrive when Accept older measurements is on in the app. A value that stayed the same is one row in the recorder, so two equal weighings in a row come back as one. The queue keeps 90 days.",
+      "fields": {
+        "config_entry": {
+          "name": "Phone",
+          "description": "Which phone to send to. Not needed with one phone."
+        },
+        "days": {
+          "name": "Days",
+          "description": "How far back to read, from today."
+        },
+        "types": {
+          "name": "Types",
+          "description": "Which types to send. All mapped types when empty."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "choose_a_phone": {
+      "message": "More than one phone is set up; choose one with the Phone field."
+    },
+    "phone_not_loaded": {
+      "message": "That phone is not set up or not loaded."
+    },
+    "recorder_missing": {
+      "message": "The recorder is not loaded, so there is no history to read."
     }
   }
 }

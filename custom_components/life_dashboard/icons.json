@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "button": {
+      "queue_history": {
+        "default": "mdi:cellphone-arrow-down"
+      }
+    }
+  },
+  "services": {
+    "queue_history": {
+      "service": "mdi:cellphone-arrow-down"
+    }
+  }
+}
