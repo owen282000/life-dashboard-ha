@@ -8,7 +8,9 @@ All notable changes to this integration are documented here. The format follows
 
 ### Added
 
-- Measurements from Home Assistant to the phone. **Configure** on the integration
+- Measurements from Home Assistant to the phone
+  ([app #62](https://github.com/owen282000/life-dashboard-companion-app/issues/62)).
+  **Configure** on the integration
   maps an entity per Health Connect type (weight, height, body fat, lean body mass,
   bone mass, body water mass, blood pressure) to a phone; the app writes them to
   Health Connect once **Receive** is on there, per type, with the app 1.20 or newer.
