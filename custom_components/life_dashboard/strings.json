@@ -26,7 +26,7 @@
         "data_description": {
           "base_url": "Just the address, without /api/webhook.",
           "use_cloud": "Creates a cloudhook, so the phone syncs from anywhere without port forwarding. The address above is then not used.",
-          "regenerate_secret": "The phone stops syncing until you paste the new secret into both tabs."
+          "regenerate_secret": "The phone stops syncing until it has the new secret: scan the new code, or paste the secret in the app."
         }
       }
     },
@@ -46,7 +46,7 @@
     "step": {
       "init": {
         "title": "Send to the phone",
-        "description": "Choose per type of measurement which entity goes to this phone. Leave empty what should not be sent. The app decides which of these it writes to Health Connect, under Receive on its Health Connect tab. Health Connect has no record for BMI, muscle mass or visceral fat, so they are not offered here. Measurements from before this was set up are not sent; the Send history to phone button does that.",
+        "description": "Choose per type of measurement which entity goes to this phone. Leave empty what should not be sent. The app decides which of these it writes to Health Connect, under Receive on its Health Connect tab. Only the Android app receives these; an iPhone ignores them. Health Connect has no record for BMI, muscle mass or visceral fat, so they are not offered here. Measurements from before this was set up are not sent; the Send history to phone button does that.",
         "sections": {
           "weight": {
             "name": "Weight",

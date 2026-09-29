@@ -13,8 +13,8 @@ and docs/webhook-schema.json. The facts this module depends on:
 - Records are optional everywhere. A payload only carries the arrays that had data.
 - Nine dense series can arrive bucketed instead of raw, under the same key, with
   "bucket_start" as the reliable discriminator.
-- The iOS app sends the same field names but no daily_totals, and its blood pressure
-  records can lack "diastolic".
+- The iOS app sends the same field names, daily_totals from 1.4.0 (none before), and
+  its blood pressure records can lack "diastolic".
 
 Since 0.7.0 the contract has a second half: the integration answers every accepted
 POST with a JSON body, signed with a key derived from the same secret, so the phone can
@@ -464,8 +464,8 @@ def _parse_health(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
     """Sensor updates from a health payload, Android or iOS."""
     updates: list[SensorUpdate] = []
 
-    # Day totals. The iOS app sends no daily_totals at all, so these stay absent
-    # for an iPhone, exactly as with its MQTT sensors.
+    # Day totals. An iOS app before 1.4.0 sends no daily_totals, so these stay absent
+    # for that iPhone, exactly as with its MQTT sensors.
     totals = data.get("daily_totals")
     if isinstance(totals, list):
         newest: tuple[date, dict[str, Any]] | None = None

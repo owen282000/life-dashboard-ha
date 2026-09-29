@@ -128,7 +128,8 @@ class HistoryWriter:
         if data.get("backfill") is True and not data.get("daily_totals"):
             _LOGGER.warning(
                 "Backfill window from %s carries no daily_totals; its step, distance and"
-                " calorie history stays empty (the app sends them from 1.17.0)",
+                " calorie history stays empty (the Android app sends them from 1.17.0,"
+                " the iOS app from 1.4.0)",
                 earliest_day(change),
             )
         return change

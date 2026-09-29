@@ -4,7 +4,9 @@ The QR is an ordinary https URL, because that is the one thing a phone camera kn
 what to do with. Everything the phone needs is in the fragment, after the #, which
 a browser never sends to any server (RFC 3986, section 3.5). On a phone with the app
 installed, an Android App Link opens the app straight from the camera; without the
-app, the page at PAIR_PAGE explains where to get it.
+app, the page at PAIR_PAGE explains where to get it. An iPhone's camera always opens
+that page, whose button hands the fragment to the iOS app through its lifedashboard://
+scheme.
 
 The format is shared with the app, which parses it, and with any receiver that wants
 to be pairable the same way. Keep the two sides' test vectors identical.
@@ -72,8 +74,8 @@ def by_hand_markup(webhook_url: str, secret: str) -> str:
     """
     return (
         "<details><summary><b>Or paste by hand</b></summary>"
-        "<p>In the app, open the <b>Webhook</b> card on the Health tab and on the Screen "
-        "Time tab and fill in both.</p>"
+        "<p>In the app, paste both into the webhook settings on the Health tab, and on "
+        "Android on the Screen Time tab as well.</p>"
         f"<p>URL</p><pre><code>{escape(webhook_url)}</code></pre>"
         f"<p>Signing secret</p><pre><code>{escape(secret)}</code></pre>"
         "</details>"
