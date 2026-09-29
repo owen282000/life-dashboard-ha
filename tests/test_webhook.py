@@ -199,6 +199,73 @@ async def test_health_payload_dispatches(
     assert loaded.runtime_data.app_version == "1.15.0"
 
 
+async def test_an_iphone_payload_is_taken_and_answered(
+    hass: HomeAssistant, hass_client_no_auth, loaded, updates
+) -> None:
+    """The bytes the iOS app sends, and what it gets back.
+
+    Swift's JSONSerialization with sorted keys writes compact JSON, escapes every / as
+    \\/ and leaves other characters raw. The signature covers exactly those bytes, so
+    nothing here may re-serialize before checking it.
+    """
+    payload = {
+        "timestamp": "2026-09-15T16:55:02Z",
+        "app_version": "1.4.0",
+        "source": "healthkit_ios",
+        "daily_totals": [
+            {"date": "2026-09-14", "steps": 8100},
+            {"date": "2026-09-15", "steps": 4212, "distance_meters": 3150.25},
+        ],
+        "heart_rate": [
+            {
+                "bpm": 61,
+                "time": "2026-09-15T12:00:00Z",
+                "source": "Owen\u2019s Apple Watch / iPhone",
+            }
+        ],
+        "blood_pressure": [{"systolic": 124.0, "time": "2026-09-15T10:00:00Z", "uuid": "bp-1"}],
+        "sleep": [
+            {
+                "uuid": "0F1E2D3C-4B5A-5968-8776-A5B4C3D2E1F0",
+                "session_end_time": "2026-09-15T05:30:00Z",
+                "duration_seconds": 27000,
+                "stages": [],
+            }
+        ],
+    }
+    body = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        .replace("/", "\\/")
+        .encode()
+    )
+    assert b"\\/" in body
+    request_signature = signature_for(SECRET, body)
+
+    client = await hass_client_no_auth()
+    response = await client.post(
+        URL,
+        data=body,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature},
+    )
+    assert response.status == HTTPStatus.OK
+    raw = await response.read()
+    await hass.async_block_till_done()
+
+    assert response.headers[SIGNATURE_HEADER] == _reference_signature(SECRET, raw)
+    answer = json.loads(raw)
+    assert answer["writeback"]["in_reply_to"] == request_signature
+    assert "pending" not in answer["writeback"]
+
+    by_key = {u.key: u for u in updates}
+    assert by_key["steps_today"].value == 4212
+    assert by_key["distance_today"].value == 3150.25
+    assert by_key["blood_pressure_systolic"].value == 124.0
+    assert "blood_pressure_diastolic" not in by_key
+    assert by_key["sleep_duration"].value == 450
+    assert by_key[KEY_LAST_HEALTH_SYNC].attributes["source"] == "healthkit_ios"
+    assert loaded.runtime_data.app_version == "1.4.0"
+
+
 # --- The answer ------------------------------------------------------------
 
 

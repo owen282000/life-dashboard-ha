@@ -509,7 +509,7 @@ def test_backfill_flagged() -> None:
 
 
 def test_healthkit_ios_payload() -> None:
-    """iOS sends no daily_totals, and its blood pressure can lack diastolic."""
+    """An iOS app before 1.4.0 sends no daily_totals, and its blood pressure can lack diastolic."""
     updates = _by_key(
         parse_payload(
             {
@@ -540,13 +540,47 @@ def test_healthkit_ios_payload() -> None:
             tz=_amsterdam(),
         )
     )
-    # No day totals for an iPhone.
+    # No day totals from an iPhone that does not send them.
     assert "steps_today" not in updates
     # Systolic from the newest record, diastolic from the newest one that has it.
     assert updates["blood_pressure_systolic"].value == 124.0
     assert updates["blood_pressure_systolic"].attributes["uuid"] == "newer-systolic-only"
     assert updates["blood_pressure_diastolic"].value == 78.0
     assert updates["blood_pressure_diastolic"].attributes["uuid"] == "older-pair"
+    assert updates[KEY_LAST_HEALTH_SYNC].attributes["source"] == "healthkit_ios"
+
+
+def test_healthkit_ios_daily_totals() -> None:
+    """From 1.4.0 the iOS app sends Android's daily_totals: today and two days back.
+
+    A field HealthKit has nothing for is left out rather than sent as 0, so total
+    calories are missing on a day without resting energy (no Watch).
+    """
+    updates = _by_key(
+        parse_payload(
+            {
+                "timestamp": "2026-09-15T16:55:02Z",
+                "app_version": "1.4.0",
+                "source": "healthkit_ios",
+                "daily_totals": [
+                    {"date": "2026-09-14", "steps": 8100, "distance_meters": 6100.5},
+                    {
+                        "date": "2026-09-15",
+                        "steps": 4212,
+                        "distance_meters": 3150.25,
+                        "active_calories": 310.4,
+                    },
+                    {"date": "2026-09-13", "steps": 9900},
+                ],
+            },
+            tz=_amsterdam(),
+        )
+    )
+    assert updates["steps_today"].value == 4212
+    assert updates["steps_today"].attributes == {"date": "2026-09-15"}
+    assert updates["distance_today"].value == 3150.25
+    assert updates["active_calories_today"].value == 310.4
+    assert "total_calories_today" not in updates
     assert updates[KEY_LAST_HEALTH_SYNC].attributes["source"] == "healthkit_ios"
 
 
