@@ -4,6 +4,23 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The iOS app through this integration
+  ([#1](https://github.com/owen282000/life-dashboard-ha/issues/1)), as 0.1.0 promised:
+  health sensors, day totals from HealthKit's statistics, history in long-term statistics
+  and pairing by QR code, with the iOS app 1.4.0 or newer. It signs the way the Android
+  app does, so nothing changed in what this integration accepts. An iPhone has no screen
+  time to send and does not receive measurements from Home Assistant.
+
+### Changed
+
+- The pairing dialog's paste-by-hand text, the new-secret hint and the Configure text no
+  longer assume the Android app; the warning for a backfill without day totals names the
+  version of both apps.
+
 ## [0.7.0] - 2026-09-26
 
 ### Added

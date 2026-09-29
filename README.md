@@ -74,7 +74,8 @@ sync fills in whatever happened meanwhile.
 - **Local by default.** With the internal URL your data never leaves your network. The
   external URL and Home Assistant Cloud are there for syncing away from home.
 - **Both ways.** A weight, a body composition or a blood pressure that Home Assistant
-  already has goes to the phone's Health Connect, per type, from the entity you choose.
+  already has goes to the phone's Health Connect, per type, from the entity you choose
+  (Android only).
   Nothing else on the phone has to change: it collects on its next sync.
 
 ## Works with
@@ -82,11 +83,11 @@ sync fills in whatever happened meanwhile.
 | App | Status |
 |---|---|
 | [Life Dashboard Companion for Android](https://github.com/owen282000/life-dashboard-companion-app) 1.17 or newer | **Fully supported.** Health sensors, screen time, statistics, QR pairing, backfill. Receiving measurements on the phone needs 1.20 or newer. |
-| [Life Dashboard Companion for iOS](https://github.com/owen282000/life-dashboard-companion-app-ios) | **Not yet through this integration.** The iOS app reaches Home Assistant through its built-in MQTT Discovery today. Support here is planned; follow [#1](https://github.com/owen282000/life-dashboard-ha/issues/1). |
+| [Life Dashboard Companion for iOS](https://github.com/owen282000/life-dashboard-companion-app-ios) 1.4.0 or newer | **Supported, without what iOS cannot do.** Health sensors, day totals, statistics, QR pairing. No screen time (iOS has no API an app can read it with) and no measurements to the phone. Distance counts walking and running only, and total calories arrive only on days with resting energy, which usually means a Watch. |
 
 ## Quick start
 
-Needs Home Assistant 2026.3 or newer, and the Android app.
+Needs Home Assistant 2026.3 or newer, and the Android or the iOS app.
 
 1. **Install.** Click the button, or add `https://github.com/owen282000/life-dashboard-ha`
    as a custom repository of type *Integration* in HACS. Download **Life Dashboard** and
@@ -140,12 +141,15 @@ is not.
 
 Three ways to use the code, all ending in the same confirmation dialog on the phone:
 
-- **The phone's camera.** The code is a link that opens the app directly, verified
-  against the app's signing certificate. Without the app installed it opens a page that
-  says where to get it.
-- **The scan button in the app**, on the Webhook card of the Health and Screen Time tabs,
-  and as the first choice in the setup wizard.
-- **By hand.** Paste the URL and the secret into the Webhook card on both tabs.
+- **The phone's camera.** On Android the code is a link that opens the app directly,
+  verified against the app's signing certificate. An iPhone's camera opens the pairing
+  page in Safari, and its **Open in the app** button hands the code to the app. Without
+  the app installed the page says where to get it.
+- **The scan button in the app**: on Android on the Webhook card of the Health and
+  Screen Time tabs, and as the first choice in the setup wizard; on an iPhone
+  **Scan a pairing code** under Webhook URLs on the Health tab.
+- **By hand.** Paste the URL and the secret into the webhook settings of the app: on
+  Android on both tabs.
 
 The code only carries the address and the secret. Which data types are synced, and on what
 schedule, stays a choice on the phone. The secret travels in the part of the link after
@@ -163,8 +167,8 @@ holds the latest value; the past lives in the [statistics](#history). The tables
 last part of each entity id; the first part is the device name, so "Owen's Pixel" gives
 `sensor.owen_s_pixel_steps_today`.
 
-**Day totals**, from Health Connect's own deduplicated figures, resetting at local
-midnight. Each carries the day it describes as a `date` attribute.
+**Day totals**, from Health Connect's own deduplicated figures (HealthKit's statistics on
+an iPhone), resetting at local midnight. Each carries the day it describes as a `date` attribute.
 
 | Sensor | Unit |
 |---|---|
@@ -418,7 +422,8 @@ arriving after a restart cannot overwrite a newer reading.
   record. The answer never contains the secret, and the phone's reply to it carries ids
   and codes, never values.
 - With the internal URL, nothing leaves your network. With the external URL, use HTTPS;
-  the app refuses plain `http://` unless you allow it on the tab. Over plain HTTP the
+  the Android app refuses plain `http://` unless you allow it on the tab, and the iOS
+  app only sends plain HTTP to an IP address or a `.local` name. Over plain HTTP the
   signature still guarantees that nothing was changed on the way, but the measurements
   going to the phone travel readable on that network, like the payloads coming from it.
 - Rotate the secret any time under **Reconfigure**; the app has to be given the new value.
@@ -433,16 +438,19 @@ Found a hole in any of this? See [SECURITY.md](SECURITY.md) for private reportin
 **The app cannot reach the URL.** Open **Reconfigure**, put in the address the phone can
 reach (your LAN address at home, your public address elsewhere), and scan the new code.
 
-**Syncing over plain HTTP fails.** The app refuses `http://` unless you enable **Allow
-plain HTTP webhooks** on the tab you are configuring. The pairing dialog offers this when
-the address is an internal `http://` one.
+**Syncing over plain HTTP fails.** The Android app refuses `http://` unless you enable
+**Allow plain HTTP webhooks** on the tab you are configuring. The pairing dialog offers this
+when the address is an internal `http://` one. An iPhone has no such switch: iOS allows
+plain HTTP only to an IP address like `http://192.168.1.10:8123` or a `.local` name, and
+the app refuses to pair any other `http://` address. Use **Reconfigure** to put in the IP
+address or an `https://` address, and scan the new code.
 
 **Sensors are "unknown" after a power cut.** Home Assistant only keeps sensor values
 across a restart it shut down cleanly. They fill in again at the next sync; the statistics
 are unaffected.
 
-**A backfill left the step history empty.** The app is older than 1.17; update it and run
-the backfill again. The log names the window when this happens.
+**A backfill left the step history empty.** The app is older than 1.17 on Android or 1.4.0
+on iOS; update it and run the backfill again. The log names the window when this happens.
 
 **A measurement is not reaching the phone.** Check that the type is on under **Receive**
 in the app and that the app is 1.20 or newer; a repair on the entry says when the phone
@@ -479,7 +487,6 @@ for bugs.
 
 ## Roadmap
 
-- Support for the iOS app ([#1](https://github.com/owen282000/life-dashboard-ha/issues/1))
 - Listing in the HACS default repository, so no custom repository step is needed
 
 ## Support the project
