@@ -48,6 +48,11 @@ Versions are strict semver (`X.Y.Z`) and live in three places that must agree: t
 `version` in `manifest.json`, the section in `CHANGELOG.md`, and the git tag, which is the
 version without a prefix. A GitHub release on the tag is what HACS offers to users.
 
+HACS installs `life_dashboard.zip` from the release (`zip_release` in `hacs.json`), and its
+download count is the install count. The `Release zip` workflow builds and attaches it when a
+release is published, and fails when the manifest version does not match the tag. For an
+older release without the zip, run the workflow by hand with that tag.
+
 ## Opening a pull request
 
 1. Create a feature branch

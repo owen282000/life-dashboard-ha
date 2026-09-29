@@ -1,4 +1,6 @@
 {
   "name": "Life Dashboard",
-  "homeassistant": "2026.3.0"
+  "homeassistant": "2026.3.0",
+  "zip_release": true,
+  "filename": "life_dashboard.zip"
 }
