@@ -1,9 +1,9 @@
 <h1 align="center"><img src="custom_components/life_dashboard/brand/icon.png" alt="" width="28" height="28" align="absmiddle"> Life Dashboard for Home Assistant</h1>
 
 <p align="center">
-  Health Connect and screen time from your phone as Home Assistant sensors and long-term statistics.<br>
-  How long you looked at your phone today, and at what, next to your steps and heart rate.<br>
-  And the other way: the weight from the scale in the bathroom into Health Connect on the phone.<br>
+  Health Connect or Apple Health from your phone as Home Assistant sensors and long-term statistics.<br>
+  On Android also screen time: how long you looked at your phone today, and at what, next to your steps and heart rate.<br>
+  And the other way: the weight from the scale in the bathroom into Health Connect on an Android phone.<br>
   Paired with a QR code. No MQTT broker, no ports to open, no YAML.
 </p>
 
@@ -33,34 +33,41 @@
 </p>
 
 The [Life Dashboard Companion](https://github.com/owen282000/life-dashboard-companion-app)
-app reads Health Connect and screen time on the phone and posts them to a webhook. This
-integration is that webhook, inside Home Assistant: it verifies the signature on every
-payload, keeps one device per phone with a sensor for each value, and writes the past
-into long-term statistics so a year of history lands on the days it happened. It also
-answers: measurements that arrive in Home Assistant from a scale or a blood pressure
-monitor go back to the phone in that same exchange, and the app writes them to Health
-Connect, where Samsung Health and Google Health read them.
+app for Android reads Health Connect and screen time on the phone and posts them to a
+webhook. This integration is that webhook, inside Home Assistant: it verifies the
+signature on every payload, keeps one device per phone with a sensor for each value, and
+writes the past into long-term statistics so a year of history lands on the days it
+happened. It also answers: measurements that arrive in Home Assistant from a scale or a
+blood pressure monitor go back to the phone in that same exchange, and the app writes
+them to Health Connect, where Samsung Health and Google Health read them.
+
+Since 0.7.1 the [iOS app](https://github.com/owen282000/life-dashboard-companion-app-ios)
+1.4.0 or newer works with it too: Apple Health data as sensors, day totals and long-term
+statistics, paired by QR code. Screen time and receiving measurements from Home
+Assistant are Android only.
 
 Health data has other routes into Home Assistant: the official companion app reads a
-handful of Health Connect types, and this app's own MQTT route carries all 33. Screen
-time has none of those. No Android app exports it, no cloud service offers it, and the
-companion app does not read it. This integration does, with today's minutes,
+handful of Health Connect types, and the Android app's own MQTT route carries all 33.
+Screen time has none of those. No Android app exports it, no cloud service offers it,
+and the companion app does not read it. This integration does, with today's minutes,
 yesterday's, and the app that took most of them, next to the steps and the heart rate of
 the same phone.
 
 ## How it works
 
 The phone pushes; nothing here polls. The app reads Health Connect and screen time on
-the schedule you set in it (an interval, or fixed times) and posts a signed payload to
-this integration's webhook. Each value arrives with the moment it describes: the
-sensors take the newest, the statistics take every day and hour. A Home Assistant
-restart changes nothing on the phone; the sensors keep their last values and the next
-sync fills in whatever happened meanwhile.
+Android, or Apple Health on an iPhone, on the schedule you set in it (an interval, or
+fixed times, which iOS treats as the earliest moment) and posts a signed payload to this
+integration's webhook. Each value arrives with the moment it describes: the sensors take
+the newest, the statistics take every day and hour. A Home Assistant restart changes
+nothing on the phone; the sensors keep their last values and the next sync fills in
+whatever happened meanwhile.
 
 ## Why this integration
 
 - **Screen time, finally.** Minutes on the phone today and yesterday, and the most used
-  app with the top five behind it, as sensors that update on the schedule you set.
+  app with the top five behind it, as sensors that update on the schedule you set
+  (Android only).
 - **Two minutes from install to sensors.** Install from HACS, add the integration, scan
   the QR code it shows. Nothing to type, nothing to configure on the phone side.
 - **No broker.** The app talks to Home Assistant directly. If you already run MQTT, that
@@ -142,9 +149,9 @@ is not.
 Three ways to use the code, all ending in the same confirmation dialog on the phone:
 
 - **The phone's camera.** On Android the code is a link that opens the app directly,
-  verified against the app's signing certificate. An iPhone's camera opens the pairing
-  page in Safari, and its **Open in the app** button hands the code to the app. Without
-  the app installed the page says where to get it.
+  verified against the app's signing certificate; without the app installed it opens a
+  page that says where to get it. An iPhone's camera always opens that pairing page in
+  Safari, and a button on the page hands the code to the app.
 - **The scan button in the app**: on Android on the Webhook card of the Health and
   Screen Time tabs, and as the first choice in the setup wizard; on an iPhone
   **Scan a pairing code** under Webhook URLs on the Health tab.
@@ -311,6 +318,7 @@ writes every new value to Health Connect. What shows up in Samsung Health or Goo
 Health from there is theirs to decide: Samsung documents weight, body fat, height and
 blood pressure as synchronised, and does not list lean body mass, bone mass or body
 water mass. Health Connect itself is what this integration and the app can promise.
+This is Android only: the iOS app does not receive measurements from Home Assistant.
 
 | Type | What the entity needs | Health Connect record |
 |---|---|---|
@@ -423,7 +431,7 @@ arriving after a restart cannot overwrite a newer reading.
   record. The answer never contains the secret, and the phone's reply to it carries ids
   and codes, never values.
 - With the internal URL, nothing leaves your network. With the external URL, use HTTPS;
-  the Android app refuses plain `http://` unless you allow it on the tab, and the iOS
+  the Android app refuses plain `http://` unless you allow it in the app, and the iOS
   app only sends plain HTTP to an IP address or a `.local` name. Over plain HTTP the
   signature still guarantees that nothing was changed on the way, but the measurements
   going to the phone travel readable on that network, like the payloads coming from it.
@@ -439,11 +447,12 @@ Found a hole in any of this? See [SECURITY.md](SECURITY.md) for private reportin
 **The app cannot reach the URL.** Open **Reconfigure**, put in the address the phone can
 reach (your LAN address at home, your public address elsewhere), and scan the new code.
 
-**Syncing over plain HTTP fails.** The Android app refuses `http://` unless you enable
-**Allow plain HTTP webhooks** on the tab you are configuring. The pairing dialog offers this
-when the address is an internal `http://` one. An iPhone has no such switch: iOS allows
-plain HTTP only to an IP address like `http://192.168.1.10:8123` or a `.local` name, and
-the app refuses to pair any other `http://` address. Use **Reconfigure** to put in the IP
+**Syncing over plain HTTP fails.** The Android app refuses `http://` unless **Allow
+plain HTTP webhooks** is on: one switch under **Advanced**, shown on both tabs, and also
+in the app's own pairing dialog when the scanned address is `http://`. The integration's
+pairing dialog has no such option. An iPhone has no switch at all: iOS allows plain HTTP
+only to an IP address like `http://192.168.1.10:8123` or a `.local` name, and the app
+refuses to pair any other `http://` address. Use **Reconfigure** to put in the IP
 address or an `https://` address, and scan the new code.
 
 **Sensors are "unknown" after a power cut.** Home Assistant only keeps sensor values
@@ -453,11 +462,11 @@ are unaffected.
 **A backfill left the step history empty.** The app is older than 1.17 on Android or 1.4.0
 on iOS; update it and run the backfill again. The log names the window when this happens.
 
-**A measurement is not reaching the phone.** Check that the type is on under **Receive**
-in the app and that the app is 1.20 or newer; a repair on the entry says when the phone
-refused it. A weight reported with the same value within ten minutes of the last one is
-the same measurement on purpose. The phone collects on its next sync, so a quiet phone
-takes until then.
+**A measurement is not reaching the phone.** Only the Android app receives them. Check
+that the type is on under **Receive** in the app and that the app is 1.20 or newer; a
+repair on the entry says when the phone refused it. A weight reported with the same
+value within ten minutes of the last one is the same measurement on purpose. The phone
+collects on its next sync, so a quiet phone takes until then.
 
 **A measurement arrived with the wrong time.** Map a timestamp sensor in the **Measured
 at** slot; without one the moment the value changed in Home Assistant is used, which is

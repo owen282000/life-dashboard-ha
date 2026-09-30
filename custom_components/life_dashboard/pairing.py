@@ -5,8 +5,8 @@ what to do with. Everything the phone needs is in the fragment, after the #, whi
 a browser never sends to any server (RFC 3986, section 3.5). On a phone with the app
 installed, an Android App Link opens the app straight from the camera; without the
 app, the page at PAIR_PAGE explains where to get it. An iPhone's camera always opens
-that page, whose button hands the fragment to the iOS app through its lifedashboard://
-scheme.
+that page; the iOS app takes the fragment from the page's lifedashboard:// link, not
+from its Android intent:// link.
 
 The format is shared with the app, which parses it, and with any receiver that wants
 to be pairable the same way. Keep the two sides' test vectors identical.
