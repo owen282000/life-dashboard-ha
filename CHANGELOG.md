@@ -6,6 +6,14 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A backfill no longer moves **Last health sync**. The app sends a backfill as one POST
+  per chunk, a second or two apart, and every chunk set the timestamp again, so a year
+  of backfill filled the logbook and the recorder with a line per chunk. The chunks
+  still fill the day totals and the long-term statistics as before; the next regular
+  sync moves the timestamp.
+
 ## [0.7.1] - 2026-09-30
 
 ### Added
