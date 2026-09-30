@@ -383,6 +383,53 @@ async def test_a_history_failure_is_not_a_success(
     assert response.status == HTTPStatus.BAD_REQUEST
 
 
+# --- The backfill ----------------------------------------------------------
+
+
+async def test_a_backfill_leaves_the_last_sync_alone(
+    hass: HomeAssistant, hass_client_no_auth, loaded, updates
+) -> None:
+    """Every chunk of a backfill used to move the last sync, a logbook line per POST."""
+    client = await hass_client_no_auth()
+    await _post(client, _health(heart_rate=[{"bpm": 61, "time": "2026-09-15T12:00:00Z"}]))
+    await hass.async_block_till_done()
+    entity_id = "sensor.owen_s_pixel_last_health_sync"
+    before = hass.states.get(entity_id)
+    assert before.state == "2026-09-15T16:55:02+00:00"
+    updates.clear()
+
+    for minute in range(3):
+        response = await _post(
+            client,
+            _health(
+                timestamp=f"2026-09-15T17:0{minute}:00Z",
+                backfill=True,
+                window_start="2026-03-01T00:00:00Z",
+                window_end="2026-03-04T00:00:00Z",
+                daily_totals=[{"date": "2026-03-02", "steps": 9000 + minute}],
+                heart_rate=[{"bpm": 80, "time": "2026-03-02T09:00:00Z"}],
+            ),
+        )
+        assert response.status == HTTPStatus.OK
+    await hass.async_block_till_done()
+
+    assert KEY_LAST_HEALTH_SYNC not in {u.key for u in updates}
+    after = hass.states.get(entity_id)
+    assert after.state == before.state
+    assert after.last_updated == before.last_updated
+    assert loaded.runtime_data.latest[KEY_LAST_HEALTH_SYNC].measured_at == datetime(
+        2026, 9, 15, 16, 55, 2, tzinfo=UTC
+    )
+
+    # The chunks still reach the history, the last one winning for its day.
+    assert loaded.runtime_data.history.ledger.days["steps"]["2026-03-02"] == 9002.0
+
+    # The next regular sync moves it again.
+    await _post(client, _health(timestamp="2026-09-15T17:10:00Z"))
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == "2026-09-15T17:10:00+00:00"
+
+
 # --- The ordering rule -----------------------------------------------------
 
 

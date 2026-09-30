@@ -488,8 +488,12 @@ def test_bad_record_skipped() -> None:
     assert "weight" not in updates
 
 
-def test_backfill_flagged() -> None:
-    """Backfill payloads are ordinary payloads with a flag the caller can see."""
+def test_backfill_moves_no_last_sync() -> None:
+    """A backfill chunk gives its records, but not the last-sync timestamp.
+
+    A year of backfill is hundreds of POSTs a second or two apart; a moving last sync
+    would put a logbook line and a recorder row in for every one of them.
+    """
     updates = _by_key(
         parse_payload(
             {
@@ -498,14 +502,34 @@ def test_backfill_flagged() -> None:
                 "backfill": True,
                 "window_start": "2026-09-01T00:00:00Z",
                 "window_end": "2026-09-04T00:00:00Z",
+                "daily_totals": [{"date": "2026-09-03", "steps": 8100}],
                 "weight": [{"kilograms": 77.0, "time": "2026-09-02T07:00:00Z"}],
             },
             tz=_amsterdam(),
         )
     )
-    assert updates[KEY_LAST_HEALTH_SYNC].attributes["backfill"] is True
-    # The old record still produces an update; the caller's ordering rule drops it.
+    assert KEY_LAST_HEALTH_SYNC not in updates
+    # The old records still produce updates; the caller's ordering rule drops them.
     assert updates["weight"].measured_at == parse_instant("2026-09-02T07:00:00Z")
+    assert updates["steps_today"].value == 8100
+
+
+def test_backfill_without_records_gives_nothing() -> None:
+    """A chunk with nothing in it moves no sensor at all."""
+    payload = {"timestamp": "2026-09-15T16:55:02Z", "source": "healthkit_ios", "backfill": True}
+    assert parse_payload(payload, tz=_amsterdam()) == []
+
+
+def test_a_regular_sync_still_moves_last_sync() -> None:
+    """Without the flag, or with it false, the last sync moves as before."""
+    for backfill in ({}, {"backfill": False}):
+        updates = _by_key(
+            parse_payload(
+                {"timestamp": "2026-09-15T16:55:02Z", "source": "health_connect", **backfill},
+                tz=_amsterdam(),
+            )
+        )
+        assert updates[KEY_LAST_HEALTH_SYNC].attributes["backfill"] is False
 
 
 def test_healthkit_ios_payload() -> None:
@@ -647,6 +671,13 @@ def _screen_time_payload() -> dict:
             },
         ],
     }
+
+
+def test_screen_time_backfill_moves_no_last_sync() -> None:
+    """The rule holds for screen time too, should it ever send a backfill."""
+    updates = _by_key(parse_payload({**_screen_time_payload(), "backfill": True}, tz=_amsterdam()))
+    assert KEY_LAST_SCREEN_TIME_SYNC not in updates
+    assert "screen_time_today" in updates
 
 
 def test_screen_time() -> None:

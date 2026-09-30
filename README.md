@@ -203,7 +203,8 @@ an iPhone), resetting at local midnight. Each carries the day it describes as a 
 
 **Diagnostic**: `last_health_sync` and `last_screen_time_sync`, as timestamps. A
 **Test** ping in the app moves these, which is the quickest way to see that pairing
-worked.
+worked. A backfill does not: it is one request per chunk, and the next regular sync
+moves them.
 
 Event-like data (workouts, meals, mindfulness sessions, cycle tracking) gets no sensor,
 because a single value cannot represent it honestly. Mindfulness and exercise do count

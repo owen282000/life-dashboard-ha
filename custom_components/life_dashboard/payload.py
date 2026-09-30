@@ -97,6 +97,7 @@ HEALTH_ARRAYS: Final = frozenset(
 # Sensor keys.
 KEY_LAST_HEALTH_SYNC: Final = "last_health_sync"
 KEY_LAST_SCREEN_TIME_SYNC: Final = "last_screen_time_sync"
+_SYNC_KEYS: Final = frozenset({KEY_LAST_HEALTH_SYNC, KEY_LAST_SCREEN_TIME_SYNC})
 
 # State classes, as the string values Home Assistant's SensorStateClass uses.
 STATE_CLASS_MEASUREMENT: Final = "measurement"
@@ -635,7 +636,8 @@ def _sync_update(data: dict[str, Any], key: str, tz: tzinfo) -> SensorUpdate:
     """The diagnostic timestamp sensor for a payload.
 
     Test pings update this too. The user knows exactly when they pressed Test, so a
-    moving timestamp is feedback rather than a surprise.
+    moving timestamp is feedback rather than a surprise. A backfill chunk does not:
+    parse_payload drops this update for it, so the backfill attribute stays false.
     """
     try:
         measured_at = parse_instant(data.get("timestamp"))
@@ -679,5 +681,14 @@ def parse_payload(data: dict[str, Any], *, tz: tzinfo) -> list[SensorUpdate]:
         return []
 
     if source == SOURCE_SCREEN_TIME:
-        return _parse_screen_time(data, tz)
-    return _parse_health(data, tz)
+        updates = _parse_screen_time(data, tz)
+    else:
+        updates = _parse_health(data, tz)
+
+    # A backfill is one POST per chunk, hundreds of them a second or two apart for a
+    # year. Each would move the last-sync timestamp and put a line in the logbook and a
+    # row in the recorder, for a sync that only fills the past. So a backfill moves no
+    # last-sync sensor; the next regular sync moves it again.
+    if data.get("backfill") is True:
+        updates = [update for update in updates if update.key not in _SYNC_KEYS]
+    return updates
