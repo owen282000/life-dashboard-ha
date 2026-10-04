@@ -1,4 +1,8 @@
-<h1 align="center"><img src="custom_components/life_dashboard/brand/icon.png" alt="" width="28" height="28" align="absmiddle"> Life Dashboard for Home Assistant</h1>
+<p align="center">
+  <img src="docs/readme-icon.png" alt="Life Dashboard icon" width="128" height="128">
+</p>
+
+<h1 align="center">Life Dashboard for Home Assistant</h1>
 
 <p align="center">
   Health Connect or Apple Health from your phone as Home Assistant sensors and long-term statistics.<br>
