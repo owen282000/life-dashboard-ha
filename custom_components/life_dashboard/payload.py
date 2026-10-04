@@ -632,6 +632,16 @@ _GENERIC_PACKAGE_SEGMENTS: Final = frozenset(
 )
 
 
+def fallback_name(package: str) -> str:
+    """The name the app (1.13.2 and later) makes up for a package it cannot look up:
+    the last segment that says something, so org.wakingup.android is "wakingup"."""
+    # The first segment is the TLD-style prefix (com, org, io) and never a name.
+    segments = [segment for segment in package.split(".") if segment.strip()][1:]
+    return next(
+        (s for s in reversed(segments) if s.lower() not in _GENERIC_PACKAGE_SEGMENTS), package
+    )
+
+
 def is_fallback_label(package: str, label: str) -> bool:
     """Whether a label is the stand-in the app sends for a package it cannot look up.
 
@@ -640,11 +650,7 @@ def is_fallback_label(package: str, label: str) -> bool:
     the app used the last segment as it was. Both are recomputed here exactly, so a real
     label is never mistaken for one unless it is that very word.
     """
-    segments = [segment for segment in package.split(".") if segment.strip()][1:]
-    current = next(
-        (s for s in reversed(segments) if s.lower() not in _GENERIC_PACKAGE_SEGMENTS), package
-    )
-    return label in (current, package.rsplit(".", 1)[-1])
+    return label in (fallback_name(package), package.rsplit(".", 1)[-1])
 
 
 def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[str, Any]]:
@@ -653,8 +659,10 @@ def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[s
     Every app of the window is in it, also one with no minutes today, so a new sensor
     can be judged on the week. The label is the one of the newest day the app appears
     on, so a renamed app takes its new name, unless that is only the stand-in for an app
-    uninstalled since. An app without a package cannot be told apart from the next one
-    and is left out; one the app filter took out never arrives.
+    uninstalled since. A stand-in is always the one of 1.13.2 and later: the last segment
+    an older app sends is often "android", which would name several apps alike. An app
+    without a package cannot be told apart from the next one and is left out; one the
+    app filter took out never arrives.
     """
     table: dict[str, dict[str, Any]] = {}
     for day in sorted(days):
@@ -664,6 +672,8 @@ def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[s
                 continue
             row = table.setdefault(package, {"name": package, "minutes": 0, "week_minutes": 0})
             label = app["name"].strip()
+            if label and is_fallback_label(package, label):
+                label = fallback_name(package)
             if label and (row["name"] == package or not is_fallback_label(package, label)):
                 row["name"] = label
             row["week_minutes"] += int(app["minutes"])

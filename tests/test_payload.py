@@ -868,6 +868,32 @@ def test_the_app_table_keeps_a_real_label_over_the_stand_in() -> None:
     assert table.attributes["apps"]["com.spotify.music"]["name"] == "music"
 
 
+def test_the_stand_in_of_an_app_before_1_13_2_is_the_one_of_today() -> None:
+    """Before 1.13.2 the stand-in was the last segment, "android" for two apps here;
+    the table names them as the app does now, so they get sensors that differ."""
+    payload = _screen_time_payload()
+    payload["app_version"] = "1.12.2"
+    payload["screen_time"][1]["apps"] += [
+        {"package": "org.wakingup.android", "name": "android", "minutes": 12},
+        {"package": "com.instagram.android", "name": "android", "minutes": 9},
+        {"package": "com.android.app", "name": "app", "minutes": 7},
+    ]
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    apps = table.attributes["apps"]
+    assert apps["org.wakingup.android"]["name"] == "wakingup"
+    assert apps["com.instagram.android"]["name"] == "instagram"
+    # Nothing but generic segments: the package itself, as the app does.
+    assert apps["com.android.app"]["name"] == "com.android.app"
+
+    # A real label in the window still wins over it.
+    payload["screen_time"][0]["apps"].append(
+        {"package": "org.wakingup.android", "name": "Waking Up", "minutes": 20}
+    )
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    apps = table.attributes["apps"]
+    assert apps["org.wakingup.android"]["name"] == "Waking Up"
+
+
 def test_the_app_table_has_no_filtered_app_and_no_app_without_a_package() -> None:
     payload = _filtered_payload()
     payload["screen_time"][1]["apps"].append({"name": "Mystery", "minutes": 30})
