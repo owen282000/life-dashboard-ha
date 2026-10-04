@@ -4,6 +4,8 @@ These tests import nothing from Home Assistant, on purpose: the whole contract w
 the phone is checked here, so the Home Assistant side has little left to get wrong.
 """
 
+import json
+import math
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -871,6 +873,29 @@ def test_the_app_table_has_no_filtered_app_and_no_app_without_a_package() -> Non
     payload["screen_time"][1]["apps"].append({"name": "Mystery", "minutes": 30})
     table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
     assert set(table.attributes["apps"]) == {"com.spotify.music", "com.android.chrome"}
+
+
+@pytest.mark.parametrize("minutes", [math.inf, -math.inf, math.nan])
+def test_minutes_that_are_not_finite_skip_the_app_and_nothing_else(minutes: float) -> None:
+    """json.loads takes NaN and Infinity, and int() of them raises. The app table reads
+    every day of the window, so one such row on any day cost the whole payload."""
+    payload = _screen_time_payload()
+    payload["screen_time"].insert(
+        0,
+        {
+            "date": "2026-09-10",
+            "total_screen_time_minutes": 30,
+            "apps": [{"package": "com.example.odd", "name": "Odd", "minutes": minutes}],
+        },
+    )
+    payload["screen_time"][2]["apps"][0]["minutes"] = minutes  # Chrome, today.
+    updates = _by_key(parse_payload(json.loads(json.dumps(payload)), tz=_amsterdam()))
+    assert set(updates[KEY_SCREEN_TIME_APPS].attributes["apps"]) == {
+        "com.spotify.music",
+        "com.whatsapp",
+    }
+    assert updates["screen_time_top_app"].value == "WhatsApp"
+    assert updates["screen_time_today"].attributes["app_count"] == 2
 
 
 def test_a_day_without_apps_still_sends_an_empty_app_table() -> None:

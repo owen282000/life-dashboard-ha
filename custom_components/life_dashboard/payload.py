@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
@@ -672,7 +673,13 @@ def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[s
 
 
 def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:
-    """The usable app rows of a screen time day."""
+    """The usable app rows of a screen time day.
+
+    Minutes that are not finite are no minutes: the app never sends them, but Python's
+    JSON reader takes NaN and Infinity, and int() of either raises. The app table reads
+    every day of the window, so one such row on any day would otherwise cost the whole
+    payload rather than the today and yesterday sensors alone.
+    """
     apps = entry.get("apps")
     if not isinstance(apps, list):
         return []
@@ -681,8 +688,10 @@ def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(app, dict) or not isinstance(app.get("name"), str):
             continue
         try:
-            _number(app.get("minutes"))
+            minutes = _number(app.get("minutes"))
         except ValueError:
+            continue
+        if not math.isfinite(minutes):
             continue
         usable.append(app)
     return usable
