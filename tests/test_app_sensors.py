@@ -2,6 +2,7 @@
 
 import json
 from http import HTTPStatus
+from unittest.mock import patch
 
 import pytest
 from homeassistant.components.sensor import SensorDeviceClass
@@ -483,3 +484,51 @@ async def test_a_deleted_sensor_frees_its_slot(
     # The most used app that had no room gets the slot; the deleted one does not.
     assert "com.example.app9" in entries
     assert top not in entries
+
+
+# --- Writes ----------------------------------------------------------------
+
+
+async def test_a_sync_that_changes_nothing_writes_nothing(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """A screen time sync every few minutes must not mean a write every few minutes."""
+    client = await hass_client_no_auth()
+    store = loaded.runtime_data.apps._store
+    with patch.object(store, "async_delay_save", wraps=store.async_delay_save) as save:
+        await _post(hass, client, _screen_time(*TWO_DAYS))
+        assert save.call_count == 1
+
+        # Same minutes for the apps with a sensor; only an app without one moved.
+        await _post(
+            hass,
+            client,
+            _screen_time(
+                TWO_DAYS[0],
+                _day(
+                    "2026-09-15",
+                    (CHROME, "Chrome", 61),
+                    (WHATSAPP, "WhatsApp", 44),
+                    (SPOTIFY, "Spotify", 22),
+                    ("com.example.once", "Once", 1),
+                ),
+                timestamp="2026-09-15T19:00:00Z",
+            ),
+        )
+        assert save.call_count == 1
+
+        await _post(
+            hass,
+            client,
+            _screen_time(
+                TWO_DAYS[0],
+                _day(
+                    "2026-09-15",
+                    (CHROME, "Chrome", 75),
+                    (WHATSAPP, "WhatsApp", 44),
+                    (SPOTIFY, "Spotify", 22),
+                ),
+                timestamp="2026-09-15T20:00:00Z",
+            ),
+        )
+        assert save.call_count == 2

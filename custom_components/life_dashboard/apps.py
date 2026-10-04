@@ -75,9 +75,15 @@ class AppRoster:
         #: The newest table, as the update it arrived in; None before the first one.
         self.latest: SensorUpdate | None = None
         self._cap_logged = False
+        #: What the store holds, or is about to: a sync that changes none of it skips
+        #: the write, which an SD card is grateful for.
+        self._saved: dict[str, Any] | None = None
 
     async def async_load(self) -> None:
-        stored = await self._store.async_load() or {}
+        self._read(await self._store.async_load() or {})
+        self._saved = self._to_dict()
+
+    def _read(self, stored: dict[str, Any]) -> None:
         labels = stored.get("labels")
         if isinstance(labels, dict):
             self.labels = {
@@ -102,7 +108,17 @@ class AppRoster:
             )
 
     async def async_flush(self) -> None:
-        await self._store.async_save(self._to_dict())
+        self._saved = self._to_dict()
+        await self._store.async_save(self._saved)
+
+    @callback
+    def _async_save(self) -> None:
+        """Write the store a moment from now, unless nothing in it changed."""
+        snapshot = self._to_dict()
+        if snapshot == self._saved:
+            return
+        self._saved = snapshot
+        self._store.async_delay_save(self._to_dict, SAVE_DELAY_SECONDS)
 
     def _to_dict(self) -> dict[str, Any]:
         table = None
@@ -129,7 +145,7 @@ class AppRoster:
         """Forget an app whose sensor the user deleted, and never make it one again."""
         self.labels.pop(package, None)
         self.dismissed.add(self._digest(package))
-        self._store.async_delay_save(self._to_dict, SAVE_DELAY_SECONDS)
+        self._async_save()
 
     @callback
     def async_track_registry(self, hass: HomeAssistant) -> Callable[[], None]:
@@ -215,5 +231,5 @@ class AppRoster:
                 len(candidates) - room,
             )
 
-        self._store.async_delay_save(self._to_dict, SAVE_DELAY_SECONDS)
+        self._async_save()
         return added
