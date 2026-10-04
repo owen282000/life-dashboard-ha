@@ -379,3 +379,107 @@ async def test_removing_the_phone_removes_its_app_list(
     await hass.config_entries.async_remove(loaded.entry_id)
     await hass.async_block_till_done()
     assert f"{DOMAIN}.{loaded.entry_id}.apps" not in hass_storage
+
+
+# --- A deleted sensor stays deleted ----------------------------------------
+
+
+def _stored(hass_storage, entry: MockConfigEntry) -> str:
+    return json.dumps(hass_storage[f"{DOMAIN}.{entry.entry_id}.apps"]["data"])
+
+
+async def test_a_deleted_sensor_does_not_come_back(
+    hass: HomeAssistant,
+    hass_client_no_auth,
+    loaded,
+    entity_registry: er.EntityRegistry,
+    hass_storage,
+) -> None:
+    """Not at the next sync, not after a reload, and its name leaves the store."""
+    client = await hass_client_no_auth()
+    await _post(hass, client, _screen_time(*TWO_DAYS))
+    entity_registry.async_remove(_app_entries(entity_registry, loaded)[WHATSAPP].entity_id)
+    await hass.async_block_till_done()
+
+    # The phone still sends it.
+    await _post(hass, client, _screen_time(*TWO_DAYS, timestamp="2026-09-15T19:00:00Z"))
+    assert WHATSAPP not in _app_entries(entity_registry, loaded)
+
+    # And now leaves it out, as an app filter would; then a reload.
+    await _post(
+        hass,
+        client,
+        _screen_time(
+            _day("2026-09-15", (CHROME, "Chrome", 61), (SPOTIFY, "Spotify", 22)),
+            timestamp="2026-09-15T20:00:00Z",
+        ),
+    )
+    assert await hass.config_entries.async_reload(loaded.entry_id)
+    await hass.async_block_till_done()
+    assert set(_app_entries(entity_registry, loaded)) == {CHROME, SPOTIFY}
+
+    stored = _stored(hass_storage, loaded)
+    assert "WhatsApp" not in stored
+    assert WHATSAPP not in stored
+    assert len(json.loads(stored)["dismissed"]) == 1
+
+
+async def test_a_deleted_enabled_sensor_goes_from_the_state_machine_too(
+    hass: HomeAssistant, hass_client_no_auth, loaded, entity_registry: er.EntityRegistry
+) -> None:
+    client = await hass_client_no_auth()
+    await _post(hass, client, _screen_time(*TWO_DAYS))
+    await _enable(hass, entity_registry, loaded, CHROME)
+    # Renamed first: the removal names the new entity id only.
+    entity_registry.async_update_entity(
+        "sensor.owen_s_pixel_chrome_screen_time", new_entity_id="sensor.browser_minutes"
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.browser_minutes").state == "61"
+
+    entity_registry.async_remove("sensor.browser_minutes")
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.browser_minutes") is None
+
+    await _post(hass, client, _screen_time(*TWO_DAYS, timestamp="2026-09-15T19:00:00Z"))
+    assert CHROME not in _app_entries(entity_registry, loaded)
+    assert CHROME not in loaded.runtime_data.apps.labels
+
+
+async def test_a_sensor_deleted_while_unloaded_stays_deleted(
+    hass: HomeAssistant, hass_client_no_auth, loaded, entity_registry: er.EntityRegistry
+) -> None:
+    """Deleted while the entry was not loaded: no event was seen, the registry tells."""
+    client = await hass_client_no_auth()
+    await _post(hass, client, _screen_time(*TWO_DAYS))
+    assert await hass.config_entries.async_unload(loaded.entry_id)
+    await hass.async_block_till_done()
+    entity_registry.async_remove(_app_entries(entity_registry, loaded)[SPOTIFY].entity_id)
+
+    assert await hass.config_entries.async_setup(loaded.entry_id)
+    await hass.async_block_till_done()
+    assert SPOTIFY not in _app_entries(entity_registry, loaded)
+    await _post(hass, client, _screen_time(*TWO_DAYS, timestamp="2026-09-15T19:00:00Z"))
+    assert set(_app_entries(entity_registry, loaded)) == {CHROME, WHATSAPP}
+
+
+async def test_a_deleted_sensor_frees_its_slot(
+    hass: HomeAssistant, hass_client_no_auth, loaded, entity_registry: er.EntityRegistry
+) -> None:
+    client = await hass_client_no_auth()
+    apps = [(f"com.example.app{n}", f"App {n}", 10 + n) for n in range(MAX_APP_SENSORS + 10)]
+    await _post(hass, client, _screen_time(_day("2026-09-15", *apps)))
+    top = f"com.example.app{MAX_APP_SENSORS + 9}"
+    entity_registry.async_remove(_app_entries(entity_registry, loaded)[top].entity_id)
+    await hass.async_block_till_done()
+
+    await _post(
+        hass,
+        client,
+        _screen_time(_day("2026-09-15", *apps), timestamp="2026-09-15T19:00:00Z"),
+    )
+    entries = _app_entries(entity_registry, loaded)
+    assert len(entries) == MAX_APP_SENSORS
+    # The most used app that had no room gets the slot; the deleted one does not.
+    assert "com.example.app9" in entries
+    assert top not in entries

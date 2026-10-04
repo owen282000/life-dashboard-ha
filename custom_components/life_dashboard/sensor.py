@@ -33,6 +33,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import LifeDashboardConfigEntry, signal_update
+from .apps import app_unique_id
 from .const import DOMAIN, MANUFACTURER, MODEL
 from .payload import (
     KEY_SCREEN_TIME_APPS,
@@ -94,7 +95,9 @@ async def async_setup_entry(
 
     # The app sensors come back from the roster, with the label they had, also the
     # disabled ones: the registry entry takes its name from the entity every startup.
+    # Those the user deleted, also while the entry was not loaded, stay deleted.
     apps = entry.runtime_data.apps
+    entry.async_on_unload(apps.async_track_registry(hass))
     if apps.labels:
         async_add_entities(
             AppScreenTimeSensor(entry, package, label) for package, label in apps.labels.items()
@@ -247,8 +250,7 @@ class AppScreenTimeSensor(SensorEntity):
         """Set up the sensor for one package; the label only names it."""
         self._entry = entry
         self._package = package
-        # The package, not the label: an app keeps its sensor when it is renamed.
-        self._attr_unique_id = f"{entry.entry_id}_screen_time_app_{package}"
+        self._attr_unique_id = app_unique_id(entry.entry_id, package)
         self._attr_translation_placeholders = {"app": label}
         self._attr_device_info = _device_info(entry)
 

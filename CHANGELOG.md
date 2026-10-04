@@ -16,7 +16,8 @@ All notable changes to this integration are documented here. The format follows
   sensor. An app that is missing from a newer day, unused or left out with the app filter
   since, reads 0 for that day instead of keeping the day before, and an app the filter
   leaves out never gets one. An app needs 5 minutes over the days a sync carries before it
-  gets a sensor, and a phone gets 50 app sensors at most, the most used apps first.
+  gets a sensor, and a phone gets 50 app sensors at most, the most used apps first. A
+  sensor you delete stays deleted, also after a restart, and frees its slot.
 
 ## [0.8.0] - 2026-10-04
 

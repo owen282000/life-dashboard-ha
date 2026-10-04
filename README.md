@@ -282,6 +282,9 @@ sensor shows today's minutes straight away.
   a moment gets none, and a phone gets 50 app sensors at most, the most used apps first.
   An app keeps its sensor when you stop using it, so automations built on it keep
   working.
+- A sensor you delete stays deleted, also after a restart and while the phone keeps
+  sending the app, and frees its slot. Removing the phone and adding it again is the
+  only way to get it back.
 - An app you leave out in the app never reaches Home Assistant and gets no sensor.
 - Like Screen time today they have no state class: the recorder keeps their history as
   states, for its usual 10 days, and they add nothing to long-term statistics.
@@ -525,8 +528,9 @@ with the secret and the webhook id redacted and no health data in it. Attach it 
 issue. The queue itself, `.storage/life_dashboard.<entry>.writeback`, does hold the
 values of the readings waiting for the phone, and goes into Home Assistant backups with
 the rest of `.storage`. So does `.storage/life_dashboard.<entry>.apps`, with the names
-of the apps on the phone and their minutes on the newest day; it is deleted when the
-phone is removed from Home Assistant. For more detail, turn on debug logging:
+of the apps that have a sensor and their minutes on the newest day (an app whose sensor
+you deleted is kept as a hash, not by name); it is deleted when the phone is removed
+from Home Assistant. For more detail, turn on debug logging:
 
 ```yaml
 logger:
