@@ -249,15 +249,22 @@ class BloodPressurePairer:
 # --- The manager -------------------------------------------------------------------
 
 
+def _store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, Any]]:
+    return Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}.writeback")
+
+
+async def async_remove_store(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the queue with the entry: it holds the values of readings for the phone."""
+    await _store(hass, entry.entry_id).async_remove()
+
+
 class WritebackManager:
     """Keeps one phone's queue and feeds it from the mapped entities."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self._hass = hass
         self._entry = entry
-        self._store: Store[dict[str, Any]] = Store(
-            hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.writeback"
-        )
+        self._store = _store(hass, entry.entry_id)
         self.queue = WritebackQueue()
         self.mappings = parse_mapping(entry.options)
         self._pairers: dict[str, BloodPressurePairer] = {}

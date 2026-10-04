@@ -479,7 +479,8 @@ def test_every_sensor_has_a_name() -> None:
     with open("custom_components/life_dashboard/strings.json") as handle:
         strings = json.load(handle)
     names = strings["entity"]["sensor"]
-    assert set(names) == set(SENSOR_SPECS)
+    # Plus the per-app sensor, which has no spec: its name carries the app's label.
+    assert set(names) == {*SENSOR_SPECS, "app_screen_time"}
     for key, value in names.items():
         assert value["name"], key
 

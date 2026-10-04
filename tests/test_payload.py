@@ -4,6 +4,8 @@ These tests import nothing from Home Assistant, on purpose: the whole contract w
 the phone is checked here, so the Home Assistant side has little left to get wrong.
 """
 
+import json
+import math
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -13,8 +15,10 @@ from custom_components.life_dashboard.payload import (
     APP_PACKAGE,
     KEY_LAST_HEALTH_SYNC,
     KEY_LAST_SCREEN_TIME_SYNC,
+    KEY_SCREEN_TIME_APPS,
     SENSOR_SPECS,
     SensorUpdate,
+    is_fallback_label,
     is_heartbeat,
     parse_instant,
     parse_payload,
@@ -789,6 +793,160 @@ def test_a_filtered_figure_that_is_not_a_number_skips_the_day() -> None:
     assert "screen_time_today" not in updates
 
 
+def test_screen_time_app_table() -> None:
+    """Every app of the window, with today's minutes and the week's."""
+    update = _by_key(parse_payload(_screen_time_payload(), tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+
+    assert update.value == "2026-09-15"
+    assert update.measured_at == datetime(2026, 9, 15, 0, 0, tzinfo=_amsterdam())
+    assert update.attributes == {
+        "date": "2026-09-15",
+        "apps": {
+            "com.spotify.music": {"name": "Spotify", "minutes": 22, "week_minutes": 117},
+            "com.android.chrome": {"name": "Chrome", "minutes": 61, "week_minutes": 61},
+            "com.whatsapp": {"name": "WhatsApp", "minutes": 44, "week_minutes": 44},
+        },
+    }
+
+
+def test_an_app_of_an_earlier_day_only_reads_zero_today() -> None:
+    payload = _screen_time_payload()
+    payload["screen_time"][1]["apps"].pop()  # Spotify, which 2026-09-14 still has.
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"] == {
+        "name": "Spotify",
+        "minutes": 0,
+        "week_minutes": 95,
+    }
+
+
+def test_the_app_table_takes_the_newest_label() -> None:
+    payload = _screen_time_payload()
+    payload["screen_time"][1]["apps"][2]["name"] = "Spotify: Music and Podcasts"
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"]["name"] == "Spotify: Music and Podcasts"
+
+
+@pytest.mark.parametrize(
+    ("package", "label"),
+    [
+        # The cases of the Android app's own test of fallbackAppName.
+        ("org.wakingup.android", "wakingup"),
+        ("com.google.android.apps.nexuslauncher", "nexuslauncher"),
+        ("com.example", "example"),
+        ("com.android.app", "com.android.app"),
+        # What the app sent before 1.13.2: the last segment as it is.
+        ("org.wakingup.android", "android"),
+    ],
+)
+def test_fallback_labels_are_recognised(package: str, label: str) -> None:
+    assert is_fallback_label(package, label)
+
+
+@pytest.mark.parametrize(
+    ("package", "label"),
+    [
+        ("com.google.android.youtube", "YouTube"),
+        ("org.wakingup.android", "Waking Up"),
+        ("com.whatsapp", "WhatsApp"),
+    ],
+)
+def test_real_labels_are_not_fallbacks(package: str, label: str) -> None:
+    assert not is_fallback_label(package, label)
+
+
+def test_the_app_table_keeps_a_real_label_over_the_stand_in() -> None:
+    """Uninstalled today, the app's days come under a name made from its package."""
+    payload = _screen_time_payload()
+    payload["screen_time"][1]["apps"][2]["name"] = "music"
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"]["name"] == "Spotify"
+
+    # With no real label in the window, the stand-in is still better than nothing.
+    payload["screen_time"][0]["apps"][0]["name"] = "music"
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"]["name"] == "music"
+
+
+def test_the_stand_in_of_an_app_before_1_13_2_is_the_one_of_today() -> None:
+    """Before 1.13.2 the stand-in was the last segment, "android" for two apps here;
+    the table names them as the app does now, so they get sensors that differ."""
+    payload = _screen_time_payload()
+    payload["app_version"] = "1.12.2"
+    payload["screen_time"][1]["apps"] += [
+        {"package": "org.wakingup.android", "name": "android", "minutes": 12},
+        {"package": "com.instagram.android", "name": "android", "minutes": 9},
+        {"package": "com.android.app", "name": "app", "minutes": 7},
+    ]
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    apps = table.attributes["apps"]
+    assert apps["org.wakingup.android"]["name"] == "wakingup"
+    assert apps["com.instagram.android"]["name"] == "instagram"
+    # Nothing but generic segments: the package itself, as the app does.
+    assert apps["com.android.app"]["name"] == "com.android.app"
+
+    # A real label in the window still wins over it.
+    payload["screen_time"][0]["apps"].append(
+        {"package": "org.wakingup.android", "name": "Waking Up", "minutes": 20}
+    )
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    apps = table.attributes["apps"]
+    assert apps["org.wakingup.android"]["name"] == "Waking Up"
+
+
+def test_the_app_table_has_no_filtered_app_and_no_app_without_a_package() -> None:
+    payload = _filtered_payload()
+    payload["screen_time"][1]["apps"].append({"name": "Mystery", "minutes": 30})
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert set(table.attributes["apps"]) == {"com.spotify.music", "com.android.chrome"}
+
+
+@pytest.mark.parametrize("minutes", [math.inf, -math.inf, math.nan])
+def test_minutes_that_are_not_finite_skip_the_app_and_nothing_else(minutes: float) -> None:
+    """json.loads takes NaN and Infinity, and int() of them raises. The app table reads
+    every day of the window, so one such row on any day cost the whole payload."""
+    payload = _screen_time_payload()
+    payload["screen_time"].insert(
+        0,
+        {
+            "date": "2026-09-10",
+            "total_screen_time_minutes": 30,
+            "apps": [{"package": "com.example.odd", "name": "Odd", "minutes": minutes}],
+        },
+    )
+    payload["screen_time"][2]["apps"][0]["minutes"] = minutes  # Chrome, today.
+    updates = _by_key(parse_payload(json.loads(json.dumps(payload)), tz=_amsterdam()))
+    assert set(updates[KEY_SCREEN_TIME_APPS].attributes["apps"]) == {
+        "com.spotify.music",
+        "com.whatsapp",
+    }
+    assert updates["screen_time_top_app"].value == "WhatsApp"
+    assert updates["screen_time_today"].attributes["app_count"] == 2
+
+
+def test_a_day_without_apps_still_sends_an_empty_app_table() -> None:
+    """So every app that has a sensor reads 0 for that day rather than keeping its value."""
+    payload = _filtered_payload()
+    payload["screen_time"] = [
+        {
+            "date": "2026-09-16",
+            "total_screen_time_minutes": 20,
+            "filtered_screen_time_minutes": 0,
+            "apps": [],
+        }
+    ]
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes == {"date": "2026-09-16", "apps": {}}
+
+
+def test_a_test_ping_sends_no_app_table() -> None:
+    updates = parse_payload(
+        {"test": True, "timestamp": "2026-09-15T16:55:02Z", "source": "screen_time"},
+        tz=_amsterdam(),
+    )
+    assert KEY_SCREEN_TIME_APPS not in _by_key(updates)
+
+
 # --- The table itself ------------------------------------------------------
 
 
@@ -841,6 +999,9 @@ def test_every_emitted_key_has_a_spec() -> None:
     emitted: set[str] = set()
     for payload in payloads:
         for update in parse_payload(payload, tz=_amsterdam()):
+            # The app table is no sensor itself: the per-app sensors read from it.
+            if update.key == KEY_SCREEN_TIME_APPS:
+                continue
             emitted.add(update.key)
             assert update.key in SENSOR_SPECS, f"no spec for {update.key}"
 

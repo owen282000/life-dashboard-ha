@@ -232,6 +232,9 @@
       "screen_time_top_app": {
         "name": "Most used app today"
       },
+      "app_screen_time": {
+        "name": "{app} screen time"
+      },
       "last_health_sync": {
         "name": "Last health sync"
       },

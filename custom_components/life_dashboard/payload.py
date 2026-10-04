@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
@@ -101,6 +102,12 @@ HEALTH_ARRAYS: Final = frozenset(
 KEY_LAST_HEALTH_SYNC: Final = "last_health_sync"
 KEY_LAST_SCREEN_TIME_SYNC: Final = "last_screen_time_sync"
 _SYNC_KEYS: Final = frozenset({KEY_LAST_HEALTH_SYNC, KEY_LAST_SCREEN_TIME_SYNC})
+
+# Not a sensor of its own: the newest day's minutes per app, which the per-app screen
+# time sensors read their state from. One update for every app rather than one per app,
+# so an app missing from a newer day reads 0 instead of keeping what it had, and the
+# ordering rule keeps one entry instead of one per package.
+KEY_SCREEN_TIME_APPS: Final = "screen_time_apps"
 
 # State classes, as the string values Home Assistant's SensorStateClass uses.
 STATE_CLASS_MEASUREMENT: Final = "measurement"
@@ -604,12 +611,85 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
                 )
             )
 
+        # Also with no app at all: every app that has a sensor then reads 0 for today.
+        updates.append(
+            SensorUpdate(
+                key=KEY_SCREEN_TIME_APPS,
+                value=today.isoformat(),
+                measured_at=_midnight(today, tz),
+                attributes={"date": today.isoformat(), "apps": app_table(days, today)},
+            )
+        )
+
     updates.append(_sync_update(data, KEY_LAST_SCREEN_TIME_SYNC, tz))
     return updates
 
 
+# The package segments the Android app skips when it makes a name up for a package it
+# cannot look up, from ScreenTimeManager.fallbackAppName (app 1.13.2 and later).
+_GENERIC_PACKAGE_SEGMENTS: Final = frozenset(
+    {"android", "app", "apps", "mobile", "client", "main", "release", "prod", "free", "pro", "lite"}
+)
+
+
+def fallback_name(package: str) -> str:
+    """The name the app (1.13.2 and later) makes up for a package it cannot look up:
+    the last segment that says something, so org.wakingup.android is "wakingup"."""
+    # The first segment is the TLD-style prefix (com, org, io) and never a name.
+    segments = [segment for segment in package.split(".") if segment.strip()][1:]
+    return next(
+        (s for s in reversed(segments) if s.lower() not in _GENERIC_PACKAGE_SEGMENTS), package
+    )
+
+
+def is_fallback_label(package: str, label: str) -> bool:
+    """Whether a label is the stand-in the app sends for a package it cannot look up.
+
+    That happens for an app uninstalled since: its days still come, under a name made
+    from the package, such as "youtube" for com.google.android.youtube. Before 1.13.2
+    the app used the last segment as it was. Both are recomputed here exactly, so a real
+    label is never mistaken for one unless it is that very word.
+    """
+    return label in (fallback_name(package), package.rsplit(".", 1)[-1])
+
+
+def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[str, Any]]:
+    """Per package: its label, its minutes on today, and its minutes over every day sent.
+
+    Every app of the window is in it, also one with no minutes today, so a new sensor
+    can be judged on the week. The label is the one of the newest day the app appears
+    on, so a renamed app takes its new name, unless that is only the stand-in for an app
+    uninstalled since. A stand-in is always the one of 1.13.2 and later: the last segment
+    an older app sends is often "android", which would name several apps alike. An app
+    without a package cannot be told apart from the next one and is left out; one the
+    app filter took out never arrives.
+    """
+    table: dict[str, dict[str, Any]] = {}
+    for day in sorted(days):
+        for app in _apps(days[day]):
+            package = app.get("package")
+            if not isinstance(package, str) or not package:
+                continue
+            row = table.setdefault(package, {"name": package, "minutes": 0, "week_minutes": 0})
+            label = app["name"].strip()
+            if label and is_fallback_label(package, label):
+                label = fallback_name(package)
+            if label and (row["name"] == package or not is_fallback_label(package, label)):
+                row["name"] = label
+            row["week_minutes"] += int(app["minutes"])
+            if day == today:
+                row["minutes"] += int(app["minutes"])
+    return table
+
+
 def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:
-    """The usable app rows of a screen time day."""
+    """The usable app rows of a screen time day.
+
+    Minutes that are not finite are no minutes: the app never sends them, but Python's
+    JSON reader takes NaN and Infinity, and int() of either raises. The app table reads
+    every day of the window, so one such row on any day would otherwise cost the whole
+    payload rather than the today and yesterday sensors alone.
+    """
     apps = entry.get("apps")
     if not isinstance(apps, list):
         return []
@@ -618,8 +698,10 @@ def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(app, dict) or not isinstance(app.get("name"), str):
             continue
         try:
-            _number(app.get("minutes"))
+            minutes = _number(app.get("minutes"))
         except ValueError:
+            continue
+        if not math.isfinite(minutes):
             continue
         usable.append(app)
     return usable

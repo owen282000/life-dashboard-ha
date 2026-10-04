@@ -1,0 +1,2065 @@
+{
+  "android_1_13_2_fallback_names": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.13.2",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "android_1_17_0_health_connect": {
+    "ledger": {
+      "days": {
+        "distance": {
+          "2026-09-15": 3150.25
+        },
+        "steps": {
+          "2026-09-15": 4212.0
+        }
+      },
+      "hours": {
+        "heart_rate": {
+          "2026-09-15T10:00:00+00:00": {
+            "max": 72.0,
+            "mean": 72.0,
+            "min": 72.0,
+            "n": 1
+          }
+        },
+        "weight": {
+          "2026-09-15T07:00:00+00:00": {
+            "max": 75.5,
+            "mean": 75.5,
+            "min": 75.5,
+            "n": 1
+          }
+        }
+      },
+      "sessions": {
+        "sleep_minutes": {
+          "sleep-1": [
+            "2026-09-15",
+            450.0
+          ]
+        }
+      }
+    },
+    "sensors": {
+      "distance_today": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00"
+        },
+        "entity_id": "sensor.owen_s_pixel_distance_today",
+        "state": "3150.25"
+      },
+      "heart_rate": {
+        "attributes": {
+          "measured_at": "2026-09-15T10:30:00+00:00",
+          "source": "com.zepp.app",
+          "uuid": "hr-1"
+        },
+        "entity_id": "sensor.owen_s_pixel_heart_rate",
+        "state": "72"
+      },
+      "last_health_sync": {
+        "attributes": {
+          "app_version": "1.17.0",
+          "backfill": false,
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "record_count": 4,
+          "source": "health_connect"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_health_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "sleep_duration": {
+        "attributes": {
+          "measured_at": "2026-09-15T05:30:00+00:00",
+          "uuid": "sleep-1"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_sleep_duration",
+        "state": "450.0"
+      },
+      "steps_today": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00"
+        },
+        "entity_id": "sensor.owen_s_pixel_steps_today",
+        "state": "4212"
+      },
+      "weight": {
+        "attributes": {
+          "measured_at": "2026-09-15T07:00:00+00:00",
+          "uuid": "w-1"
+        },
+        "entity_id": "sensor.owen_s_pixel_weight",
+        "state": "75.5"
+      }
+    }
+  },
+  "android_1_17_0_past_midnight": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 164.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.17.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T22:20:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T22:20:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (72 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "164"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 72,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "android_1_17_0_test_ping": {
+    "ledger": {
+      "days": {},
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      }
+    }
+  },
+  "android_1_21_0_sequence_settings": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 160.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.21.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 5,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min), Settings (6 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "160"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "android_1_22_0_late_outbox_week": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0,
+          "2026-09-16": 15.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.22.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-16T07:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-16T07:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 1,
+          "date": "2026-09-16",
+          "measured_at": "2026-09-16T00:00:00+02:00",
+          "top_apps": "WhatsApp (15 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "15"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-16",
+          "measured_at": "2026-09-16T00:00:00+02:00",
+          "minutes": 15,
+          "package": "com.whatsapp"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "WhatsApp"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "154"
+      }
+    }
+  },
+  "android_1_23_0_allowlist_nothing_today": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 0.0,
+          "2026-09-10": 0.0,
+          "2026-09-11": 15.0,
+          "2026-09-12": 0.0,
+          "2026-09-13": 0.0,
+          "2026-09-14": 95.0,
+          "2026-09-15": 0.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "all_apps_minutes": 132,
+          "app_count": 0,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "0"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "none"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "all_apps_minutes": 156,
+          "app_count": 1,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "95"
+      }
+    }
+  },
+  "android_1_23_0_blocklist": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 15.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 70.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 109.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "all_apps_minutes": 154,
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "109"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "all_apps_minutes": 156,
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "android_1_4_0": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.4.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), android (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "ios_1_4_0_healthkit": {
+    "ledger": {
+      "days": {
+        "distance": {
+          "2026-09-15": 3150.25
+        },
+        "steps": {
+          "2026-09-14": 8100.0,
+          "2026-09-15": 4212.0
+        }
+      },
+      "hours": {
+        "heart_rate": {
+          "2026-09-15T12:00:00+00:00": {
+            "max": 61.0,
+            "mean": 61.0,
+            "min": 61.0,
+            "n": 1
+          }
+        }
+      },
+      "sessions": {}
+    },
+    "sensors": {
+      "distance_today": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00"
+        },
+        "entity_id": "sensor.owen_s_pixel_distance_today",
+        "state": "3150.25"
+      },
+      "heart_rate": {
+        "attributes": {
+          "measured_at": "2026-09-15T12:00:00+00:00",
+          "source": "Apple Watch"
+        },
+        "entity_id": "sensor.owen_s_pixel_heart_rate",
+        "state": "61"
+      },
+      "last_health_sync": {
+        "attributes": {
+          "app_version": "1.4.0",
+          "backfill": false,
+          "measured_at": "2026-09-15T16:55:02+00:00",
+          "record_count": 1,
+          "source": "healthkit_ios"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_health_sync",
+        "state": "2026-09-15T16:55:02+00:00"
+      },
+      "steps_today": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00"
+        },
+        "entity_id": "sensor.owen_s_pixel_steps_today",
+        "state": "4212"
+      }
+    }
+  },
+  "malformed_app_minutes_bool": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_minutes_float": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_minutes_nan": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_minutes_not_finite": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_minutes_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_minutes_string": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_name_blank": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "    (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_name_empty": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min),  (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_name_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_name_number": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 44,
+          "package": "com.whatsapp"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "WhatsApp"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_not_an_object": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 0,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_package_empty": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_package_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_package_number": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_without_minutes": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 44,
+          "package": "com.whatsapp"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "WhatsApp"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_without_name": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 44,
+          "package": "com.whatsapp"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "WhatsApp"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_app_without_package": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_apps_as_object": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 0,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_apps_as_string": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 0,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_apps_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 0,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": ""
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_day_date_garbage": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 4,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": "Chrome (62 min), WhatsApp (44 min), YouTube (25 min), Spotify (22 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      }
+    }
+  },
+  "malformed_day_date_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "156"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "minutes": 95,
+          "package": "com.spotify.music"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Spotify"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-13",
+          "measured_at": "2026-09-13T00:00:00+02:00",
+          "top_apps": "YouTube (68 min), WhatsApp (33 min), Rare (2 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "103"
+      }
+    }
+  },
+  "malformed_day_filtered_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_day_total_null": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 62,
+          "package": "com.android.chrome"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": "Chrome"
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_only_row_without_a_name": {
+    "ledger": {
+      "days": {
+        "screen_time": {
+          "2026-09-09": 70.0,
+          "2026-09-10": 37.0,
+          "2026-09-11": 66.0,
+          "2026-09-12": 50.0,
+          "2026-09-13": 103.0,
+          "2026-09-14": 156.0,
+          "2026-09-15": 154.0
+        }
+      },
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      },
+      "screen_time_today": {
+        "attributes": {
+          "app_count": 1,
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "top_apps": " (30 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_today",
+        "state": "154"
+      },
+      "screen_time_top_app": {
+        "attributes": {
+          "date": "2026-09-15",
+          "measured_at": "2026-09-15T00:00:00+02:00",
+          "minutes": 30,
+          "package": "com.example.nameless"
+        },
+        "entity_id": "sensor.owen_s_pixel_most_used_app_today",
+        "state": ""
+      },
+      "screen_time_yesterday": {
+        "attributes": {
+          "app_count": 3,
+          "date": "2026-09-14",
+          "measured_at": "2026-09-14T00:00:00+02:00",
+          "top_apps": "Spotify (95 min), Chrome (40 min), wakingup (21 min)"
+        },
+        "entity_id": "sensor.owen_s_pixel_screen_time_yesterday",
+        "state": "156"
+      }
+    }
+  },
+  "malformed_screen_time_as_object": {
+    "ledger": {
+      "days": {},
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      }
+    }
+  },
+  "malformed_screen_time_days_not_objects": {
+    "ledger": {
+      "days": {},
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      }
+    }
+  },
+  "malformed_screen_time_empty": {
+    "ledger": {
+      "days": {},
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      }
+    }
+  },
+  "malformed_screen_time_null": {
+    "ledger": {
+      "days": {},
+      "hours": {},
+      "sessions": {}
+    },
+    "sensors": {
+      "last_screen_time_sync": {
+        "attributes": {
+          "app_version": "1.23.0",
+          "device": "samsung SM-S908B",
+          "measured_at": "2026-09-15T18:00:00+00:00",
+          "source": "screen_time"
+        },
+        "entity_id": "sensor.owen_s_pixel_last_screen_time_sync",
+        "state": "2026-09-15T18:00:00+00:00"
+      }
+    }
+  }
+}
