@@ -52,6 +52,9 @@ RESPONSE_KEY_LABEL: Final = b"life-dashboard-response-v1"
 SOURCE_HEALTH_CONNECT: Final = "health_connect"
 SOURCE_HEALTHKIT_IOS: Final = "healthkit_ios"
 SOURCE_SCREEN_TIME: Final = "screen_time"
+
+# The top app's state when the app filter left no app of today.
+NO_TOP_APP: Final = "none"
 HEALTH_SOURCES: Final = frozenset({SOURCE_HEALTH_CONNECT, SOURCE_HEALTHKIT_IOS})
 
 # Every array key a health payload can carry, for counting records. From
@@ -533,6 +536,10 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
 
     Every sync re-sends the last seven days recomputed, so the newest payload wins
     per date and the day entries are ordered on their own date, not on arrival.
+
+    With an app filter on in the app (`app_filter`, app 1.23.0) the sensors follow it:
+    the minutes are those of the apps that are sent, and the top app is the most used
+    of those, or "none" when the filter left no app of today.
     """
     updates: list[SensorUpdate] = []
     days: dict[date, dict[str, Any]] = {}
@@ -557,7 +564,7 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
             if entry is None:
                 continue
             try:
-                minutes = _number(entry.get("total_screen_time_minutes"))
+                minutes = screen_time_minutes(entry)
             except ValueError:
                 continue
             midnight = _midnight(day, tz)
@@ -585,6 +592,17 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
                     },
                 )
             )
+        elif data.get("app_filter") is not None:
+            # The filter left no app of today. Without an update the sensor would keep
+            # naming the last top app, which may be one the user has just left out.
+            updates.append(
+                SensorUpdate(
+                    key="screen_time_top_app",
+                    value=NO_TOP_APP,
+                    measured_at=_midnight(today, tz),
+                    attributes={"date": today.isoformat()},
+                )
+            )
 
     updates.append(_sync_update(data, KEY_LAST_SCREEN_TIME_SYNC, tz))
     return updates
@@ -607,15 +625,33 @@ def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return usable
 
 
+def screen_time_minutes(entry: dict[str, Any]) -> float | int:
+    """A screen time day's minutes: the apps that are sent, when the app filtered them.
+
+    `total_screen_time_minutes` always counts every app; `filtered_screen_time_minutes`
+    is there only when an app filter took some out, and the sensors follow the filter.
+    Raises ValueError when the figure that applies is not a number.
+    """
+    if "filtered_screen_time_minutes" in entry:
+        return _number(entry.get("filtered_screen_time_minutes"))
+    return _number(entry.get("total_screen_time_minutes"))
+
+
 def _screen_time_attributes(entry: dict[str, Any], day: date) -> dict[str, Any]:
     """Attributes for a screen time day sensor."""
     apps = _apps(entry)
     top = sorted(apps, key=lambda app: app["minutes"], reverse=True)[:5]
-    return {
+    attributes = {
         "date": day.isoformat(),
         "app_count": len(apps),
         "top_apps": ", ".join(f"{app['name']} ({int(app['minutes'])} min)" for app in top),
     }
+    if "filtered_screen_time_minutes" in entry:
+        # The real total of every app, so a dashboard can show both.
+        total = entry.get("total_screen_time_minutes")
+        if not isinstance(total, bool) and isinstance(total, (int, float)):
+            attributes["all_apps_minutes"] = int(total)
+    return attributes
 
 
 def _top_app(entry: dict[str, Any]) -> tuple[str, str, int] | None:

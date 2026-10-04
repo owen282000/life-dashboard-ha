@@ -669,6 +669,27 @@ def test_screen_time_lands_on_its_own_day_and_the_newest_figure_wins() -> None:
     assert "screen_time" in DAY_KEYS
 
 
+def test_screen_time_statistics_follow_the_app_filter() -> None:
+    """With an app filter the day figure is the apps that are sent, as on the sensors."""
+    ledger = Ledger()
+    apply_payload(
+        ledger,
+        _payload(
+            source="screen_time",
+            app_filter="allowlist",
+            screen_time=[
+                {
+                    "date": "2026-09-16",
+                    "total_screen_time_minutes": 180,
+                    "filtered_screen_time_minutes": 40,
+                }
+            ],
+        ),
+        tz=_amsterdam(),
+    )
+    assert ledger.days["screen_time"] == {"2026-09-16": 40.0}
+
+
 def test_a_screen_time_entry_without_a_total_is_skipped() -> None:
     ledger = Ledger()
     change = apply_payload(

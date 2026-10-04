@@ -6,6 +6,16 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The screen time sensors follow the app's new app filter (Android app 1.23.0, issue #63 of the
+  app): with some apps left out, or only a few sent, Screen Time Today, Screen Time Yesterday
+  and the screen time statistics count the apps that are sent (`filtered_screen_time_minutes`),
+  and the day sensors carry the real total of every app as the attribute `all_apps_minutes`.
+  The top app is the most used one that is sent, and "none" when the filter leaves no app of
+  today, so a sensor never keeps naming an app that was just left out. Without a filter
+  nothing changes.
+
 ## [0.7.2] - 2026-09-30
 
 ### Fixed
