@@ -745,6 +745,50 @@ def test_screen_time_top_apps_caps_at_five() -> None:
     assert updates["screen_time_today"].attributes["app_count"] == 8
 
 
+def _filtered_payload() -> dict:
+    """The app left WhatsApp out (app 1.23.0): apps filtered, the real total kept."""
+    payload = _screen_time_payload()
+    payload["app_filter"] = "blocklist"
+    today = payload["screen_time"][1]
+    today["apps"] = [app for app in today["apps"] if app["package"] != "com.whatsapp"]
+    today["filtered_screen_time_minutes"] = 83
+    payload["screen_time"][0]["filtered_screen_time_minutes"] = 95
+    return payload
+
+
+def test_screen_time_follows_the_app_filter() -> None:
+    updates = _by_key(parse_payload(_filtered_payload(), tz=_amsterdam()))
+    assert updates["screen_time_today"].value == 83
+    assert updates["screen_time_today"].attributes["all_apps_minutes"] == 143
+    assert updates["screen_time_today"].attributes["app_count"] == 2
+    assert updates["screen_time_yesterday"].value == 95
+    assert updates["screen_time_top_app"].value == "Chrome"
+
+
+def test_screen_time_without_a_filter_has_no_all_apps_attribute() -> None:
+    updates = _by_key(parse_payload(_screen_time_payload(), tz=_amsterdam()))
+    assert "all_apps_minutes" not in updates["screen_time_today"].attributes
+
+
+def test_a_filter_that_leaves_no_app_of_today_names_none() -> None:
+    """The last top app would otherwise stay, and it may be the one just left out."""
+    payload = _filtered_payload()
+    payload["app_filter"] = "allowlist"
+    payload["screen_time"][1]["apps"] = []
+    payload["screen_time"][1]["filtered_screen_time_minutes"] = 0
+    updates = _by_key(parse_payload(payload, tz=_amsterdam()))
+    assert updates["screen_time_today"].value == 0
+    assert updates["screen_time_top_app"].value == "none"
+    assert updates["screen_time_top_app"].attributes == {"date": "2026-09-15"}
+
+
+def test_a_filtered_figure_that_is_not_a_number_skips_the_day() -> None:
+    payload = _filtered_payload()
+    payload["screen_time"][1]["filtered_screen_time_minutes"] = "83"
+    updates = _by_key(parse_payload(payload, tz=_amsterdam()))
+    assert "screen_time_today" not in updates
+
+
 # --- The table itself ------------------------------------------------------
 
 

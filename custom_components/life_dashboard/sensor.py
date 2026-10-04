@@ -47,6 +47,7 @@ _PAYLOAD_ATTRIBUTES = frozenset(
         "sources",
         "app_count",
         "top_apps",
+        "all_apps_minutes",
         "package",
         "minutes",
         "app_version",

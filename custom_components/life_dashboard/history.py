@@ -290,7 +290,13 @@ def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, 
             day = date.fromisoformat(entry.get("date", ""))
         except (TypeError, ValueError):
             continue
-        minutes = _number(entry.get("total_screen_time_minutes"))
+        # The apps that are sent, when the app filtered them, as the sensors show.
+        key = (
+            "filtered_screen_time_minutes"
+            if "filtered_screen_time_minutes" in entry
+            else "total_screen_time_minutes"
+        )
+        minutes = _number(entry.get(key))
         if minutes is None:
             continue
         days = ledger.days.setdefault(SCREEN_TIME_KEY, {})
