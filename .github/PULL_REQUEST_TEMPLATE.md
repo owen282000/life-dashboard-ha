@@ -14,4 +14,4 @@
       [webhook reference](https://github.com/owen282000/life-dashboard-companion-app/blob/main/docs/webhook.md);
       the format is shared with the iOS app
 - [ ] No secrets or health data in logs
-- [ ] README updated if behaviour or configuration changed
+- [ ] README or docs/ updated if behavior or configuration changed

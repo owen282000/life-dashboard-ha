@@ -5,7 +5,7 @@ contact_links:
     url: https://github.com/owen282000/life-dashboard-ha/discussions
     about: Setup questions and ideas. Faster than an issue, and findable later.
   - name: Troubleshooting
-    url: https://github.com/owen282000/life-dashboard-ha#troubleshooting
+    url: https://github.com/owen282000/life-dashboard-ha/blob/main/docs/troubleshooting.md
     about: A 401 in the app, a URL the phone cannot reach, plain HTTP refused, sensors unknown after a power cut.
   - name: Security vulnerability
     url: https://github.com/owen282000/life-dashboard-ha/security/advisories/new
@@ -14,5 +14,5 @@ contact_links:
     url: https://github.com/owen282000/life-dashboard-companion-app/issues
     about: Syncing, Health Connect and screen time problems on the phone belong in the app's repository.
   - name: The iOS app
-    url: https://github.com/owen282000/life-dashboard-companion-ios/issues
+    url: https://github.com/owen282000/life-dashboard-companion-app-ios/issues
     about: Issues with the iOS app belong in its own repository.
