@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!--
+  Source for docs/how-it-works-phone.png, the phone version of the README flow diagram
+  (how-it-works.html): the same story stacked top to bottom, so the text stays readable on a
+  screen about 400 px wide. The README picks it with <picture> and a max-width media query.
+
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+      --headless=new --screenshot=docs/how-it-works-phone.png --window-size=1000,1640 \
+      --hide-scrollbars --force-device-scale-factor=1 \
+      --default-background-color=00000000 docs/brand/how-it-works-phone.html
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1000px; height: 1640px; overflow: hidden; background: transparent; }
+  .card {
+    position: absolute; inset: 0; border-radius: 40px; overflow: hidden; padding: 60px 56px;
+    background: radial-gradient(130% 130% at 25% 20%, #171D21 0%, #14181C 45%, #101C1C 100%);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #E8EDEF;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+  .grid {
+    position: absolute; inset: 0; opacity: 0.5; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(48,183,126,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(48,183,126,0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .title {
+    font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+    color: #7E8B91; margin-bottom: 22px; position: relative;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 18px; position: relative; }
+  .chip {
+    padding: 18px 28px; border-radius: 20px; font-size: 38px; font-weight: 600;
+    background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.09);
+  }
+  .chip.more { color: #9AA6AB; font-weight: 400; font-style: italic; border-style: dashed; }
+  .arrow { height: 86px; position: relative; display: flex; justify-content: center; }
+  .arrow svg { height: 86px; width: 60px; }
+  .row { display: flex; gap: 24px; position: relative; }
+  .box {
+    flex: 1; border-radius: 28px; padding: 30px 34px; position: relative;
+    background: rgba(255,255,255,0.045); border: 2px solid rgba(255,255,255,0.1);
+  }
+  .box h3 { font-size: 44px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
+  .box p { margin-top: 10px; font-size: 34px; line-height: 1.3; color: #AEB8BC; }
+  .app {
+    flex: none; display: flex; align-items: center; gap: 30px; padding: 30px 40px;
+    border: 3px solid rgba(48,183,126,0.75); background: rgba(48,183,126,0.08);
+    box-shadow: 0 0 60px rgba(48,183,126,0.18);
+  }
+  .app img { width: 120px; height: 120px; border-radius: 28px; display: block; flex: none; }
+  .app p { margin-top: 6px; }
+  .dest { display: flex; flex-direction: column; gap: 18px; position: relative; }
+  .dest .box { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; padding: 26px 34px; }
+  .dest .box h3 { white-space: nowrap; }
+  .dest .box p { margin-top: 0; }
+  .ha { border-color: rgba(48,183,126,0.6) !important; }
+  .back {
+    margin-top: 24px; position: relative; padding: 22px 30px; border-radius: 24px;
+    border: 2px dashed rgba(48,183,126,0.55); color: #6FD7A6; font-size: 32px; line-height: 1.35;
+  }
+  .foot { margin-top: auto; padding-top: 40px; text-align: center; font-size: 32px; line-height: 1.4; color: #7E8B91; position: relative; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="grid"></div>
+
+  <div class="title">Your phones</div>
+  <div class="row">
+    <div class="box"><h3>Android</h3><p>Health Connect, 33 types, and screen time per app</p></div>
+    <div class="box"><h3>iPhone</h3><p>Apple Health, 28 types</p></div>
+  </div>
+
+  <div class="arrow"><svg viewBox="0 0 60 86"><path d="M30 6 V70" stroke="#30B77E" stroke-width="6" fill="none"/><path d="M14 58 L30 78 L46 58" stroke="#30B77E" stroke-width="6" fill="none"/></svg></div>
+
+  <div class="title">Home Assistant</div>
+  <div class="box app">
+    <img src="../../custom_components/life_dashboard/brand/icon@2x.png" alt="">
+    <div><h3>Life Dashboard</h3><p>Checks every signature. One device per phone.</p></div>
+  </div>
+
+  <div class="arrow"><svg viewBox="0 0 60 86"><path d="M30 6 V70" stroke="#30B77E" stroke-width="6" fill="none"/><path d="M14 58 L30 78 L46 58" stroke="#30B77E" stroke-width="6" fill="none"/></svg></div>
+
+  <div class="title">What you get</div>
+  <div class="dest">
+    <div class="box"><h3>Sensors</h3><p>Today's totals and the latest readings</p></div>
+    <div class="box"><h3>Statistics</h3><p>Every day on its own date, a year back</p></div>
+    <div class="box"><h3>Dashboard</h3><p>An example to start from</p></div>
+  </div>
+  <div class="back">A scale or blood pressure monitor in Home Assistant can send its readings back to an Android phone, into Health Connect.</div>
+
+  <div class="foot">Paired with a QR code. No broker,<br>no ports to open, no YAML.</div>
+</div>
+</body>
+</html>

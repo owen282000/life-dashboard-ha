@@ -7,7 +7,7 @@ body:
       value: |
         For setup questions, use
         [Discussions](https://github.com/owen282000/life-dashboard-ha/discussions) instead.
-        The [troubleshooting section](https://github.com/owen282000/life-dashboard-ha#troubleshooting)
+        The [troubleshooting page](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/troubleshooting.md)
         answers the most common problems.
   - type: checkboxes
     id: checked
@@ -16,7 +16,7 @@ body:
       options:
         - label: I searched the existing issues and this is not a duplicate
           required: true
-        - label: I read the troubleshooting section in the README
+        - label: I read the troubleshooting page
           required: true
   - type: textarea
     id: description
@@ -36,8 +36,8 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Pair the phone with the internal URL
-        2. Tap Sync now in the app
+        1. Pair the phone with its home network address
+        2. Tap Sync Now in the app
         3. See ...
   - type: input
     id: ha_version
@@ -51,14 +51,14 @@ body:
     attributes:
       label: Integration version
       description: Shown on the integration's page in HACS.
-      placeholder: "0.3.0"
+      placeholder: "0.9.0"
     validations:
       required: true
   - type: input
     id: app
     attributes:
       label: App and version
-      placeholder: "Android 1.17.1, or iOS 1.2.0"
+      placeholder: "Android 1.23.0, or iOS 1.6.0"
     validations:
       required: true
   - type: dropdown
@@ -66,8 +66,8 @@ body:
     attributes:
       label: Which address does the phone send to?
       options:
-        - Internal URL
-        - External URL
+        - Home network address
+        - Public address
         - Home Assistant Cloud
     validations:
       required: true
@@ -86,5 +86,5 @@ body:
       label: Relevant log output
       description: |
         Lines mentioning `life_dashboard` from Settings > System > Logs, and the app's
-        Logs tab if delivery fails. Remove the webhook id and the secret before pasting.
+        Logs tab if delivery fails. Remove the webhook ID and the secret before pasting.
       render: shell
