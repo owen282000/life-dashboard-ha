@@ -211,6 +211,7 @@ an iPhone), resetting at local midnight. Each carries the day it describes as a 
 | `screen_time_today` | min | `date`, `app_count`, `top_apps` (the top five with their minutes) |
 | `screen_time_yesterday` | min | `date`, `app_count`, `top_apps` |
 | `most_used_app_today` | the app's name | `package`, `minutes`, `date` |
+| `<app>_screen_time`, one per app, [disabled](#per-app) until you enable it | min | `app`, `package`, `date`, `week_minutes` |
 
 **Diagnostic**: `last_health_sync` and `last_screen_time_sync`, as timestamps. A
 **Test** ping in the app moves these, which is the quickest way to see that pairing
@@ -262,6 +263,43 @@ content: >-
 
 Screen time is Android only: iOS has no API that lets an app read it. Which apps count
 is decided on the phone, so Home Assistant only ever sees what you chose to send.
+
+### Per app
+
+Every app also gets a sensor of its own with its minutes today, such as
+`sensor.owen_s_pixel_youtube_screen_time`. They are created disabled, so the device page
+stays as it was: open the device, show the disabled entities, and enable the apps you
+want a sensor for. Home Assistant reloads the integration about 30 seconds later, and the
+sensor shows today's minutes straight away.
+
+- The sensor belongs to the app's package, not its name, so a renamed app keeps its
+  sensor and entity id. The new name is the `app` attribute at once, and the entity name
+  follows at the next restart.
+- An app that is missing from a newer day reads 0 for that day, also when you leave it
+  out with the app filter: it never keeps yesterday's minutes. `week_minutes` holds its
+  minutes over the days the last sync carried, up to seven.
+- An app gets a sensor once it has 5 minutes over those days, so an app opened once for
+  a moment gets none, and a phone gets 50 app sensors at most, the most used apps first.
+  An app keeps its sensor when you stop using it, so automations built on it keep
+  working.
+- An app you leave out in the app never reaches Home Assistant and gets no sensor.
+- Like Screen time today they have no state class: the recorder keeps their history as
+  states, for its usual 10 days, and they add nothing to long-term statistics.
+
+```yaml
+# Turn the TV off after an hour of a game on a school day.
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.kids_tablet_minecraft_screen_time
+    above: 60
+conditions:
+  - condition: time
+    weekday: [mon, tue, wed, thu, fri]
+actions:
+  - action: media_player.turn_off
+    target:
+      entity_id: media_player.living_room_tv
+```
 
 ## A dashboard to start from
 
@@ -486,7 +524,9 @@ how much history is stored, which entities go to the phone and how many readings
 with the secret and the webhook id redacted and no health data in it. Attach it to the
 issue. The queue itself, `.storage/life_dashboard.<entry>.writeback`, does hold the
 values of the readings waiting for the phone, and goes into Home Assistant backups with
-the rest of `.storage`. For more detail, turn on debug logging:
+the rest of `.storage`. So does `.storage/life_dashboard.<entry>.apps`, with the names
+of the apps on the phone and their minutes on the newest day; it is deleted when the
+phone is removed from Home Assistant. For more detail, turn on debug logging:
 
 ```yaml
 logger:

@@ -102,6 +102,12 @@ KEY_LAST_HEALTH_SYNC: Final = "last_health_sync"
 KEY_LAST_SCREEN_TIME_SYNC: Final = "last_screen_time_sync"
 _SYNC_KEYS: Final = frozenset({KEY_LAST_HEALTH_SYNC, KEY_LAST_SCREEN_TIME_SYNC})
 
+# Not a sensor of its own: the newest day's minutes per app, which the per-app screen
+# time sensors read their state from. One update for every app rather than one per app,
+# so an app missing from a newer day reads 0 instead of keeping what it had, and the
+# ordering rule keeps one entry instead of one per package.
+KEY_SCREEN_TIME_APPS: Final = "screen_time_apps"
+
 # State classes, as the string values Home Assistant's SensorStateClass uses.
 STATE_CLASS_MEASUREMENT: Final = "measurement"
 STATE_CLASS_TOTAL: Final = "total"
@@ -604,8 +610,41 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
                 )
             )
 
+        # Also with no app at all: every app that has a sensor then reads 0 for today.
+        updates.append(
+            SensorUpdate(
+                key=KEY_SCREEN_TIME_APPS,
+                value=today.isoformat(),
+                measured_at=_midnight(today, tz),
+                attributes={"date": today.isoformat(), "apps": app_table(days, today)},
+            )
+        )
+
     updates.append(_sync_update(data, KEY_LAST_SCREEN_TIME_SYNC, tz))
     return updates
+
+
+def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[str, Any]]:
+    """Per package: its label, its minutes on today, and its minutes over every day sent.
+
+    Every app of the window is in it, also one with no minutes today, so a new sensor
+    can be judged on the week. The label is the one of the newest day the app appears
+    on, so a renamed app takes its new name. An app without a package cannot be told
+    apart from the next one and is left out; one the app filter took out never arrives.
+    """
+    table: dict[str, dict[str, Any]] = {}
+    for day in sorted(days):
+        for app in _apps(days[day]):
+            package = app.get("package")
+            if not isinstance(package, str) or not package:
+                continue
+            row = table.setdefault(package, {"name": package, "minutes": 0, "week_minutes": 0})
+            if app["name"].strip():
+                row["name"] = app["name"].strip()
+            row["week_minutes"] += int(app["minutes"])
+            if day == today:
+                row["minutes"] += int(app["minutes"])
+    return table
 
 
 def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:

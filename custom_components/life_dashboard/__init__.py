@@ -31,8 +31,10 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
+from .apps import AppRoster, async_remove_store
 from .const import CONF_CLOUDHOOK_URL, CONF_SECRET, CONF_WEBHOOK_ID, DOMAIN
 from .payload import (
+    KEY_SCREEN_TIME_APPS,
     SIGNATURE_HEADER,
     SensorUpdate,
     frame_answer,
@@ -87,6 +89,8 @@ class LifeDashboardData:
     history: HistoryWriter | None = None
     #: The queue of measurements for the phone; None only before setup finished.
     writeback: WritebackManager | None = None
+    #: The apps with a screen time sensor of their own; None only before setup finished.
+    apps: AppRoster | None = None
 
     def apply(self, update: SensorUpdate) -> bool:
         """Record an update, unless it describes a moment we are already past.
@@ -150,6 +154,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     await writeback.async_load()
     entry.runtime_data.writeback = writeback
     writeback.async_start()
+    apps = AppRoster(hass, entry)
+    await apps.async_load()
+    entry.runtime_data.apps = apps
+    # The per-app sensors restore nothing of their own (most are never added), so the
+    # stored table is what reseeds the ordering rule for them.
+    if apps.latest is not None:
+        entry.runtime_data.latest[KEY_SCREEN_TIME_APPS] = apps.latest
 
     webhook.async_register(
         hass,
@@ -172,11 +183,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntr
         await history.async_flush()
     if (writeback := entry.runtime_data.writeback) is not None:
         await writeback.async_flush()
+    if (apps := entry.runtime_data.apps) is not None:
+        await apps.async_flush()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Delete the cloudhook when the entry goes, so no public URL stays alive."""
+    """Delete what names the phone's apps, and the cloudhook, so no public URL stays alive."""
+    await async_remove_store(hass, entry)
     if not entry.data.get(CONF_CLOUDHOOK_URL) or "cloud" not in hass.config.components:
         return
     with contextlib.suppress(ImportError):

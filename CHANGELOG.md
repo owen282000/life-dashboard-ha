@@ -6,6 +6,18 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A screen time sensor per app, with the app's minutes today, named after the app (such
+  as YouTube screen time). They are created disabled, so the device page stays as it was:
+  enable the apps you want a sensor for. A new app gets its sensor at the next sync,
+  without a reload, and an enabled sensor shows today's minutes as soon as Home Assistant
+  has reloaded. The sensor belongs to the app's package, so a renamed app keeps its
+  sensor. An app that is missing from a newer day, unused or left out with the app filter
+  since, reads 0 for that day instead of keeping the day before, and an app the filter
+  leaves out never gets one. An app needs 5 minutes over the days a sync carries before it
+  gets a sensor, and a phone gets 50 app sensors at most, the most used apps first.
+
 ## [0.8.0] - 2026-10-04
 
 ### Added

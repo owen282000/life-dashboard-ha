@@ -13,6 +13,7 @@ from custom_components.life_dashboard.payload import (
     APP_PACKAGE,
     KEY_LAST_HEALTH_SYNC,
     KEY_LAST_SCREEN_TIME_SYNC,
+    KEY_SCREEN_TIME_APPS,
     SENSOR_SPECS,
     SensorUpdate,
     is_heartbeat,
@@ -789,6 +790,70 @@ def test_a_filtered_figure_that_is_not_a_number_skips_the_day() -> None:
     assert "screen_time_today" not in updates
 
 
+def test_screen_time_app_table() -> None:
+    """Every app of the window, with today's minutes and the week's."""
+    update = _by_key(parse_payload(_screen_time_payload(), tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+
+    assert update.value == "2026-09-15"
+    assert update.measured_at == datetime(2026, 9, 15, 0, 0, tzinfo=_amsterdam())
+    assert update.attributes == {
+        "date": "2026-09-15",
+        "apps": {
+            "com.spotify.music": {"name": "Spotify", "minutes": 22, "week_minutes": 117},
+            "com.android.chrome": {"name": "Chrome", "minutes": 61, "week_minutes": 61},
+            "com.whatsapp": {"name": "WhatsApp", "minutes": 44, "week_minutes": 44},
+        },
+    }
+
+
+def test_an_app_of_an_earlier_day_only_reads_zero_today() -> None:
+    payload = _screen_time_payload()
+    payload["screen_time"][1]["apps"].pop()  # Spotify, which 2026-09-14 still has.
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"] == {
+        "name": "Spotify",
+        "minutes": 0,
+        "week_minutes": 95,
+    }
+
+
+def test_the_app_table_takes_the_newest_label() -> None:
+    payload = _screen_time_payload()
+    payload["screen_time"][1]["apps"][2]["name"] = "Spotify: Music and Podcasts"
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"]["name"] == "Spotify: Music and Podcasts"
+
+
+def test_the_app_table_has_no_filtered_app_and_no_app_without_a_package() -> None:
+    payload = _filtered_payload()
+    payload["screen_time"][1]["apps"].append({"name": "Mystery", "minutes": 30})
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert set(table.attributes["apps"]) == {"com.spotify.music", "com.android.chrome"}
+
+
+def test_a_day_without_apps_still_sends_an_empty_app_table() -> None:
+    """So every app that has a sensor reads 0 for that day rather than keeping its value."""
+    payload = _filtered_payload()
+    payload["screen_time"] = [
+        {
+            "date": "2026-09-16",
+            "total_screen_time_minutes": 20,
+            "filtered_screen_time_minutes": 0,
+            "apps": [],
+        }
+    ]
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes == {"date": "2026-09-16", "apps": {}}
+
+
+def test_a_test_ping_sends_no_app_table() -> None:
+    updates = parse_payload(
+        {"test": True, "timestamp": "2026-09-15T16:55:02Z", "source": "screen_time"},
+        tz=_amsterdam(),
+    )
+    assert KEY_SCREEN_TIME_APPS not in _by_key(updates)
+
+
 # --- The table itself ------------------------------------------------------
 
 
@@ -841,6 +906,9 @@ def test_every_emitted_key_has_a_spec() -> None:
     emitted: set[str] = set()
     for payload in payloads:
         for update in parse_payload(payload, tz=_amsterdam()):
+            # The app table is no sensor itself: the per-app sensors read from it.
+            if update.key == KEY_SCREEN_TIME_APPS:
+                continue
             emitted.add(update.key)
             assert update.key in SENSOR_SPECS, f"no spec for {update.key}"
 

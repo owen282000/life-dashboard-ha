@@ -74,6 +74,8 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, hass_client_no_auth
     # Which sensors, and when, but never the value.
     assert result["sensors"]["heart_rate"] == {"measured_at": "2026-09-16T09:50:00+00:00"}
     assert "61" not in json.dumps(result)
+    # No screen time synced, so no app has a sensor; the count never names one.
+    assert result["app_sensors"] == 0
     assert result["history"]["days"]["steps"] == {
         "count": 1,
         "first": "2026-09-16",

@@ -8,6 +8,10 @@ Across a restart the entities come back before any payload does: they are rebuil
 from the entity registry and restore their own last value, which also reseeds the
 ordering rule so a backfill arriving right after startup cannot overwrite newer
 readings.
+
+Screen time also gets one sensor per app, created disabled so the device page stays as
+it was: the user enables the apps worth a sensor. Those are rebuilt from apps.py rather
+than restored, because a disabled entity never holds a state to restore.
 """
 
 from __future__ import annotations
@@ -17,8 +21,10 @@ import logging
 from homeassistant.components.sensor import (
     RestoreSensor,
     SensorDeviceClass,
+    SensorEntity,
     SensorStateClass,
 )
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -28,7 +34,13 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import LifeDashboardConfigEntry, signal_update
 from .const import DOMAIN, MANUFACTURER, MODEL
-from .payload import SENSOR_SPECS, SensorSpec, SensorUpdate, parse_instant
+from .payload import (
+    KEY_SCREEN_TIME_APPS,
+    SENSOR_SPECS,
+    SensorSpec,
+    SensorUpdate,
+    parse_instant,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +92,14 @@ async def async_setup_entry(
         known.update(restored)
         async_add_entities(LifeDashboardSensor(entry, key) for key in restored)
 
+    # The app sensors come back from the roster, with the label they had, also the
+    # disabled ones: the registry entry takes its name from the entity every startup.
+    apps = entry.runtime_data.apps
+    if apps.labels:
+        async_add_entities(
+            AppScreenTimeSensor(entry, package, label) for package, label in apps.labels.items()
+        )
+
     @callback
     def _new_key(update: SensorUpdate) -> None:
         """Add an entity the first time its data type shows up.
@@ -87,12 +107,29 @@ async def async_setup_entry(
         Entities that already exist get the same signal themselves, so there is
         nothing to hand over here.
         """
+        if update.key == KEY_SCREEN_TIME_APPS:
+            if added := apps.async_take(update):
+                async_add_entities(
+                    AppScreenTimeSensor(entry, package, apps.labels[package]) for package in added
+                )
+            return
         if update.key in known or update.key not in SENSOR_SPECS:
             return
         known.add(update.key)
         async_add_entities([LifeDashboardSensor(entry, update.key)])
 
     entry.async_on_unload(async_dispatcher_connect(hass, signal_update(entry.entry_id), _new_key))
+
+
+def _device_info(entry: LifeDashboardConfigEntry) -> DeviceInfo:
+    """The one device of the phone, which every sensor hangs under."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=entry.title,
+        manufacturer=MANUFACTURER,
+        model=MODEL,
+        sw_version=entry.runtime_data.app_version,
+    )
 
 
 class LifeDashboardSensor(RestoreSensor):
@@ -116,13 +153,7 @@ class LifeDashboardSensor(RestoreSensor):
         self._attr_state_class = SensorStateClass(spec.state_class) if spec.state_class else None
         self._attr_suggested_display_precision = spec.precision
         self._attr_entity_category = EntityCategory.DIAGNOSTIC if spec.diagnostic else None
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
-            manufacturer=MANUFACTURER,
-            model=MODEL,
-            sw_version=entry.runtime_data.app_version,
-        )
+        self._attr_device_info = _device_info(entry)
 
     async def async_added_to_hass(self) -> None:
         """Take the value we have, or the one we had before the restart."""
@@ -191,4 +222,66 @@ class LifeDashboardSensor(RestoreSensor):
         self._attr_extra_state_attributes = {
             **update.attributes,
             "measured_at": update.measured_at.isoformat(),
+        }
+
+
+class AppScreenTimeSensor(SensorEntity):
+    """One app's minutes on the newest day the phone sent.
+
+    Its state comes from the table of every app, so an app that is missing from a newer
+    day, whether unused or left out by the app filter since, reads 0 for that day
+    instead of keeping the day before. Like Screen time today it has no state class:
+    its history is the recorder's state history, not long-term statistics.
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_translation_key = "app_screen_time"
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_suggested_display_precision = 0
+    # Fifty of these on the device page would bury the rest; the user picks a few.
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, entry: LifeDashboardConfigEntry, package: str, label: str) -> None:
+        """Set up the sensor for one package; the label only names it."""
+        self._entry = entry
+        self._package = package
+        # The package, not the label: an app keeps its sensor when it is renamed.
+        self._attr_unique_id = f"{entry.entry_id}_screen_time_app_{package}"
+        self._attr_translation_placeholders = {"app": label}
+        self._attr_device_info = _device_info(entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Take the newest table there is, also one stored before a restart."""
+        await super().async_added_to_hass()
+        if (held := self._entry.runtime_data.latest.get(KEY_SCREEN_TIME_APPS)) is not None:
+            self._apply(held)
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, signal_update(self._entry.entry_id), self._handle_update
+            )
+        )
+
+    @callback
+    def _handle_update(self, update: SensorUpdate) -> None:
+        if update.key != KEY_SCREEN_TIME_APPS:
+            return
+        self._apply(update)
+        self.async_write_ha_state()
+
+    def _label(self) -> str:
+        return self._entry.runtime_data.apps.labels.get(self._package, self._package)
+
+    @callback
+    def _apply(self, update: SensorUpdate) -> None:
+        """Hold this app's row of a table, or 0 when the day does not have it."""
+        row = update.attributes.get("apps", {}).get(self._package)
+        self._attr_native_value = row["minutes"] if row else 0
+        self._attr_extra_state_attributes = {
+            # The current label: the entity name takes a new one when it is rebuilt.
+            "app": row["name"] if row else self._label(),
+            "package": self._package,
+            "date": update.attributes.get("date"),
+            "week_minutes": row["week_minutes"] if row else 0,
         }
