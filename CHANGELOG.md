@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-04
+
 ### Added
 
 - The screen time sensors follow the app's new app filter (Android app 1.23.0, issue #63 of the
@@ -209,6 +211,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.8.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.8.0
 [0.7.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.7.2
 [0.7.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.7.1
 [0.7.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.7.0
