@@ -64,6 +64,15 @@ The phone pushes; nothing here polls. The app reads Health Connect or Apple Heal
 
 [How it works](docs/how-it-works.md) explains the timing, why nothing is counted twice, and the security design.
 
+## Part of Life Dashboard
+
+Life Dashboard is four projects that work together. The two apps send the same payload, so an Android phone and an iPhone can feed one Home Assistant or one stack.
+
+| Android app | iPhone app | Home Assistant | Grafana stack |
+|:--:|:--:|:--:|:--:|
+| Health Connect and screen time | Apple Health | Sensors and a year of history | Postgres and Grafana dashboards |
+| [Open repository](https://github.com/owen282000/life-dashboard-companion-app) | [Open repository](https://github.com/owen282000/life-dashboard-companion-app-ios) | **You're here** | [Open repository](https://github.com/owen282000/life-dashboard-stack) |
+
 ## Works with
 
 | App | What you get |
