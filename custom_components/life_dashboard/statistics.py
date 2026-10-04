@@ -55,6 +55,15 @@ def statistic_id(entry: ConfigEntry, key: str) -> str:
     return f"{DOMAIN}:{entry.entry_id.lower()}_{key}"
 
 
+def _store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, Any]]:
+    return Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}.history")
+
+
+async def async_remove_store(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the ledger with the entry. The statistics it wrote stay in the recorder."""
+    await _store(hass, entry.entry_id).async_remove()
+
+
 def _unit(key: str) -> str | None:
     if key in _DAY_UNITS:
         return _DAY_UNITS[key]
@@ -72,9 +81,7 @@ class HistoryWriter:
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self._hass = hass
         self._entry = entry
-        self._store: Store[dict[str, Any]] = Store(
-            hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}.history"
-        )
+        self._store = _store(hass, entry.entry_id)
         self.ledger = Ledger()
 
     async def async_load(self) -> None:

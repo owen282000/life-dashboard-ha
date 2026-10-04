@@ -31,7 +31,8 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
-from .apps import AppRoster, async_remove_store
+from .apps import AppRoster
+from .apps import async_remove_store as async_remove_apps
 from .const import CONF_CLOUDHOOK_URL, CONF_SECRET, CONF_WEBHOOK_ID, DOMAIN
 from .payload import (
     KEY_SCREEN_TIME_APPS,
@@ -44,7 +45,9 @@ from .payload import (
     writeback_request,
 )
 from .statistics import HistoryWriter
+from .statistics import async_remove_store as async_remove_history
 from .writeback import BACKFILL_DEFAULT_DAYS, BACKFILL_MAX_DAYS, WritebackManager
+from .writeback import async_remove_store as async_remove_writeback
 from .writeback_queue import WRITEBACK_TYPES
 
 _LOGGER = logging.getLogger(__name__)
@@ -189,8 +192,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntr
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Delete what names the phone's apps, and the cloudhook, so no public URL stays alive."""
-    await async_remove_store(hass, entry)
+    """Delete what the entry stored, and the cloudhook, so no public URL stays alive.
+
+    The ledger, the queue for the phone and the app list are this phone's data and mean
+    nothing without the entry; the long-term statistics stay in the recorder, as they do
+    for any integration that is removed.
+    """
+    for remove in (async_remove_history, async_remove_writeback, async_remove_apps):
+        await remove(hass, entry)
     if not entry.data.get(CONF_CLOUDHOOK_URL) or "cloud" not in hass.config.components:
         return
     with contextlib.suppress(ImportError):

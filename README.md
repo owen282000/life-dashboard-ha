@@ -529,8 +529,8 @@ issue. The queue itself, `.storage/life_dashboard.<entry>.writeback`, does hold 
 values of the readings waiting for the phone, and goes into Home Assistant backups with
 the rest of `.storage`. So does `.storage/life_dashboard.<entry>.apps`, with the names
 of the apps that have a sensor and their minutes on the newest day (an app whose sensor
-you deleted is kept as a hash, not by name); it is deleted when the phone is removed
-from Home Assistant. For more detail, turn on debug logging:
+you deleted is kept as a hash, not by name). All of a phone's files in `.storage` are
+deleted when the phone is removed from Home Assistant. For more detail, turn on debug logging:
 
 ```yaml
 logger:
