@@ -624,13 +624,36 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
     return updates
 
 
+# The package segments the Android app skips when it makes a name up for a package it
+# cannot look up, from ScreenTimeManager.fallbackAppName (app 1.13.2 and later).
+_GENERIC_PACKAGE_SEGMENTS: Final = frozenset(
+    {"android", "app", "apps", "mobile", "client", "main", "release", "prod", "free", "pro", "lite"}
+)
+
+
+def is_fallback_label(package: str, label: str) -> bool:
+    """Whether a label is the stand-in the app sends for a package it cannot look up.
+
+    That happens for an app uninstalled since: its days still come, under a name made
+    from the package, such as "youtube" for com.google.android.youtube. Before 1.13.2
+    the app used the last segment as it was. Both are recomputed here exactly, so a real
+    label is never mistaken for one unless it is that very word.
+    """
+    segments = [segment for segment in package.split(".") if segment.strip()][1:]
+    current = next(
+        (s for s in reversed(segments) if s.lower() not in _GENERIC_PACKAGE_SEGMENTS), package
+    )
+    return label in (current, package.rsplit(".", 1)[-1])
+
+
 def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[str, Any]]:
     """Per package: its label, its minutes on today, and its minutes over every day sent.
 
     Every app of the window is in it, also one with no minutes today, so a new sensor
     can be judged on the week. The label is the one of the newest day the app appears
-    on, so a renamed app takes its new name. An app without a package cannot be told
-    apart from the next one and is left out; one the app filter took out never arrives.
+    on, so a renamed app takes its new name, unless that is only the stand-in for an app
+    uninstalled since. An app without a package cannot be told apart from the next one
+    and is left out; one the app filter took out never arrives.
     """
     table: dict[str, dict[str, Any]] = {}
     for day in sorted(days):
@@ -639,8 +662,9 @@ def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[s
             if not isinstance(package, str) or not package:
                 continue
             row = table.setdefault(package, {"name": package, "minutes": 0, "week_minutes": 0})
-            if app["name"].strip():
-                row["name"] = app["name"].strip()
+            label = app["name"].strip()
+            if label and (row["name"] == package or not is_fallback_label(package, label)):
+                row["name"] = label
             row["week_minutes"] += int(app["minutes"])
             if day == today:
                 row["minutes"] += int(app["minutes"])

@@ -17,6 +17,7 @@ than restored, because a disabled entity never holds a state to restore.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.sensor import (
     RestoreSensor,
@@ -40,6 +41,7 @@ from .payload import (
     SENSOR_SPECS,
     SensorSpec,
     SensorUpdate,
+    is_fallback_label,
     parse_instant,
 )
 
@@ -272,7 +274,11 @@ class AppScreenTimeSensor(SensorEntity):
         self._apply(update)
         self.async_write_ha_state()
 
-    def _label(self) -> str:
+    def _label(self, row: dict[str, Any] | None) -> str:
+        """The app's name now: from the table, unless that is only the stand-in the phone
+        sends for an app uninstalled since; then the one the roster kept."""
+        if row and row.get("name") and not is_fallback_label(self._package, row["name"]):
+            return row["name"]
         return self._entry.runtime_data.apps.labels.get(self._package, self._package)
 
     @callback
@@ -282,7 +288,7 @@ class AppScreenTimeSensor(SensorEntity):
         self._attr_native_value = row["minutes"] if row else 0
         self._attr_extra_state_attributes = {
             # The current label: the entity name takes a new one when it is rebuilt.
-            "app": row["name"] if row else self._label(),
+            "app": self._label(row),
             "package": self._package,
             "date": update.attributes.get("date"),
             "week_minutes": row["week_minutes"] if row else 0,

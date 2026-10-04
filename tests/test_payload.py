@@ -16,6 +16,7 @@ from custom_components.life_dashboard.payload import (
     KEY_SCREEN_TIME_APPS,
     SENSOR_SPECS,
     SensorUpdate,
+    is_fallback_label,
     is_heartbeat,
     parse_instant,
     parse_payload,
@@ -822,6 +823,47 @@ def test_the_app_table_takes_the_newest_label() -> None:
     payload["screen_time"][1]["apps"][2]["name"] = "Spotify: Music and Podcasts"
     table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
     assert table.attributes["apps"]["com.spotify.music"]["name"] == "Spotify: Music and Podcasts"
+
+
+@pytest.mark.parametrize(
+    ("package", "label"),
+    [
+        # The cases of the Android app's own test of fallbackAppName.
+        ("org.wakingup.android", "wakingup"),
+        ("com.google.android.apps.nexuslauncher", "nexuslauncher"),
+        ("com.example", "example"),
+        ("com.android.app", "com.android.app"),
+        # What the app sent before 1.13.2: the last segment as it is.
+        ("org.wakingup.android", "android"),
+    ],
+)
+def test_fallback_labels_are_recognised(package: str, label: str) -> None:
+    assert is_fallback_label(package, label)
+
+
+@pytest.mark.parametrize(
+    ("package", "label"),
+    [
+        ("com.google.android.youtube", "YouTube"),
+        ("org.wakingup.android", "Waking Up"),
+        ("com.whatsapp", "WhatsApp"),
+    ],
+)
+def test_real_labels_are_not_fallbacks(package: str, label: str) -> None:
+    assert not is_fallback_label(package, label)
+
+
+def test_the_app_table_keeps_a_real_label_over_the_stand_in() -> None:
+    """Uninstalled today, the app's days come under a name made from its package."""
+    payload = _screen_time_payload()
+    payload["screen_time"][1]["apps"][2]["name"] = "music"
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"]["name"] == "Spotify"
+
+    # With no real label in the window, the stand-in is still better than nothing.
+    payload["screen_time"][0]["apps"][0]["name"] = "music"
+    table = _by_key(parse_payload(payload, tz=_amsterdam()))[KEY_SCREEN_TIME_APPS]
+    assert table.attributes["apps"]["com.spotify.music"]["name"] == "music"
 
 
 def test_the_app_table_has_no_filtered_app_and_no_app_without_a_package() -> None:

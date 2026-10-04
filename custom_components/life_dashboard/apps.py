@@ -35,7 +35,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
-from .payload import KEY_SCREEN_TIME_APPS, SensorUpdate, parse_instant
+from .payload import KEY_SCREEN_TIME_APPS, SensorUpdate, is_fallback_label, parse_instant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -203,8 +203,10 @@ class AppRoster:
         self.latest = update
 
         for package, row in apps.items():
-            if package in self.labels and row.get("name"):
-                self.labels[package] = row["name"]
+            label = row.get("name")
+            # An app uninstalled since comes under a made-up name; keep the real one.
+            if package in self.labels and label and not is_fallback_label(package, label):
+                self.labels[package] = label
 
         candidates = sorted(
             (

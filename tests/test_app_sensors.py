@@ -290,6 +290,29 @@ async def test_a_renamed_app_keeps_its_sensor(
     )
 
 
+async def test_an_uninstalled_app_keeps_its_real_name(
+    hass: HomeAssistant, hass_client_no_auth, loaded, entity_registry: er.EntityRegistry
+) -> None:
+    """The phone names an app it can no longer look up after its package; that is no
+    rename."""
+    client = await hass_client_no_auth()
+    await _post(hass, client, _screen_time(_day("2026-09-15", (SPOTIFY, "Spotify", 22))))
+    await _enable(hass, entity_registry, loaded, SPOTIFY)
+
+    await _post(
+        hass,
+        client,
+        _screen_time(
+            _day("2026-09-16", (SPOTIFY, "music", 3)),
+            timestamp="2026-09-16T08:00:00Z",
+        ),
+    )
+    state = hass.states.get("sensor.owen_s_pixel_spotify_screen_time")
+    assert state.state == "3"
+    assert state.attributes["app"] == "Spotify"
+    assert loaded.runtime_data.apps.labels[SPOTIFY] == "Spotify"
+
+
 # --- Bounds ----------------------------------------------------------------
 
 
