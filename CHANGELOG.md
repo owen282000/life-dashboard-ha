@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-04
+
 ### Added
 
 - A screen time sensor per app, with the app's minutes today, named after the app (such
@@ -232,6 +234,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.9.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.9.0
 [0.8.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.8.0
 [0.7.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.7.2
 [0.7.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.7.1
