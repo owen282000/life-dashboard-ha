@@ -97,5 +97,5 @@ def layout_markup(pair_url: str, *, note: str = "") -> str:
         "<p>1. Tap <b>Scan a pairing code</b> in the app, or point the phone's camera at "
         "the code.</p>"
         "<p>2. Check what it fills in and tap <b>Pair</b>.</p>"
-        "<p>3. Tap <b>Sync now</b>.</p>" + (f"<p>{note}</p>" if note else "")
+        "<p>3. Tap <b>Sync Now</b>.</p>" + (f"<p>{note}</p>" if note else "")
     )

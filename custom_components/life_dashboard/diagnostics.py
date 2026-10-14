@@ -59,6 +59,8 @@ async def async_get_config_entry_diagnostics(
             else {},
             # How many workouts of yesterday and today are kept, never what they were.
             "workouts": len(ledger.workouts) if ledger else 0,
+            # The day the ledger keeps from once it was pruned; never what it carries.
+            "kept_from": ledger.kept_from if ledger else None,
         },
         "writeback": {
             "configured": {

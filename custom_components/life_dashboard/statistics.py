@@ -13,6 +13,7 @@ history.
 from __future__ import annotations
 
 import logging
+from datetime import date, tzinfo
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -28,15 +29,18 @@ from .history import (
     day_rows,
     earliest_day,
     hour_rows,
+    keep_from,
+    prune,
 )
 from .payload import SENSOR_SPECS
 
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
-# 1.2 added the workouts. A minor version, because the change only adds a key: a ledger of
-# 1.1 reads as it is, and a downgrade to an earlier release still reads a 1.2 one.
-STORAGE_MINOR_VERSION = 2
+# 1.2 added the workouts, 1.3 what a prune carries (kept_from and carried, written only
+# once something was pruned). Minor versions, because each change only adds keys: an older
+# ledger reads as it is, and a downgrade to an earlier release still reads a newer one.
+STORAGE_MINOR_VERSION = 3
 SAVE_DELAY_SECONDS = 5
 
 # Units and names for the day sums, which have no sensor to borrow from.
@@ -64,9 +68,10 @@ class _LedgerStore(Store[dict[str, Any]]):
     async def _async_migrate_func(
         self, old_major_version: int, old_minor_version: int, old_data: dict[str, Any]
     ) -> dict[str, Any]:
-        if old_major_version == STORAGE_VERSION and old_minor_version < 2:
+        if old_major_version == STORAGE_VERSION and old_minor_version < STORAGE_MINOR_VERSION:
             # Nothing of the days, sessions and hours changes; the workouts start empty,
-            # because the sessions kept for the statistics hold no type and no start.
+            # because the sessions kept for the statistics hold no type and no start. A
+            # ledger that was never pruned has nothing carried, which is what 1.3 says too.
             return {**old_data, "workouts": old_data.get("workouts") or {}}
         raise NotImplementedError
 
@@ -104,6 +109,8 @@ class HistoryWriter:
         self._entry = entry
         self._store = _store(hass, entry.entry_id)
         self.ledger = Ledger()
+        # The day of the last prune, so the whole ledger is walked once a day at most.
+        self._pruned_on: date | None = None
 
     async def async_load(self) -> None:
         self.ledger = Ledger.from_dict(await self._store.async_load())
@@ -117,22 +124,40 @@ class HistoryWriter:
 
     @callback
     def async_apply(self, data: dict[str, Any]) -> HistoryChange:
-        """Fold a payload into the ledger and import the rows it changed."""
+        """Fold a payload into the ledger, import the rows it changed, and prune it."""
         tz = dt_util.get_default_time_zone()
         change = apply_payload(self.ledger, data, tz=tz)
-        if change.is_empty and not change.workouts:
-            return change
+        if not change.is_empty:
+            self._import(change, data, tz)
 
-        self._store.async_delay_save(self.ledger.to_dict, SAVE_DELAY_SECONDS)
+        pruned = self._prune(tz)
 
-        if change.is_empty:
-            return change
+        if pruned or not change.is_empty or change.workouts:
+            self._store.async_delay_save(self.ledger.to_dict, SAVE_DELAY_SECONDS)
+        return change
 
+    def _prune(self, tz: tzinfo) -> bool:
+        """Let the oldest days go, once a day, and say whether anything went.
+
+        After the rows are written, so a payload's own days are in the recorder before
+        anything is let go. Those rows stay there; the ledger only forgets what it would
+        need to write them again. Anything older that comes in later the same day is let go
+        the next day, which is safe: it was never carried, so it counts once.
+        """
+        today = dt_util.now(tz).date()
+        if today == self._pruned_on:
+            return False
+        self._pruned_on = today
+        before = keep_from(self.ledger, today=today, tz=tz)
+        return before is not None and prune(self.ledger, before=before, tz=tz)
+
+    def _import(self, change: HistoryChange, data: dict[str, Any], tz: tzinfo) -> None:
+        """Write the statistics rows a payload changed."""
         if not self.available:
             _LOGGER.debug(
                 "Recorder not loaded; history for %s kept in the ledger only", self._entry.title
             )
-            return change
+            return
 
         # Imported inside the function: recorder is an after_dependency and may be absent.
         from homeassistant.components.recorder.models import StatisticMeanType
@@ -163,7 +188,6 @@ class HistoryWriter:
                 " the iOS app from 1.4.0)",
                 earliest_day(change),
             )
-        return change
 
     def _metadata(self, key: str, *, sum_kind: bool, mean_type: Any) -> dict[str, Any]:
         return {

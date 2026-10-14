@@ -574,7 +574,7 @@ async def test_a_ledger_of_0_9_0_is_taken_over_whole(
     assert ledger.workouts == {}
     # Migrated on the spot: the file says what it is now, and keeps everything it had.
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 2)
+    assert (saved["version"], saved["minor_version"]) == (1, 3)
     assert saved["data"]["days"] == OLD_LEDGER["days"]
     assert saved["data"]["sessions"] == OLD_LEDGER["sessions"]
     assert saved["data"]["workouts"] == {}
@@ -599,7 +599,7 @@ async def test_workouts_are_written_and_read_back(
     await hass.async_block_till_done()
 
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 2)
+    assert (saved["version"], saved["minor_version"]) == (1, 3)
     assert set(saved["data"]["workouts"]) == {"run", "walk-2"}
     assert saved["data"]["workouts"]["run"] == {
         "type": "56",

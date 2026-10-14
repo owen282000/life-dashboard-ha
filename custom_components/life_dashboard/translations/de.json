@@ -46,7 +46,7 @@
     "step": {
       "init": {
         "title": "Optionen",
-        "description": "Wähle für jede Art von Messwert, welche Entität an dieses Telefon geht. Lass leer, was nicht gesendet werden soll. Welche davon in Health Connect geschrieben werden, entscheidet die App unter „Empfangen“ in ihrem Tab Health Connect. Nur die Android-App empfängt diese Werte; ein iPhone ignoriert sie. Health Connect hat keinen Datensatz für BMI, Muskelmasse oder Viszeralfett, deshalb werden sie hier nicht angeboten. Messwerte von vor dieser Einrichtung werden nicht gesendet; dafür gibt es die Schaltfläche „Verlauf an Telefon senden“.",
+        "description": "Wähle für jede Art von Messwert, welche Entität an dieses Telefon geht. Lass leer, was nicht gesendet werden soll. Welche davon in Health Connect geschrieben werden, entscheidet die App unter „Empfangen“ in ihrem Tab Gesundheit. Nur die Android-App empfängt diese Werte; ein iPhone ignoriert sie. Health Connect hat keinen Datensatz für BMI, Muskelmasse oder Viszeralfett, deshalb werden sie hier nicht angeboten. Messwerte von vor dieser Einrichtung werden nicht gesendet; dafür gibt es die Schaltfläche „Verlauf an Telefon senden“.",
         "data": {
           "min_workout_minutes": "Kürzestes Training (Minuten)"
         },
@@ -330,7 +330,7 @@
   "issues": {
     "writeback_permission_denied": {
       "title": "{phone} lehnt {type} aus Home Assistant ab",
-      "description": "Die App Life Dashboard Companion auf {phone} hat keine Berechtigung, {type} in Health Connect zu schreiben. Öffne die App, geh im Tab Health Connect zu „Empfangen“ und schalte {type} wieder ein, um die Berechtigung zu erteilen. Die abgelehnten Messwerte werden nicht erneut angeboten; nutze „Verlauf an Telefon senden“, sobald die Berechtigung erteilt ist."
+      "description": "Die App Life Dashboard Companion auf {phone} hat keine Berechtigung, {type} in Health Connect zu schreiben. Öffne die App, geh im Tab Gesundheit zu „Empfangen“ und schalte {type} wieder ein, um die Berechtigung zu erteilen. Die abgelehnten Messwerte werden nicht erneut angeboten; nutze „Verlauf an Telefon senden“, sobald die Berechtigung erteilt ist."
     },
     "writeback_unsupported_type": {
       "title": "{phone} kennt {type} nicht",

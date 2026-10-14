@@ -18,7 +18,7 @@ exhaustively, and statistics.py is the thin layer that talks to the recorder.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, time, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Final
 
 from .payload import is_own_record, parse_instant
@@ -110,6 +110,11 @@ DAY_KEYS: Final[frozenset[str]] = frozenset(
 )
 HOUR_KEYS: Final[frozenset[str]] = frozenset(series.key for series in MEASURED_SERIES)
 
+# How many days before the newest one the ledger keeps. Both apps backfill 365 days at
+# most, and a payload can wait about a week in the app's outbox, so everything a backfill
+# or a late delivery can send again is still here to be replaced rather than added twice.
+RETENTION_DAYS: Final = 400
+
 
 @dataclass
 class HourBucket:
@@ -156,15 +161,20 @@ class Ledger:
     workouts: uuid -> type, start, end and length of each exercise session of yesterday
     and today, for the exercise sensors. Not the statistics' business: `exercise_minutes`
     is built from `sessions`, which keeps no type and no start.
+    kept_from: the cutoff of the last prune that dropped something ("YYYY-MM-DD"), None
+    before that. Nothing older is taken in again, because its amount is already carried.
+    carried: key -> the sum of the day amounts pruned, which the running sums start from.
     """
 
     days: dict[str, dict[str, float]] = field(default_factory=dict)
     sessions: dict[str, dict[str, list]] = field(default_factory=dict)
     hours: dict[str, dict[str, HourBucket]] = field(default_factory=dict)
     workouts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    kept_from: str | None = None
+    carried: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "days": self.days,
             "sessions": self.sessions,
             "hours": {
@@ -173,6 +183,11 @@ class Ledger:
             },
             "workouts": self.workouts,
         }
+        # Only once something was pruned: until then the file is what it always was.
+        if self.kept_from is not None:
+            data["kept_from"] = self.kept_from
+            data["carried"] = self.carried
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> Ledger:
@@ -190,6 +205,9 @@ class Ledger:
             },
             # Absent in a ledger written before the exercise sensors.
             workouts={u: dict(row) for u, row in (data.get("workouts") or {}).items()},
+            # Absent in a ledger that was never pruned.
+            kept_from=data.get("kept_from") or None,
+            carried={k: float(v) for k, v in (data.get("carried") or {}).items()},
         )
 
     def day_totals(self, key: str) -> dict[str, float]:
@@ -265,7 +283,7 @@ def apply_payload(
     _apply_daily_totals(ledger, data, day_changes)
     _apply_screen_time(ledger, data, day_changes)
     _apply_sessions(ledger, data, tz, day_changes)
-    _apply_measured(ledger, data, hour_changes)
+    _apply_measured(ledger, data, _first_hour(ledger, tz), hour_changes)
     workouts = keep_sessions(ledger.workouts, data, now=now or datetime.now(UTC), tz=tz)
 
     return HistoryChange(day_keys=day_changes, hour_keys=hour_changes, workouts=workouts)
@@ -283,6 +301,8 @@ def _apply_daily_totals(ledger: Ledger, data: dict[str, Any], changes: dict[str,
         try:
             day = date.fromisoformat(entry.get("date", ""))
         except (TypeError, ValueError):
+            continue
+        if _pruned(ledger, day):
             continue
         for key, field_name in DAILY_TOTAL_KEYS.items():
             amount = _number(entry.get(field_name))
@@ -307,6 +327,8 @@ def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, 
         try:
             day = date.fromisoformat(entry.get("date", ""))
         except (TypeError, ValueError):
+            continue
+        if _pruned(ledger, day):
             continue
         # The apps that are sent, when the app filtered them, as the sensors show.
         key = (
@@ -346,6 +368,8 @@ def _apply_sessions(
 
             amount = raw / series.divisor
             day = _local_day(moment, tz)
+            if _pruned(ledger, day):
+                continue
             # A record without a uuid still cannot be counted twice: its moment and value
             # identify it well enough for the only case that matters, the same batch
             # arriving again.
@@ -363,7 +387,24 @@ def _apply_sessions(
             _note_day(changes, series.key, day)
 
 
-def _apply_measured(ledger: Ledger, data: dict[str, Any], changes: dict[str, datetime]) -> None:
+def _pruned(ledger: Ledger, day: date) -> bool:
+    """Whether a day lies before what the ledger keeps, so its amount was carried."""
+    return ledger.kept_from is not None and day.isoformat() < ledger.kept_from
+
+
+def _first_hour(ledger: Ledger, tz: tzinfo) -> datetime | None:
+    """The first moment the ledger keeps hours for: local midnight of its first day."""
+    if ledger.kept_from is None:
+        return None
+    return datetime.combine(date.fromisoformat(ledger.kept_from), time.min, tzinfo=tz)
+
+
+def _apply_measured(
+    ledger: Ledger,
+    data: dict[str, Any],
+    first_hour: datetime | None,
+    changes: dict[str, datetime],
+) -> None:
     """Point-in-time readings become hourly buckets; bucketed series merge straight in."""
     for series in MEASURED_SERIES:
         records = data.get(series.array)
@@ -374,7 +415,7 @@ def _apply_measured(ledger: Ledger, data: dict[str, Any], changes: dict[str, dat
         if isinstance(first, dict) and "bucket_start" in first:
             key = BUCKETED_KEYS.get(series.array)
             if key == series.key:
-                _apply_buckets(ledger, key, records, changes)
+                _apply_buckets(ledger, key, records, first_hour, changes)
             continue
 
         for record in records:
@@ -390,12 +431,21 @@ def _apply_measured(ledger: Ledger, data: dict[str, Any], changes: dict[str, dat
             if value is None:
                 continue
             _merge_hour(
-                ledger, series.key, _hour_key(moment), HourBucket(1, value, value, value), changes
+                ledger,
+                series.key,
+                _hour_key(moment),
+                HourBucket(1, value, value, value),
+                first_hour,
+                changes,
             )
 
 
 def _apply_buckets(
-    ledger: Ledger, key: str, buckets: list[Any], changes: dict[str, datetime]
+    ledger: Ledger,
+    key: str,
+    buckets: list[Any],
+    first_hour: datetime | None,
+    changes: dict[str, datetime],
 ) -> None:
     """A bucketed series is already aggregated; its window may be finer than an hour."""
     for bucket in buckets:
@@ -421,31 +471,44 @@ def _apply_buckets(
                 minimum=minimum if minimum is not None else mean,
                 maximum=maximum if maximum is not None else mean,
             ),
+            first_hour,
             changes,
         )
 
 
 def _merge_hour(
-    ledger: Ledger, key: str, hour: str, bucket: HourBucket, changes: dict[str, datetime]
+    ledger: Ledger,
+    key: str,
+    hour: str,
+    bucket: HourBucket,
+    first_hour: datetime | None,
+    changes: dict[str, datetime],
 ) -> None:
+    start = datetime.fromisoformat(hour)
+    if first_hour is not None and start < first_hour:
+        # Pruned already; merging it into a fresh bucket would overwrite the hour's row.
+        return
     buckets = ledger.hours.setdefault(key, {})
     existing = buckets.get(hour)
     buckets[hour] = bucket if existing is None else existing.merged(bucket)
-    _note_hour(changes, key, datetime.fromisoformat(hour))
+    _note_hour(changes, key, start)
 
 
 def day_rows(ledger: Ledger, key: str, since: date, *, tz: tzinfo) -> list[dict[str, Any]]:
     """Statistics rows for a day sum, from `since` onward.
 
     Sums are cumulative in Home Assistant, so the running total starts at everything
-    before `since` and every later row carries it forward. Days with no amount produce no
-    row: Home Assistant interpolates nothing, and a missing day is more honest than a zero.
+    before `since`, the pruned days included, and every later row carries it forward. Days
+    with no amount produce no row: Home Assistant interpolates nothing, and a missing day is
+    more honest than a zero.
     """
     totals = ledger.day_totals(key)
     if not totals:
         return []
 
-    running = sum(amount for iso, amount in totals.items() if date.fromisoformat(iso) < since)
+    running = ledger.carried.get(key, 0.0) + sum(
+        amount for iso, amount in totals.items() if date.fromisoformat(iso) < since
+    )
     rows: list[dict[str, Any]] = []
     for iso in sorted(totals):
         day = date.fromisoformat(iso)
@@ -490,23 +553,64 @@ def hour_rows(ledger: Ledger, key: str, since: datetime) -> list[dict[str, Any]]
     return rows
 
 
-def prune(ledger: Ledger, *, before: date, tz: tzinfo) -> None:
+def keep_from(ledger: Ledger, *, today: date, tz: tzinfo) -> date | None:
+    """The first day the ledger should keep: RETENTION_DAYS before its newest day.
+
+    Counted from the newest day it holds rather than from the clock alone, so a phone
+    that was away for a while keeps what it had; never from a day after `today`, so a
+    reading with a wrong date in the future cannot push everything else out.
+    """
+    newest = [max(days) for days in ledger.days.values() if days]
+    newest += [
+        max(day for day, _ in records.values()) for records in ledger.sessions.values() if records
+    ]
+    newest += [
+        datetime.fromisoformat(max(buckets)).astimezone(tz).date().isoformat()
+        for buckets in ledger.hours.values()
+        if buckets
+    ]
+    if not newest:
+        return None
+    return min(date.fromisoformat(max(newest)), today) - timedelta(days=RETENTION_DAYS)
+
+
+def prune(ledger: Ledger, *, before: date, tz: tzinfo) -> bool:
     """Drop everything older than `before`, so the ledger does not grow without end.
 
     Statistics already written stay in the recorder; this only forgets what would be
-    needed to rewrite them, which is acceptable for days that will not change again.
+    needed to rewrite them, which is acceptable for days that will not change again. The
+    amounts of the pruned days are carried, so a day rewritten later still continues the
+    sum it had, and nothing before `before` is taken in again: a repeat of a pruned day
+    would otherwise count once in the carried sum and once more as a day of its own.
+
+    The kept workouts are left alone; they hold yesterday and today only. Returns whether
+    anything was dropped, so the ledger is written only then.
     """
     cutoff = before.isoformat()
-    for days in ledger.days.values():
+    if ledger.kept_from is not None and cutoff <= ledger.kept_from:
+        # Nothing older than kept_from is taken in, so there is nothing to drop.
+        return False
+
+    dropped = False
+    for key, days in ledger.days.items():
         for iso in [iso for iso in days if iso < cutoff]:
-            del days[iso]
-    for sessions in ledger.sessions.values():
+            ledger.carried[key] = ledger.carried.get(key, 0.0) + days.pop(iso)
+            dropped = True
+    for key, sessions in ledger.sessions.items():
         for identity in [i for i, (day, _) in sessions.items() if day < cutoff]:
-            del sessions[identity]
+            _, amount = sessions.pop(identity)
+            ledger.carried[key] = ledger.carried.get(key, 0.0) + amount
+            dropped = True
     boundary = datetime.combine(before, time.min, tzinfo=tz).astimezone(UTC)
     for buckets in ledger.hours.values():
         for iso in [iso for iso in buckets if datetime.fromisoformat(iso) < boundary]:
             del buckets[iso]
+            dropped = True
+    # Moved only when something went: a day between the old and the new cutoff was then
+    # never kept, so taking it in later counts it once.
+    if dropped:
+        ledger.kept_from = cutoff
+    return dropped
 
 
 def earliest_day(change: HistoryChange) -> date | None:
@@ -526,10 +630,12 @@ __all__ = [
     "HourBucket",
     "Ledger",
     "MEASURED_SERIES",
+    "RETENTION_DAYS",
     "SESSION_SERIES",
     "apply_payload",
     "day_rows",
     "earliest_day",
     "hour_rows",
+    "keep_from",
     "prune",
 ]

@@ -1,12 +1,13 @@
 """History lands in long-term statistics, on the days it came from."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.core_config import async_process_ha_core_config
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant_custom_component.components.recorder.common import (
     async_wait_recording_done,
     statistics_during_period,
@@ -201,3 +202,96 @@ async def test_screen_time_becomes_a_day_statistic(
 
     rows = _rows(hass, entry, "screen_time", "day", {"state", "sum"})
     assert [(r["state"], r["sum"]) for r in rows] == [(180.0, 180.0), (25.0, 205.0)]
+
+
+def _today():
+    """Pruning counts back from today, so these tests take their dates from the clock."""
+    return dt_util.now(dt_util.get_time_zone("Europe/Amsterdam")).date()
+
+
+async def test_the_ledger_lets_old_days_go_and_the_sums_carry_on(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    old = (_today() - timedelta(days=500)).isoformat()
+    recent = (_today() - timedelta(days=1)).isoformat()
+
+    payload = _backfill(
+        daily_totals=[{"date": old, "steps": 100}, {"date": recent, "steps": 200}],
+        sleep=[{"session_end_time": f"{old}T06:00:00Z", "duration_seconds": 600, "uuid": "o"}],
+    )
+    assert await _post(client, payload) == 200
+    await async_wait_recording_done(hass)
+
+    # Both days were written before the old one was let go.
+    assert [r["sum"] for r in _rows(hass, entry, "steps", "day", {"sum"})] == [100.0, 300.0]
+    ledger = entry.runtime_data.history.ledger
+    assert ledger.days["steps"] == {recent: 200.0}
+    assert ledger.sessions["sleep_minutes"] == {}
+    assert ledger.carried == {"steps": 100.0, "sleep_minutes": 10.0}
+
+    # A correction of the recent day still counts the old one in.
+    assert await _post(client, _backfill(daily_totals=[{"date": recent, "steps": 250}])) == 200
+    await async_wait_recording_done(hass)
+    assert [r["sum"] for r in _rows(hass, entry, "steps", "day", {"sum"})] == [100.0, 350.0]
+
+    # And the old day sent again, as a re-run backfill would, changes nothing.
+    again = _backfill(
+        daily_totals=[{"date": old, "steps": 100}],
+        sleep=[{"session_end_time": f"{old}T06:00:00Z", "duration_seconds": 600, "uuid": "o"}],
+    )
+    assert await _post(client, again) == 200
+    await async_wait_recording_done(hass)
+    steps = _rows(hass, entry, "steps", "day", {"state", "sum"})
+    assert [(r["state"], r["sum"]) for r in steps] == [(100.0, 100.0), (250.0, 350.0)]
+    assert ledger.carried == {"steps": 100.0, "sleep_minutes": 10.0}
+
+
+async def test_a_ledger_that_was_pruned_is_written(
+    hass: HomeAssistant, hass_client_no_auth, hass_storage, freezer
+) -> None:
+    """A payload that changes nothing still writes the ledger when the prune let a day go."""
+    freezer.move_to("2026-10-14 10:00:00+00:00")
+    old = (_today() - timedelta(days=500)).isoformat()
+    recent = (_today() - timedelta(days=1)).isoformat()
+    key = f"{DOMAIN}.ledger_entry.history"
+    hass_storage[key] = {
+        "version": 1,
+        "minor_version": 2,
+        "key": key,
+        "data": {
+            "days": {"steps": {old: 100.0, recent: 200.0}},
+            "sessions": {},
+            "hours": {},
+            "workouts": {},
+        },
+    }
+    await async_process_ha_core_config(hass, {"time_zone": "Europe/Amsterdam"})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="ledger_entry",
+        title="Owen's Pixel",
+        unique_id=WEBHOOK_ID,
+        data={
+            CONF_WEBHOOK_ID: WEBHOOK_ID,
+            CONF_SECRET: SECRET,
+            CONF_URL_CHOICE: URL_CHOICE_INTERNAL,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert "kept_from" not in hass_storage[key]["data"]
+
+    client = await hass_client_no_auth()
+    same = _backfill(daily_totals=[{"date": recent, "steps": 200}])
+    assert await _post(client, same) == 200
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=10))
+    await hass.async_block_till_done()
+
+    saved = hass_storage[key]
+    assert (saved["version"], saved["minor_version"]) == (1, 3)
+    assert saved["data"]["days"] == {"steps": {recent: 200.0}}
+    assert saved["data"]["carried"] == {"steps": 100.0}
+    assert saved["data"]["kept_from"] == (_today() - timedelta(days=401)).isoformat()

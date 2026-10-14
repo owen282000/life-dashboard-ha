@@ -83,6 +83,8 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, hass_client_no_auth
     }
     assert "1234" not in json.dumps(result["history"])
     assert result["history"]["workouts"] == 0
+    # Never pruned, so nothing is carried; once it is, only the day shows.
+    assert result["history"]["kept_from"] is None
     # Which entities go to the phone and how many readings wait, never a value or
     # the moment one was measured.
     assert result["writeback"]["configured"] == {

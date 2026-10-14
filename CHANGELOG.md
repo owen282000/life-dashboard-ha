@@ -6,6 +6,22 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The ledger behind a phone's statistics no longer grows without end. It keeps the 400 days
+  before the newest one, more than a backfill of a year plus a week in the app's outbox, so
+  a backfill sent again still replaces itself instead of counting twice. Older days stay in
+  the statistics, and the ledger keeps their sum, so the days after them still add up to the
+  right total; a figure that arrives for one of those older days is ignored rather than
+  counted again. Diagnostics show from which day the ledger keeps, never what it carries.
+  The file is now stored as version 1.3, which an earlier release still reads. After days
+  were let go, though, an earlier release leaves their sum out of the totals it writes, so
+  those fall back by what the days held, and once it has saved the ledger that sum is gone,
+  also after upgrading again.
+- **Options** and the repair for a missing write permission name the app's **Health** tab,
+  which they called the Health Connect tab.
+- The pairing dialog says **Sync Now**, as the apps do.
+
 ## [0.10.0] - 2026-10-14
 
 ### Added

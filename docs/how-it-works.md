@@ -27,7 +27,7 @@ So every value carries the moment it describes, and each kind of data has a rule
 - **Sessions** (sleep, exercise, mindfulness, drinks) are kept by their record ID. A repeat changes nothing, and an edited record replaces its own contribution, even when the edit moves it to another day. For workouts the ledger also keeps the kind, start and end of yesterday's and today's sessions by the same ID, which is what the exercise sensors add up.
 - **Hourly readings** (heart rate, weight and the rest) are kept as a mean, minimum and maximum per hour. This is the one place a repeat can show. A batch sent again counts its readings once more: the minimum and maximum stay as they were, and so does the mean when the batch held the whole hour. A repeat of part of an hour pulls the mean toward that part.
 
-The statistics are rebuilt from this ledger, kept in `.storage`, so re-delivery is harmless and a correction replaces the old figure. Records the app wrote to Health Connect on Home Assistant's behalf are skipped in all of it: they're already in Home Assistant.
+The statistics are rebuilt from this ledger, kept in `.storage`, so re-delivery is harmless and a correction replaces the old figure. The ledger keeps the last 400 days, more than a backfill of a year plus a week in the app's outbox, so anything the app can send again is still there to replace. Older days stay in the statistics; the ledger keeps only their sum, so a later day still adds up to the right total, and a figure that arrives for one of them is ignored rather than counted twice. Records the app wrote to Health Connect on Home Assistant's behalf are skipped in all of it: they're already in Home Assistant.
 
 ## Security
 

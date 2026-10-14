@@ -88,7 +88,7 @@ Another app on the phone, such as Zepp, Withings or Omron Connect, writes the sa
 
 - which sensors exist and when each was last measured
 - how many apps have a screen time sensor, but not which
-- how much history the ledger holds per statistic
+- how much history the ledger holds per statistic, and from which day
 - which entities go to the phone, and how many readings wait, were written or were refused
 
 The secret, the webhook ID and the cloudhook URL are redacted, and there's no health data in it. Attach it to the [issue](https://github.com/owen282000/life-dashboard-ha/issues/new/choose), with the relevant lines from Home Assistant's log.
@@ -101,7 +101,7 @@ Each phone has three files in Home Assistant's `.storage` folder, and unlike the
 
 | File | What it holds |
 |---|---|
-| `life_dashboard.<entry>.history` | The ledger the statistics are built from: day totals, sessions and hourly figures. |
+| `life_dashboard.<entry>.history` | The ledger the statistics are built from: day totals, sessions and hourly figures of the last 400 days, and the sum of the days before. |
 | `life_dashboard.<entry>.writeback` | The values of the readings waiting for the phone. |
 | `life_dashboard.<entry>.apps` | The names of the apps that have a sensor and their minutes on the newest day. An app whose sensor you deleted is kept as a hash, not by name. |
 
