@@ -206,7 +206,7 @@ Paste it into a new dashboard's raw configuration editor. Replace `owen_s_pixel`
 With the sensor's native unit, `min`, the last sleep tile shows minutes only. To see hours and minutes, set the sensor's unit to `h` in its settings and raise the display precision to four decimals. The frontend rounds down when it splits hours into minutes, so the tile can show a minute less.
 
 <p align="center">
-  <img src="screenshots/dashboard.png" alt="The example dashboard in three sections: Today with colored tiles for steps, distance, calories, screen time, heart rate and last sleep plus the two sync times; On the phone with the most used app, the top apps of the day and a bar chart of screen time per day; History with steps per week as bars and heart rate per day as a line with its min and max band" width="900">
+  <img src="screenshots/dashboard.png" alt="The example dashboard in three sections: Today with colored tiles for steps, distance, calories, screen time, heart rate and last sleep, a Body list with weight, resting heart rate, heart rate variability and blood pressure, and the two sync times; On the phone with the most used app, the top apps of the day and a bar chart of screen time per day; History with steps per week as bars and heart rate per day as a line with its min and max band" width="900">
 </p>
 
 That's the view on a phone that backfilled five months and then went quiet, with the two long graphs widened from 90 and 30 days to a year so the backfill shows.
