@@ -6,6 +6,14 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-19
+
+### Changed
+
+- The README shows the four Life Dashboard parts again as cards, the Android app, the iPhone
+  app, this integration and the stack, in a short **Part of Life Dashboard** section that also
+  renders in HACS.
+
 ## [0.10.2] - 2026-10-19
 
 ### Changed
@@ -300,6 +308,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.10.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.3
 [0.10.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.2
 [0.10.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.1
 [0.10.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.0

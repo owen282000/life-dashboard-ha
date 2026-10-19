@@ -67,6 +67,17 @@ The phone sends its data to the address in the pairing code, so that address has
 
 Keep it: it handles presence, notifications and device sensors, and this works next to it. Its health sensors show today's value and keep history only from the day you switch them on. This integration adds up to a year of backfilled history, each day on its own date, workouts with every session, screen time per app on Android, and readings written back into Health Connect.
 
+## Part of Life Dashboard
+
+Four projects, and you only install the parts you need: the app on each phone, then where the data goes. An Android phone and an iPhone send the same payload, so they can share one Home Assistant.
+
+<p align="center">
+  <a href="https://github.com/owen282000/life-dashboard-companion-app"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/android.png" alt="Android app: Health Connect and screen time" width="400"></a>
+  <a href="https://github.com/owen282000/life-dashboard-companion-app-ios"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ios.png" alt="iPhone app: Apple Health" width="400"></a>
+  <img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ha-here.png" alt="Home Assistant integration: sensors and a year of history (this repository)" width="400">
+  <a href="https://github.com/owen282000/life-dashboard-stack"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/stack.png" alt="Grafana stack: Postgres and Grafana dashboards" width="400"></a>
+</p>
+
 ## More
 
 - [Sensors and statistics](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/entities.md): every entity, screen time per app, automations
