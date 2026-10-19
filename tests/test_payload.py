@@ -6,6 +6,7 @@ the phone is checked here, so the Home Assistant side has little left to get wro
 
 import json
 import math
+import struct
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -26,6 +27,7 @@ from custom_components.life_dashboard.payload import (
     response_key,
     response_signature_for,
     signature_for,
+    state_value,
     verify_signature,
 )
 from custom_components.life_dashboard.workouts import day_updates, last_workout_update
@@ -946,6 +948,61 @@ def test_a_test_ping_sends_no_app_table() -> None:
         tz=_amsterdam(),
     )
     assert KEY_SCREEN_TIME_APPS not in _by_key(updates)
+
+
+# --- State values ----------------------------------------------------------
+
+
+def _float32(value: float) -> float:
+    """What a reading stored as a 32-bit float reads back as."""
+    return struct.unpack("f", struct.pack("f", value))[0]
+
+
+def test_a_float32_weight_reads_as_the_weight() -> None:
+    """The weight of app issue #165: the app that wrote it stored 126.2 kg as a float."""
+    assert round(_float32(126.2), 12) == 126.199996948242
+    assert state_value("weight", 126.199996948242) == 126.2
+
+
+@pytest.mark.parametrize("value", [0.35, 1.83, 36.6, 78.45, 126.2, 1680.5])
+@pytest.mark.parametrize(
+    "key", [key for key, spec in SENSOR_SPECS.items() if spec.precision is not None]
+)
+def test_every_numeric_sensor_drops_a_float32_tail(key: str, value: float) -> None:
+    """Every value with no more decimals than the state keeps comes back exactly."""
+    assert state_value(key, _float32(value)) == value
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        # Real decimals within the precision plus two stay as they are.
+        ("weight", 78.405),
+        ("blood_glucose", 5.4321),
+        ("hydration", 0.3333),
+        ("skin_temperature_delta", -0.2525),
+        ("height", 1.8345),
+        ("heart_rate_variability", 48.125),
+    ],
+)
+def test_real_decimals_are_kept(key: str, value: float) -> None:
+    assert state_value(key, value) == value
+
+
+def test_only_floats_are_rounded() -> None:
+    """Integers stay integers, and a text or a timestamp is not a number to round."""
+    assert state_value("steps_today", 8421) == 8421
+    assert isinstance(state_value("steps_today", 8421), int)
+    assert isinstance(state_value("heart_rate", 61), int)
+    # A bucket's average heart rate is a float, and keeps two decimals.
+    assert state_value("heart_rate", 61.333333) == 61.33
+    # Sleep is seconds over 60, so it is a float too.
+    assert state_value("sleep_duration", 27010 / 60) == 450.17
+    assert state_value("screen_time_top_app", "YouTube") == "YouTube"
+    synced = datetime(2026, 9, 15, 18, 0, tzinfo=UTC)
+    assert state_value(KEY_LAST_HEALTH_SYNC, synced) is synced
+    # A key without a spec is passed through.
+    assert state_value("not_a_sensor", 1.23456789) == 1.23456789
 
 
 # --- The table itself ------------------------------------------------------

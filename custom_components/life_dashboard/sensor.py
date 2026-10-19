@@ -43,6 +43,7 @@ from .payload import (
     SensorUpdate,
     is_fallback_label,
     parse_instant,
+    state_value,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -229,7 +230,7 @@ class LifeDashboardSensor(RestoreSensor):
     @callback
     def _apply(self, update: SensorUpdate) -> None:
         """Hold a value, without writing state: callers decide when to do that."""
-        self._attr_native_value = update.value
+        self._attr_native_value = state_value(self._key, update.value)
         self._attr_extra_state_attributes = {
             **update.attributes,
             "measured_at": update.measured_at.isoformat(),

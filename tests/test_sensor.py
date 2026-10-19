@@ -169,6 +169,29 @@ async def test_latest_value_sensor(hass: HomeAssistant, hass_client_no_auth, loa
     assert state.attributes["measured_at"] == "2026-09-15T17:58:00+00:00"
 
 
+async def test_a_float32_reading_has_a_clean_state(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """126.2 kg stored as a 32-bit float reads 126.199996948242; the state says 126.2."""
+    client = await hass_client_no_auth()
+    await _post(
+        client,
+        _health(
+            daily_totals=[{"date": "2026-09-15", "steps": 8421}],
+            weight=[{"kilograms": 126.199996948242, "time": "2026-09-15T07:00:00Z"}],
+            heart_rate=[{"bpm": 61, "time": "2026-09-15T17:58:00Z"}],
+            body_temperature=[{"celsius": 36.599998474121094, "time": "2026-09-15T07:00:00Z"}],
+        ),
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.owen_s_pixel_weight").state == "126.2"
+    assert hass.states.get("sensor.owen_s_pixel_body_temperature").state == "36.6"
+    # Integers are no floats and stay as they came.
+    assert hass.states.get("sensor.owen_s_pixel_steps_today").state == "8421"
+    assert hass.states.get("sensor.owen_s_pixel_heart_rate").state == "61"
+
+
 async def test_day_total_resets_at_local_midnight(
     hass: HomeAssistant, hass_client_no_auth, loaded
 ) -> None:

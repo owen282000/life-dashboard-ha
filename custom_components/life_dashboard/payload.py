@@ -403,6 +403,26 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
     )
 }
 
+# Decimals a state keeps beyond its sensor's display precision. An app can store a
+# reading as a 32-bit float, which reads back as 126.199996948242 for 126.2 kg. Two
+# decimals more than the display shows keep everything a scale or a watch measures,
+# grams for a weight, and drop that tail.
+_STATE_EXTRA_DECIMALS: Final = 2
+
+
+def state_value(key: str, value: Any) -> Any:
+    """The value a sensor's state carries.
+
+    A float is rounded to its sensor's precision plus two decimals; an integer, a text
+    or a timestamp is left as it is, and so is a key without a precision. Only the state:
+    the statistics take the readings as they came, and an hour's mean has decimals of
+    its own anyway.
+    """
+    spec = SENSOR_SPECS.get(key)
+    if spec is None or spec.precision is None or not isinstance(value, float):
+        return value
+    return round(value, spec.precision + _STATE_EXTRA_DECIMALS)
+
 
 def _midnight(day: date, tz: tzinfo) -> datetime:
     """The start of a local day, as an aware datetime."""

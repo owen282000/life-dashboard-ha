@@ -4,7 +4,25 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.4] - 2026-10-19
+
+### Fixed
+
+- A sensor's state no longer carries the tail of a 32-bit float. An app that stores a reading
+  that way sends 126.2 kg as 126.199996948242, and the weight sensor showed exactly that
+  ([owen282000/life-dashboard-companion-app#165](https://github.com/owen282000/life-dashboard-companion-app/issues/165)).
+  A decimal value is now rounded to two decimals more than the sensor displays, grams for a
+  weight, which keeps everything the phone measured. Whole numbers such as steps and heart
+  rate stay as they are, and the long-term statistics are unchanged.
+
+### Changed
+
+- The example dashboard has a weight graph in its History section: the mean per day over a
+  year, from the `weight` statistic.
+- Troubleshooting explains why a sensor's history puts a whole backfill on today: a sensor
+  holds only its newest value, and its history shows when each one arrived. The readings on
+  their own dates are in the long-term statistics, with a **Statistics graph** card for weight
+  as the example. The README says the same in one line.
 
 ## [0.10.3] - 2026-10-19
 
@@ -308,6 +326,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.10.4]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.4
 [0.10.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.3
 [0.10.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.2
 [0.10.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.1

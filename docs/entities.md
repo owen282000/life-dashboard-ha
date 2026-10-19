@@ -199,9 +199,9 @@ actions:
 
 - **Today**: tiles for steps, distance, calories, screen time, heart rate and last sleep, a body card, and the two sync times.
 - **On the phone**: the most used app, the top apps of the day, and screen time per day.
-- **History**: steps per week and heart rate per day.
+- **History**: steps per week, heart rate per day, and weight per day over a year.
 
-Paste it into a new dashboard's raw configuration editor. Replace `owen_s_pixel` in the entity IDs with your phone's name, and the three statistic IDs with the ones the picker offers under that name. Drop the tiles and rows for types you don't sync; Home Assistant shows a missing entity as an error.
+Paste it into a new dashboard's raw configuration editor. Replace `owen_s_pixel` in the entity IDs with your phone's name, and the four statistic IDs with the ones the picker offers under that name. Drop the tiles and rows for types you don't sync; Home Assistant shows a missing entity as an error.
 
 With the sensor's native unit, `min`, the last sleep tile shows minutes only. To see hours and minutes, set the sensor's unit to `h` in its settings and raise the display precision to four decimals. The frontend rounds down when it splits hours into minutes, so the tile can show a minute less.
 
@@ -209,11 +209,11 @@ With the sensor's native unit, `min`, the last sleep tile shows minutes only. To
   <img src="screenshots/dashboard.png" alt="The example dashboard in three sections: Today with colored tiles for steps, distance, calories, screen time, heart rate and last sleep, a Body list with weight, resting heart rate, heart rate variability and blood pressure, and the two sync times; On the phone with the most used app, the top apps of the day and a bar chart of screen time per day; History with steps per week as bars and heart rate per day as a line with its min and max band" width="900">
 </p>
 
-That's the view on a phone that backfilled five months and then went quiet, with the two long graphs widened from 90 and 30 days to a year so the backfill shows.
+That's the view on a phone that backfilled five months and then went quiet, with the two long graphs widened from 90 and 30 days to a year so the backfill shows. The weight graph came later and isn't in it yet.
 
 ## History
 
-A sensor can only hold now, so on its own a year of backfilled readings would all land on today. Instead every payload also feeds long-term statistics, which carry their own dates. The sensors themselves have no state class, so the recorder doesn't compile a second set of statistics from them.
+A sensor can only hold now, so on its own a year of backfilled readings would all land on today. Instead every payload also feeds long-term statistics, which carry their own dates. The sensors themselves have no state class, so the recorder doesn't compile a second set of statistics from them. A sensor's own history shows when each value arrived, so after a backfill [it puts everything on today](troubleshooting.md#why-does-a-sensors-history-put-a-whole-backfill-on-today); chart the statistic instead.
 
 | Statistic | What it holds |
 |---|---|

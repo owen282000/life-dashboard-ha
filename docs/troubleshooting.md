@@ -9,6 +9,7 @@ Syncing from the phone:
 - [Why does syncing over plain HTTP fail?](#why-does-syncing-over-plain-http-fail)
 - [Why are the sensors unknown after a power cut?](#why-are-the-sensors-unknown-after-a-power-cut)
 - [Why is the step history empty after a backfill?](#why-is-the-step-history-empty-after-a-backfill)
+- [Why does a sensor's history put a whole backfill on today?](#why-does-a-sensors-history-put-a-whole-backfill-on-today)
 - [How do I get back an app sensor I deleted?](#how-do-i-get-back-an-app-sensor-i-deleted)
 
 Measurements going to the phone:
@@ -47,6 +48,26 @@ Every 15 minutes, and at a clean shutdown, Home Assistant saves the values that 
 ### Why is the step history empty after a backfill?
 
 The Android app is older than 1.17.0, and its backfill carries no daily totals, which the step, distance and calorie history is built from. Update the app and run the backfill again. Home Assistant's log names the window when this happens.
+
+### Why does a sensor's history put a whole backfill on today?
+
+A sensor holds one value, the newest reading, and its own history shows when each value arrived in Home Assistant, not when it was measured. A backfill sends the past oldest first, a window at a time, so the weight sensor steps through the year in a few minutes, and its history shows all of it on the day of the backfill. Nothing is wrong: that history only says what the sensor held when.
+
+The readings on their own dates are in the long-term statistics. To chart them, add a **Statistics graph** card and pick the statistic named after the phone and the type, such as "Owen's Pixel weight", which is `life_dashboard:<entry>_weight`:
+
+```yaml
+type: statistics-graph
+title: Weight per day
+chart_type: line
+period: day
+days_to_show: 365
+stat_types:
+  - mean
+entities:
+  - life_dashboard:<entry>_weight   # pick "Owen's Pixel weight" from the picker
+```
+
+It works the same for every type: steps, heart rate, sleep, screen time and the rest each have a statistic. [History](entities.md#history) lists them, and the [example dashboard](../examples/dashboard.yaml) has this weight graph.
 
 ### How do I get back an app sensor I deleted?
 

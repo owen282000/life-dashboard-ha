@@ -5,7 +5,7 @@
 #
 # Replace two things: "owen_s_pixel" in the entity ids with your phone's name as it
 # appears in the entity ids (the device name in lower case with underscores), and the
-# three statistic ids with the ones the picker offers under that name. Remove the tiles
+# four statistic ids with the ones the picker offers under that name. Remove the tiles
 # and rows for types the phone does not sync; Home Assistant shows a missing entity as
 # an error.
 title: Owen's Pixel
@@ -137,3 +137,14 @@ views:
             entities:
               - entity: life_dashboard:<entry>_heart_rate
                 name: Heart rate
+          - type: statistics-graph
+            title: Weight per day
+            chart_type: line
+            period: day
+            days_to_show: 365
+            stat_types:
+              - mean
+            hide_legend: true
+            entities:
+              - entity: life_dashboard:<entry>_weight
+                name: Weight
