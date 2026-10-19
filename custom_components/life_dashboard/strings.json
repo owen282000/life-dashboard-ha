@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Add a phone",
-        "description": "The phone sends to the address below. It is filled in with the one your browser is using right now. Change it if the phone should use another one: your home network address to sync at home only, or your public address to sync from anywhere.",
+        "description": "You need the Life Dashboard Companion app on the phone: it scans the QR code shown in the next step. The phone sends to the address below, filled in with the one your browser is using right now. Keep your home network address to sync at home only (on Android, use the IP address rather than homeassistant.local), or enter your public address to sync from anywhere. With a VPN to your home network, the home network address works everywhere.",
         "data": {
           "name": "Name",
           "base_url": "Home Assistant address",
@@ -12,7 +12,7 @@
         "data_description": {
           "name": "Becomes the device name. Worth setting with more than one phone in the house.",
           "base_url": "Just the address, without /api/webhook. You can change it later without pairing again.",
-          "use_cloud": "Creates a cloudhook, so the phone syncs from anywhere without port forwarding. The address above is then not used."
+          "use_cloud": "Creates a cloudhook with your Home Assistant Cloud subscription, so the phone syncs from anywhere without port forwarding. The address above is then not used."
         }
       },
       "reconfigure": {

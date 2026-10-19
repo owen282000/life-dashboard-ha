@@ -6,6 +6,21 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-19
+
+### Changed
+
+- The integration is in the default HACS list, so it installs by searching for **Life Dashboard**
+  in HACS, without a custom repository.
+- The README renders in HACS: images and links by absolute URL, no `<picture>` elements. It says
+  up front that the Life Dashboard Companion app on the phone is needed, and that it is not the
+  Home Assistant Companion app; which watches and apps work through Health Connect, Fitbit
+  included; reaching Home Assistant from away, a VPN included; and what does and doesn't leave
+  your Home Assistant. Half as long, with the Quick start before the details.
+- **Add a phone** says the next step needs the Life Dashboard Companion app, that Android wants
+  the IP address rather than `homeassistant.local`, and that a VPN to your home network keeps
+  the home address working everywhere. In English and German.
+
 ## [0.10.1] - 2026-10-15
 
 ### Fixed
@@ -285,6 +300,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.10.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.2
 [0.10.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.1
 [0.10.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.0
 [0.9.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.9.0

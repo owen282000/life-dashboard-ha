@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Telefon hinzufügen",
-        "description": "Das Telefon sendet an die Adresse unten. Sie ist mit der Adresse vorausgefüllt, die dein Browser gerade verwendet. Ändere sie, wenn das Telefon eine andere verwenden soll: die Adresse in deinem Heimnetz, um nur zu Hause zu synchronisieren, oder deine öffentliche Adresse, um von überall zu synchronisieren.",
+        "description": "Du brauchst die App Life Dashboard Companion auf dem Telefon: Sie scannt den QR-Code im nächsten Schritt. Das Telefon sendet an die Adresse unten, vorausgefüllt mit der Adresse, die dein Browser gerade verwendet. Behalte die Adresse in deinem Heimnetz, um nur zu Hause zu synchronisieren (unter Android die IP-Adresse statt homeassistant.local), oder gib deine öffentliche Adresse ein, um von überall zu synchronisieren. Mit einem VPN in dein Heimnetz funktioniert die Adresse im Heimnetz überall.",
         "data": {
           "name": "Name",
           "base_url": "Home-Assistant-Adresse",
@@ -12,7 +12,7 @@
         "data_description": {
           "name": "Wird zum Gerätenamen. Lohnt sich, wenn es mehr als ein Telefon im Haushalt gibt.",
           "base_url": "Nur die Adresse, ohne /api/webhook. Du kannst sie später ändern, ohne neu zu koppeln.",
-          "use_cloud": "Erstellt einen Cloudhook, damit das Telefon ohne Portweiterleitung von überall synchronisiert. Die Adresse oben wird dann nicht verwendet."
+          "use_cloud": "Erstellt mit deinem Home-Assistant-Cloud-Abo einen Cloudhook, damit das Telefon ohne Portweiterleitung von überall synchronisiert. Die Adresse oben wird dann nicht verwendet."
         }
       },
       "reconfigure": {
