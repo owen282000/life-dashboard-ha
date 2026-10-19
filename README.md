@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5" alt="HACS custom repository"></a>
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration"><img src="https://img.shields.io/badge/HACS-Default-41BDF5" alt="In the default HACS list"></a>
   <a href="https://github.com/owen282000/life-dashboard-ha/releases/latest"><img src="https://img.shields.io/github/v/release/owen282000/life-dashboard-ha?label=Release&color=30b77e" alt="Latest release"></a>
   <a href="https://github.com/owen282000/life-dashboard-ha/actions/workflows/validate.yml"><img src="https://github.com/owen282000/life-dashboard-ha/actions/workflows/validate.yml/badge.svg" alt="hassfest and HACS validation"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/Home%20Assistant-2026.3%2B-41BDF5" alt="Home Assistant 2026.3 or newer"></a>
@@ -91,9 +91,9 @@ The data can also go to an MQTT broker or a webhook of your own instead. Both ap
 
 You need Home Assistant 2026.3 or newer with [HACS](https://hacs.xyz/docs/use/), and one of the apps on the phone. The Android app installs from [GitHub Releases](https://github.com/owen282000/life-dashboard-companion-app/releases/latest) or [Obtainium](https://github.com/owen282000/life-dashboard-companion-app#install); an F&#8209;Droid listing is in review, and a Google Play version comes later. The iOS app has no App Store or TestFlight build yet: you [build it with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) and install it on your own iPhone.
 
-1. **Install.** Click the button, or add `https://github.com/owen282000/life-dashboard-ha` in HACS as a custom repository of type **Integration**. Download **Life Dashboard** and restart Home Assistant.
+1. **Install.** In HACS, search for **Life Dashboard**, or click the button. Download it and restart Home Assistant.
 
-   [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
+   [![Open Life Dashboard in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
 
 2. **Add the integration.** Go to **Settings > Devices & services > Add integration** and search for **Life Dashboard**. Give the phone a name. The address is filled in with the one your browser is using; keep it or change it.
 3. **Scan the code.** Point the phone's camera at the QR code, or use the scan button in the app. The app shows what it's about to fill in and asks you to confirm.
@@ -178,10 +178,6 @@ python3.13 -m venv .venv
 ```
 
 `scripts/sync-to-dev-ha.sh` copies the integration into a local Home Assistant in Docker and restarts it. [CONTRIBUTING.md](CONTRIBUTING.md) has the conventions.
-
-## Roadmap
-
-- A listing in the HACS default repository, so the custom repository step goes away
 
 ## Support the project
 
