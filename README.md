@@ -4,18 +4,38 @@
 
 <h1 align="center">Life Dashboard for Home Assistant</h1>
 
-**Your steps, sleep, heart rate, weight and workouts from your phone as Home Assistant sensors, with a year of history.** Screen time per app on Android. Paired with a QR code: no broker, no YAML.
+<p align="center">
+  <b>Steps, sleep, heart rate, weight and workouts from your phone as Home Assistant sensors, with a year of history.</b><br>
+  Screen time per app on Android. Paired with a QR code: no broker, no YAML.
+</p>
 
-> **You need the free Life Dashboard Companion app on your phone.** It's a separate app, not the Home Assistant Companion app: it reads Health Connect (Android) or Apple Health (iPhone) and sends the data to this integration. Without it, this integration has nothing to show.
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration"><img src="https://img.shields.io/badge/HACS-Default-41BDF5" alt="In the default HACS list"></a>
+  <a href="https://github.com/owen282000/life-dashboard-ha/releases/latest"><img src="https://img.shields.io/github/v/release/owen282000/life-dashboard-ha?label=Release&color=30b77e" alt="Latest release"></a>
+  <a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/Home%20Assistant-2026.3%2B-41BDF5" alt="Home Assistant 2026.3 or newer"></a>
+  <a href="https://github.com/owen282000/life-dashboard-ha/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/owen282000/life-dashboard-ha#quick-start"><b>Quick&nbsp;start</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/owen282000/life-dashboard-ha/blob/main/docs/pairing.md">Pairing</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/owen282000/life-dashboard-ha/blob/main/docs/entities.md">Sensors</a>
+  &nbsp;·&nbsp;
+  <a href="https://owen282000.com/life-dashboard/home-assistant/">Website</a>
+</p>
+
+<p align="center">
+  <sub>Life Dashboard: <a href="https://github.com/owen282000/life-dashboard-companion-app">Android app</a> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-companion-app-ios">iPhone app</a> &nbsp;·&nbsp; <b>Home Assistant integration</b> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-stack">Grafana stack</a></sub>
+</p>
+
+> **You need the Life Dashboard Companion app on your phone.** It's a separate app, not the Home Assistant Companion app: it reads Health Connect (Android) or Apple Health (iPhone) and sends the data to this integration. Without it, this integration has nothing to show.
 >
-> - **Android:** [download it from GitHub](https://github.com/owen282000/life-dashboard-companion-app#install) (open source, MIT; also through Obtainium, and F-Droid and Google Play are on their way).
-> - **iPhone:** not in the App Store or TestFlight yet. For now you [build it with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) on a Mac.
+> - **Android:** [free from GitHub](https://github.com/owen282000/life-dashboard-companion-app#install) or through Obtainium (open source, MIT). F-Droid accepted it, and Google Play is next.
+> - **iPhone:** the App Store version is in Apple's review. Until it's live, you [build it with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) on a Mac.
 
 **Works with your watch or scale.** Samsung Health and Galaxy Watch, Fitbit and Pixel Watch, Garmin, Oura, Withings: if its app syncs to Health Connect, the data shows up here. That includes Fitbit after Google switches off the Fitbit Web API on 30 October 2026. On an iPhone, anything in Apple Health.
-
-[![In the default HACS list](https://img.shields.io/badge/HACS-Default-41BDF5)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
-[![Latest release](https://img.shields.io/github/v/release/owen282000/life-dashboard-ha?label=Release&color=30b77e)](https://github.com/owen282000/life-dashboard-ha/releases/latest)
-[![Home Assistant 2026.3 or newer](https://img.shields.io/badge/Home%20Assistant-2026.3%2B-41BDF5)](https://www.home-assistant.io/)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/readme-hero.png" alt="The integration's example dashboard: today's steps, distance, calories, screen time, heart rate and sleep, weight, resting heart rate and blood pressure, the top apps of the day, and charts of screen time and history" width="900">
@@ -29,6 +49,10 @@
 - **Screen time per app** (Android). Minutes today and yesterday, the most used app and the top five, and a sensor per app if you want one.
 - **Back into Health Connect** (Android). Map a scale or blood pressure entity, and the phone writes each new reading into Health Connect, where Samsung Health and Google Health pick it up.
 - **An example dashboard** to start from: [examples/dashboard.yaml](https://github.com/owen282000/life-dashboard-ha/blob/main/examples/dashboard.yaml).
+
+## How it works
+
+The app on the phone reads Health Connect or Apple Health and sends each sync to a webhook this integration sets up when you add the phone. The integration checks the HMAC signature, updates the sensors, and writes every day into long-term statistics on its own date, so a backfill from the phone fills the history graphs too. [How it works](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/how-it-works.md) has the timing and why nothing is counted twice.
 
 ## Quick start
 
@@ -54,15 +78,6 @@ The phone sends its data to the address in the pairing code, so that address has
 
 [Pairing](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/pairing.md) has the details, a second phone and changing the address later.
 
-## Privacy and security
-
-- **Your data goes from the phone to your Home Assistant, nowhere else.** The integration makes no requests of its own and has no telemetry or analytics. There's no server of mine in the path, and nothing to switch off if I stop.
-- **Signed, always.** Every payload is signed with HMAC-SHA256 and a secret this integration created, and checked before anything is read. A leaked URL is useless without the secret.
-- **The QR code** is a link to a static pairing page on GitHub Pages, with the address and secret after the `#`. Browsers never send that part to any server.
-- **Diagnostics** on the integration give a file for bug reports with the secret redacted and no health data in it.
-
-[How it works](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/how-it-works.md) explains the timing, why nothing is counted twice, and the security design. To report a vulnerability privately, see [SECURITY.md](https://github.com/owen282000/life-dashboard-ha/blob/main/SECURITY.md).
-
 ## Already use the Home Assistant Companion app?
 
 Keep it: it handles presence, notifications and device sensors, and this works next to it. Its health sensors show today's value and keep history only from the day you switch them on. This integration adds up to a year of backfilled history, each day on its own date, workouts with every session, screen time per app on Android, and readings written back into Health Connect.
@@ -78,7 +93,21 @@ Four projects, and you only install the parts you need: the app on each phone, t
   <a href="https://github.com/owen282000/life-dashboard-stack"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/stack.png" alt="Grafana stack: Postgres and Grafana dashboards" width="400"></a>
 </p>
 
-## More
+## Ask your own AI
+
+The sensors show today, and the statistics keep a year. To ask an AI about that history, such as how your sleep changed in the weeks you walked more, the [Life Dashboard stack](https://github.com/owen282000/life-dashboard-stack#ask-your-own-ai-mcp) stores every record in Postgres and has an MCP server with eight read-only tools for Claude, a local model in Ollama or any other MCP client. The integration itself contains no AI. The app can send to Home Assistant and the stack at the same time.
+
+## Privacy and security
+
+- **Your data goes from the phone to your Home Assistant, nowhere else.** The integration makes no requests of its own and has no telemetry or analytics. There's no server of mine in the path, and nothing to switch off if I stop.
+- **Signed, always.** Every payload is signed with HMAC-SHA256 and a secret this integration created, and checked before anything is read. A leaked URL is useless without the secret. The QR code contains that secret, so treat it like a password. The signature proves who sent the data but doesn't encrypt it: use `https://` or a VPN when the data leaves your home network.
+- **The QR code** is a link to a static pairing page on GitHub Pages, with the address and secret after the `#`. Browsers never send that part to any server.
+- **Backed up with Home Assistant.** Sensors and statistics live in Home Assistant's own database, so your regular Home Assistant backups include them.
+- **Diagnostics** on the integration give a file for bug reports with the secret redacted and no health data in it.
+
+[How it works](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/how-it-works.md) explains the timing, why nothing is counted twice, and the security design. To report a vulnerability privately, see [SECURITY.md](https://github.com/owen282000/life-dashboard-ha/blob/main/SECURITY.md).
+
+## Documentation
 
 - [Sensors and statistics](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/entities.md): every entity, screen time per app, automations
 - [Sending measurements to the phone](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/sending-to-the-phone.md): scales and blood pressure monitors into Health Connect
@@ -86,7 +115,9 @@ Four projects, and you only install the parts you need: the app on each phone, t
 - [Changelog](https://github.com/owen282000/life-dashboard-ha/blob/main/CHANGELOG.md)
 - Prefer MQTT? Both apps can publish with MQTT Discovery instead, for current values only. Or keep a year of history in Postgres and Grafana with the [Life Dashboard stack](https://github.com/owen282000/life-dashboard-stack).
 
-Questions go to [Discussions](https://github.com/owen282000/life-dashboard-ha/discussions), bugs to [issues](https://github.com/owen282000/life-dashboard-ha/issues/new/choose). [CONTRIBUTING.md](https://github.com/owen282000/life-dashboard-ha/blob/main/CONTRIBUTING.md) has the developer setup.
+## Help and contributing
+
+Questions go to [Discussions](https://github.com/owen282000/life-dashboard-ha/discussions), bugs to [issues](https://github.com/owen282000/life-dashboard-ha/issues/new/choose). The integration is Python, and [CONTRIBUTING.md](https://github.com/owen282000/life-dashboard-ha/blob/main/CONTRIBUTING.md) has the developer setup and the tests. Pull requests are welcome.
 
 ## Support the project
 
