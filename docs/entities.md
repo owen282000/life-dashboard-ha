@@ -44,7 +44,7 @@ Each holds the newest record, with the time it describes as `measured_at`, the a
 | `blood_glucose` | mmol/L | | `bone_mass` | kg |
 | `oxygen_saturation` | % | | `body_water_mass` | kg |
 | `basal_metabolic_rate` | kcal/d | | `vo2_max` | mL/min/kg |
-| `height` | m | | | |
+| `height` | m | | `speed` | m/s |
 
 ### Exercise sensors
 

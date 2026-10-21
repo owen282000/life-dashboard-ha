@@ -277,6 +277,24 @@ def test_readings_become_hourly_buckets() -> None:
     assert change.hour_keys["heart_rate"] == datetime(2026, 3, 1, 8, tzinfo=UTC)
 
 
+def test_speed_samples_become_hourly_buckets() -> None:
+    """Speed arrives as one object per sample, like heart rate, in metres per second."""
+    ledger = Ledger()
+    apply_payload(
+        ledger,
+        _backfill(
+            speed=[
+                {"meters_per_second": 2.5, "time": "2026-03-01T08:10:00Z", "uuid": "r1#1"},
+                {"meters_per_second": 3.5, "time": "2026-03-01T08:11:00Z", "uuid": "r1#2"},
+            ]
+        ),
+        tz=_amsterdam(),
+    )
+
+    eight = ledger.hours["speed"]["2026-03-01T08:00:00+00:00"]
+    assert (eight.count, eight.mean, eight.minimum, eight.maximum) == (2, 3.0, 2.5, 3.5)
+
+
 def test_the_same_hour_twice_keeps_its_shape() -> None:
     """Merging an hour with itself may inflate the count, never the mean or the range."""
     ledger = Ledger()

@@ -4,6 +4,16 @@ All notable changes to this integration are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- A speed sensor in m/s, with hourly mean, minimum and maximum in the long-term statistics, from
+  the `speed` samples that Android app 1.29.0 sends from Health Connect
+  ([owen282000/life-dashboard-companion-app#180](https://github.com/owen282000/life-dashboard-companion-app/issues/180)).
+  It works like heart rate, also when the app sends speed as 1, 5 or 15 minute averages. Until
+  then a payload with speed was answered 200 and the speed left out.
+
 ## [0.10.4] - 2026-10-19
 
 ### Fixed

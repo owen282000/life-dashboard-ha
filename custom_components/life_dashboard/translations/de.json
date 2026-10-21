@@ -163,6 +163,9 @@
       "heart_rate_variability": {
         "name": "Herzfrequenzvariabilität"
       },
+      "speed": {
+        "name": "Geschwindigkeit"
+      },
       "sleep_duration": {
         "name": "Dauer des letzten Schlafs"
       },

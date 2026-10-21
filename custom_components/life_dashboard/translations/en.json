@@ -163,6 +163,9 @@
       "heart_rate_variability": {
         "name": "Heart rate variability"
       },
+      "speed": {
+        "name": "Speed"
+      },
       "sleep_duration": {
         "name": "Last sleep duration"
       },

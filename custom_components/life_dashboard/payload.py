@@ -68,6 +68,7 @@ HEALTH_ARRAYS: Final = frozenset(
         "sleep",
         "heart_rate",
         "distance",
+        "speed",
         "active_calories",
         "total_calories",
         "weight",
@@ -312,6 +313,7 @@ _LATEST: Final[tuple[_Latest, ...]] = (
     _Latest("heart_rate", "heart_rate", "bpm", to_int=True),
     _Latest("resting_heart_rate", "resting_heart_rate", "bpm", to_int=True),
     _Latest("heart_rate_variability", "heart_rate_variability", "heart_rate_variability_millis"),
+    _Latest("speed", "speed", "meters_per_second"),
     _Latest("sleep_duration", "sleep", "duration_seconds", time_field="session_end_time"),
     _Latest("weight", "weight", "kilograms"),
     _Latest("blood_pressure_systolic", "blood_pressure", "systolic"),
@@ -338,6 +340,7 @@ _LATEST: Final[tuple[_Latest, ...]] = (
 _BUCKETED_MEASURED: Final = {
     "heart_rate": "heart_rate",
     "heart_rate_variability": "heart_rate_variability",
+    "speed": "speed",
     "oxygen_saturation": "oxygen_saturation",
     "respiratory_rate": "respiratory_rate",
     "skin_temperature": "skin_temperature_delta",
@@ -358,6 +361,8 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec("heart_rate", "bpm", precision=0),
         SensorSpec("resting_heart_rate", "bpm", precision=0),
         SensorSpec("heart_rate_variability", "ms", precision=1),
+        # Running, cycling and treadmill apps write speed during a workout (app 1.29.0).
+        SensorSpec("speed", "m/s", "speed", precision=2),
         SensorSpec("sleep_duration", "min", "duration", precision=0),
         SensorSpec("weight", "kg", "weight", precision=1),
         SensorSpec("blood_pressure_systolic", "mmHg", precision=0),

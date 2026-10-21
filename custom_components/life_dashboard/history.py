@@ -73,6 +73,7 @@ MEASURED_SERIES: Final[tuple[MeasuredSeries, ...]] = (
     MeasuredSeries(
         "heart_rate_variability", "heart_rate_variability", "heart_rate_variability_millis"
     ),
+    MeasuredSeries("speed", "speed", "meters_per_second"),
     MeasuredSeries("weight", "weight", "kilograms"),
     MeasuredSeries("blood_pressure_systolic", "blood_pressure", "systolic"),
     MeasuredSeries("blood_pressure_diastolic", "blood_pressure", "diastolic"),
@@ -96,6 +97,7 @@ MEASURED_SERIES: Final[tuple[MeasuredSeries, ...]] = (
 BUCKETED_KEYS: Final[dict[str, str]] = {
     "heart_rate": "heart_rate",
     "heart_rate_variability": "heart_rate_variability",
+    "speed": "speed",
     "oxygen_saturation": "oxygen_saturation",
     "respiratory_rate": "respiratory_rate",
     "skin_temperature": "skin_temperature_delta",

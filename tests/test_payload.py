@@ -238,6 +238,7 @@ def test_health_every_latest_sensor() -> None:
         "heart_rate": [{"bpm": 62, "time": time}],
         "resting_heart_rate": [{"bpm": 54, "time": time}],
         "heart_rate_variability": [{"heart_rate_variability_millis": 48.5, "time": time}],
+        "speed": [{"meters_per_second": 3.2, "time": time}],
         "sleep": [{"session_end_time": time, "duration_seconds": 27000}],
         "weight": [{"kilograms": 78.4, "time": time}],
         "blood_pressure": [{"systolic": 118.0, "diastolic": 76.0, "time": time}],
@@ -262,6 +263,7 @@ def test_health_every_latest_sensor() -> None:
     assert isinstance(updates["heart_rate"].value, int)
     assert updates["resting_heart_rate"].value == 54
     assert updates["heart_rate_variability"].value == 48.5
+    assert updates["speed"].value == 3.2
     # Sleep is sent in seconds and presented in minutes.
     assert updates["sleep_duration"].value == 450
     assert updates["weight"].value == 78.4
@@ -285,9 +287,9 @@ def test_health_every_latest_sensor() -> None:
     # Every one of them describes the record's own moment, not the sync's.
     assert updates["heart_rate"].measured_at == parse_instant(time)
     assert updates[KEY_LAST_HEALTH_SYNC].measured_at == parse_instant("2026-09-15T16:55:02Z")
-    # 20 arrays, 21 sensors: blood_pressure yields both systolic and diastolic.
-    assert updates[KEY_LAST_HEALTH_SYNC].attributes["record_count"] == 20
-    assert len([u for u in updates if u not in {KEY_LAST_HEALTH_SYNC}]) == 21
+    # 21 arrays, 22 sensors: blood_pressure yields both systolic and diastolic.
+    assert updates[KEY_LAST_HEALTH_SYNC].attributes["record_count"] == 21
+    assert len([u for u in updates if u not in {KEY_LAST_HEALTH_SYNC}]) == 22
 
 
 def test_latest_wins_inside_batch() -> None:
@@ -1034,6 +1036,7 @@ def test_every_emitted_key_has_a_spec() -> None:
             "heart_rate": [{"bpm": 60, "time": time}],
             "resting_heart_rate": [{"bpm": 50, "time": time}],
             "heart_rate_variability": [{"heart_rate_variability_millis": 40.0, "time": time}],
+            "speed": [{"meters_per_second": 3.0, "time": time}],
             "sleep": [{"session_end_time": time, "duration_seconds": 100}],
             "weight": [{"kilograms": 70.0, "time": time}],
             "blood_pressure": [{"systolic": 120.0, "diastolic": 80.0, "time": time}],
