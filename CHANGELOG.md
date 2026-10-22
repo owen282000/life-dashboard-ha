@@ -6,13 +6,22 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-22
+
 ### Added
 
 - A speed sensor in m/s, with hourly mean, minimum and maximum in the long-term statistics, from
-  the `speed` samples that Android app 1.29.0 sends from Health Connect
+  the `speed` samples that Android app 1.29.0 will send from Health Connect
   ([owen282000/life-dashboard-companion-app#180](https://github.com/owen282000/life-dashboard-companion-app/issues/180)).
   It works like heart rate, also when the app sends speed as 1, 5 or 15 minute averages. Until
   then a payload with speed was answered 200 and the speed left out.
+  The sensor appears the first time a phone sends speed, so nothing changes before that app
+  version.
+
+### Changed
+
+- The README says the iPhone app is on the App Store, with the App Store badge where HACS shows
+  it, and has the same header and How it works section as the other three Life Dashboard parts.
 
 ## [0.10.4] - 2026-10-19
 
@@ -336,6 +345,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.11.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.0
 [0.10.4]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.4
 [0.10.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.3
 [0.10.2]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.2

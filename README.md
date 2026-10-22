@@ -33,7 +33,9 @@
 > **You need the Life Dashboard Companion app on your phone.** It's a separate app, not the Home Assistant Companion app: it reads Health Connect (Android) or Apple Health (iPhone) and sends the data to this integration. Without it, this integration has nothing to show.
 >
 > - **Android:** [free from GitHub](https://github.com/owen282000/life-dashboard-companion-app#install) or through Obtainium (open source, MIT). F-Droid accepted it, and Google Play is next.
-> - **iPhone:** [on the App Store](https://apps.apple.com/app/life-dashboard-companion/id6824075761) as a one-time purchase, or [build it yourself with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) on a Mac for free.
+> - **iPhone:** on the App Store as a one-time purchase, or [build it yourself with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) on a Mac for free.
+>
+> <a href="https://apps.apple.com/app/life-dashboard-companion/id6824075761"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/badges/app-store.png" alt="Download on the App Store" height="40"></a>
 
 **Works with your watch or scale.** Samsung Health and Galaxy Watch, Fitbit and Pixel Watch, Garmin, Oura, Withings: if its app syncs to Health Connect, the data shows up here. That includes Fitbit after Google switches off the Fitbit Web API on 30 October 2026. On an iPhone, anything in Apple Health.
 
