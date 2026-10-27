@@ -32,10 +32,10 @@
 
 > **You need the Life Dashboard Companion app on your phone.** It's a separate app, not the Home Assistant Companion app: it reads Health Connect (Android) or Apple Health (iPhone) and sends the data to this integration. Without it, this integration has nothing to show.
 >
-> - **Android:** [free from GitHub](https://github.com/owen282000/life-dashboard-companion-app#install) on [F-Droid](https://f-droid.org/packages/com.owen282000.lifedashboard/) or through Obtainium (open source, MIT). Google Play is next.
-> - **iPhone:** on the App Store as a one-time purchase, or [build it yourself with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) on a Mac, which costs nothing extra if you already have an Apple Developer Program membership.
+> - **Android:** on [Google Play](https://play.google.com/store/apps/details?id=com.owen282000.lifedashboard&referrer=utm_source%3Dgh-ha-readme%26utm_medium%3Dreadme) as a one-time purchase: the easy way, with automatic updates, and it supports development. The same app stays free [from GitHub](https://github.com/owen282000/life-dashboard-companion-app#install), on [F-Droid](https://f-droid.org/packages/com.owen282000.lifedashboard/) or through Obtainium (open source, MIT).
+> - **iPhone:** on the [App Store](https://apps.apple.com/app/apple-store/id6824075761?pt=128699800&ct=gh-ha-readme&mt=8) as a one-time purchase, or [build it yourself with Xcode](https://github.com/owen282000/life-dashboard-companion-app-ios#build-and-install) on a Mac, which costs nothing extra if you already have an Apple Developer Program membership.
 >
-> <a href="https://apps.apple.com/app/life-dashboard-companion/id6824075761"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/badges/app-store.png" alt="Download on the App Store" height="40"></a>
+> <a href="https://play.google.com/store/apps/details?id=com.owen282000.lifedashboard&referrer=utm_source%3Dgh-ha-readme%26utm_medium%3Dreadme"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="60" align="middle"></a> <a href="https://apps.apple.com/app/apple-store/id6824075761?pt=128699800&ct=gh-ha-readme&mt=8"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/badges/app-store.png" alt="Download on the App Store" height="40" align="middle"></a>
 
 **Works with your watch or scale.** Samsung Health and Galaxy Watch, Fitbit and Pixel Watch, Garmin, Oura, Withings: if its app syncs to Health Connect, the data shows up here. That includes Fitbit after Google switches off the Fitbit Web API on 30 October 2026. On an iPhone, anything in Apple Health.
 

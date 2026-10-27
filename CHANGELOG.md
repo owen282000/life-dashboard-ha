@@ -6,6 +6,12 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The README puts the stores first: the Android app on Google Play, with its badge next to the
+  App Store one, and the iPhone app on the App Store. The Android app stays free from GitHub, on
+  F-Droid or through Obtainium.
+
 ## [0.11.0] - 2026-10-22
 
 ### Added
