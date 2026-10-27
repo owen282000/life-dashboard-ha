@@ -6,11 +6,19 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-27
+
+Only documentation: HACS shows the README of the latest release, which still said Google Play was
+next and that building the iPhone app is free.
+
 ### Changed
 
 - The README puts the stores first: the Android app on Google Play, with its badge next to the
   App Store one, and the iPhone app on the App Store. The Android app stays free from GitHub, on
   F-Droid or through Obtainium.
+- The Android app is on F-Droid, and building the iPhone app yourself needs a paid Apple Developer
+  Program membership, because a free Apple Account can't sign an app that reads Apple Health.
+- The Sponsor button offers GitHub Sponsors next to Ko-fi.
 
 ## [0.11.0] - 2026-10-22
 
@@ -351,6 +359,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.11.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.1
 [0.11.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.0
 [0.10.4]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.4
 [0.10.3]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.3
