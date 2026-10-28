@@ -45,6 +45,7 @@ from .payload import (
     parse_instant,
     state_value,
 )
+from .workout_details import DETAIL_KEYS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,6 +76,8 @@ _PAYLOAD_ATTRIBUTES = frozenset(
         "duration_minutes",
         "type_code",
         "sessions",
+        # The details of Last workout (workout_details.DETAIL_KEYS).
+        *DETAIL_KEYS,
     }
 )
 

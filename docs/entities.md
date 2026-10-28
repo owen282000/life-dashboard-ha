@@ -52,7 +52,7 @@ Each holds the newest record, with the time it describes as `measured_at`, the a
 
 | Sensor | State | Attributes |
 |---|---|---|
-| `last_workout` | the kind of the newest workout, such as `running` | `start`, `end`, `duration_minutes`, `type_code`, `source`, `uuid`, `measured_at` |
+| `last_workout` | the kind of the newest workout, such as `running` | `start`, `end`, `duration_minutes`, `type_code`, `source`, `uuid`, `measured_at`, and its [details](#workout-details) |
 | `exercise_today` | min | `date`, `sessions` |
 | `exercise_yesterday` | min | `date`, `sessions` |
 
@@ -91,7 +91,7 @@ The phone sends every workout as a session: its kind, when it started and ended,
 | `exercise_today` | The minutes of workouts since local midnight. |
 | `exercise_yesterday` | The finished total for the day before. |
 
-Both minutes sensors carry the day as `date`, and every session of that day in `sessions`: its `type`, `start`, `end` and `minutes`, oldest first. Times are in Home Assistant's time zone.
+Both minutes sensors carry the day as `date`, and every session of that day in `sessions`: its `type`, `start`, `end` and `minutes`, oldest first, and its [details](#workout-details). Times are in Home Assistant's time zone.
 
 - **Time counts once.** The state is the time of the day that had a workout going, rounded once. When two sessions overlap, as when the phone and the watch both write the same run, or two apps do, that time counts once: the run is 60 minutes, while `sessions` lists both copies. Ten short sessions of 40 seconds make 7 minutes, so the state can differ by a minute from the minutes in the list, which are rounded per session.
 - **Deleted and edited workouts.** A workout you delete on the phone leaves both sensors at the next sync. On an iPhone an edit arrives as the old workout deleted and a new one written, so a run shortened from 60 to 45 minutes counts as 45.
@@ -103,13 +103,52 @@ Both minutes sensors carry the day as `date`, and every session of that day in `
 - **The statistic is different.** The long-term statistic `exercise_minutes` counts every session whatever its length, and books it on the day it ended, as before. It is a day sum for a graph; the sensors say what happened on the day.
 - A phone that sends no workouts gets no exercise sensors.
 
+### Workout details
+
+`last_workout`, and every entry of `sessions`, also carry what the other records of the workout's time say about it. A key is left out when nothing was recorded for it.
+
+| Attribute | What it is |
+|---|---|
+| `active_calories`, `total_calories` | kcal during the workout |
+| `distance_km` | From the distance records, or the sum of the laps when there are none |
+| `pace_min_per_km`, `pace` | Running, treadmill, walking and hiking: minutes per km as a number (`5.2`) and as `5:12` |
+| `speed_kmh` | Biking and stationary biking |
+| `heart_rate_avg`, `heart_rate_min`, `heart_rate_max` | bpm, from every sample during the workout |
+| `steps`, `cadence_spm` | Steps during the workout; for running, walking and hiking also steps per minute |
+| `laps` | How many laps the recording app wrote |
+| `sets`, `repetitions`, `exercises` | For a workout with sets: how many (rests and pauses not counted), the repetitions in total, and per exercise its `type` (such as `squat`, `bench_press` or `pull_up`, from Health Connect's exercise segment types; `other` for one it does not know), the `type_code` as sent, `sets` and `repetitions` |
+
+```yaml
+# What the last workout's attributes can look like.
+start: "2026-10-04T09:00:00+02:00"
+end: "2026-10-04T09:50:00+02:00"
+duration_minutes: 50
+type_code: "56"
+source: org.example.watch
+active_calories: 400
+distance_km: 10.0
+pace_min_per_km: 5.0
+pace: "5:00"
+heart_rate_avg: 140
+heart_rate_min: 130
+heart_rate_max: 149
+steps: 8000
+cadence_spm: 160
+```
+
+- **One app's figures.** Calories, distance and steps are never added up across apps, because a phone and a watch often both write the same walk. The app that wrote the workout counts; when it wrote none, the app with the most. Heart rate takes every app's samples, since two copies of a sample do not change an average.
+- **Records across the edges.** A record that is partly inside the workout counts for the part that is: 100 kcal from 06:40 to 07:20 is 50 kcal for a run that started at 07:00.
+- **Late records.** A watch can upload a workout's heart rate hours later, and a phone that syncs every 15 minutes sends the first part of a run before the run itself. The details follow whenever the records come: the integration keeps the records of the kept workouts, and those of the last 6 hours for a workout still to come. A record sent again or edited replaces itself, and one the phone reports as deleted leaves the details.
+- **Buckets.** With a [data resolution](https://github.com/owen282000/life-dashboard-companion-app/blob/main/docs/webhook.md#data-resolution) set for heart rate or for calories, distance and steps, the buckets are read instead, a heart rate bucket weighted by its samples.
+- **Older workouts.** The details of a workout older than yesterday, such as from a backfill, come from the records in the same payload only.
+
 ```yaml
 # Today's workouts in a card.
 type: markdown
 title: Today's workouts
 content: |-
   {% for s in state_attr('sensor.owen_s_pixel_exercise_today', 'sessions') -%}
-  - {{ s.minutes }} min {{ s.type | replace('_', ' ') }}
+  - {{ s.minutes }} min {{ s.type | replace('_', ' ') }}{% if s.distance_km is defined %}, {{ s.distance_km }} km{% endif %}{% if s.heart_rate_avg is defined %}, {{ s.heart_rate_avg }} bpm{% endif %}
   {% endfor %}
 ```
 

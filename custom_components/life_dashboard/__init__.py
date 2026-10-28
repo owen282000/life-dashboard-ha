@@ -45,6 +45,7 @@ from .const import (
 )
 from .payload import (
     KEY_EXERCISE_TODAY,
+    KEY_LAST_WORKOUT,
     KEY_SCREEN_TIME_APPS,
     SIGNATURE_HEADER,
     SensorUpdate,
@@ -56,7 +57,15 @@ from .payload import (
 )
 from .statistics import HistoryWriter
 from .statistics import async_remove_store as async_remove_history
-from .workouts import day_updates, last_workout_update, stored_workouts
+from .workouts import (
+    day_updates,
+    identity,
+    newest_workout,
+    payload_pool,
+    refresh_last_workout,
+    stored_workouts,
+    workout_update,
+)
 from .writeback import BACKFILL_DEFAULT_DAYS, BACKFILL_MAX_DAYS, WritebackManager
 from .writeback import async_remove_store as async_remove_writeback
 from .writeback_queue import WRITEBACK_TYPES
@@ -213,20 +222,29 @@ def async_publish_exercise(hass: HomeAssistant, entry: LifeDashboardConfigEntry)
 
     A phone that never sent a workout gets no sensors; once they exist they are kept up
     to date also when nothing is left to count, so a quiet day reads 0 rather than the
-    day before.
+    day before. Last workout gets its details again when they changed, for the records
+    that arrive after the workout itself.
     """
     runtime = entry.runtime_data
     if runtime.history is None:
         return
-    workouts = stored_workouts(runtime.history.ledger.workouts)
-    if not workouts and KEY_EXERCISE_TODAY not in runtime.latest:
-        return
-    for update in day_updates(
-        workouts,
-        now=dt_util.utcnow(),
-        tz=dt_util.get_default_time_zone(),
-        min_minutes=min_workout_minutes(entry),
-    ):
+    ledger = runtime.history.ledger
+    workouts = stored_workouts(ledger.workouts)
+    updates = []
+    if workouts or KEY_EXERCISE_TODAY in runtime.latest:
+        updates = day_updates(
+            workouts,
+            now=dt_util.utcnow(),
+            tz=dt_util.get_default_time_zone(),
+            min_minutes=min_workout_minutes(entry),
+            pool=ledger.activity,
+        )
+    refreshed = refresh_last_workout(
+        runtime.latest.get(KEY_LAST_WORKOUT), workouts, ledger.activity
+    )
+    if refreshed is not None:
+        updates.append(refreshed)
+    for update in updates:
         if runtime.apply(update):
             async_dispatcher_send(hass, signal_update(entry.entry_id), update)
 
@@ -303,13 +321,21 @@ def _make_handler(entry: LifeDashboardConfigEntry):
         try:
             tz = dt_util.get_default_time_zone()
             updates = parse_payload(data, tz=tz)
-            # The newest workout of the payload; the day sums follow once the ledger
-            # has taken the payload in.
-            last_workout = last_workout_update(
-                data.get("exercise"), tz=tz, min_minutes=min_workout_minutes(entry)
-            )
-            if last_workout is not None and data.get("test") is not True:
-                updates.append(last_workout)
+            # History goes to long-term statistics, where a backfill can land on the
+            # days it came from. First, because the workouts' details are read from the
+            # records the ledger keeps, this payload's included.
+            change = runtime.history.async_apply(data) if runtime.history is not None else None
+            # The newest workout of the payload, with the details of its records: those
+            # the ledger keeps, or for a workout older than those, the payload's own.
+            newest = newest_workout(data.get("exercise"), min_minutes=min_workout_minutes(entry))
+            if newest is not None and data.get("test") is not True:
+                ledger = runtime.history.ledger if runtime.history is not None else None
+                pool = (
+                    ledger.activity
+                    if ledger is not None and identity(newest) in ledger.workouts
+                    else payload_pool(data, now=now)
+                )
+                updates.append(workout_update(newest, tz=tz, pool=pool))
             accepted = [update for update in updates if runtime.apply(update)]
 
             if (version := data.get("app_version")) and version != runtime.app_version:
@@ -319,12 +345,9 @@ def _make_handler(entry: LifeDashboardConfigEntry):
             for update in accepted:
                 async_dispatcher_send(hass, signal_update(entry.entry_id), update)
 
-            # History goes to long-term statistics, where a backfill can land on the
-            # days it came from.
-            if runtime.history is not None:
-                change = runtime.history.async_apply(data)
-                if change.workouts:
-                    async_publish_exercise(hass, entry)
+            # The day sums, and Last workout when records for it came later.
+            if change is not None and change.workouts:
+                async_publish_exercise(hass, entry)
 
             # What the phone confirmed and refused, then what waits for it. Its own
             # try inside this one: a bug in the direction to the phone must not turn

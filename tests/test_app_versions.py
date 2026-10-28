@@ -438,6 +438,8 @@ def _existing_sensors(
     ledger = entry.runtime_data.history.ledger.to_dict()
     # The workouts came after main 0.8.0; the days, sessions and hours must be as they were.
     del ledger["workouts"]
+    # So did the records of the workouts' details.
+    ledger.pop("activity", None)
     # Through JSON, so a tuple and a list compare alike, as they do in the fixture file.
     return json.loads(json.dumps({"sensors": sensors, "ledger": ledger}, default=str))
 

@@ -291,7 +291,7 @@ async def test_a_ledger_that_was_pruned_is_written(
     await hass.async_block_till_done()
 
     saved = hass_storage[key]
-    assert (saved["version"], saved["minor_version"]) == (1, 3)
+    assert (saved["version"], saved["minor_version"]) == (1, 4)
     assert saved["data"]["days"] == {"steps": {recent: 200.0}}
     assert saved["data"]["carried"] == {"steps": 100.0}
     assert saved["data"]["kept_from"] == (_today() - timedelta(days=401)).isoformat()

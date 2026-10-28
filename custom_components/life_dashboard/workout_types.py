@@ -147,6 +147,81 @@ _IOS_TYPES: Final[dict[str, str]] = {
     "yoga": "yoga",
 }
 
+# Health Connect's exercise segment type constants (`ExerciseSegment.EXERCISE_SEGMENT_TYPE_*`
+# from androidx.health.connect), the exercise or set inside a session: `"51"` is a squat.
+# A segment the phone sends as a number nothing here knows reads as "other".
+HEALTH_CONNECT_SEGMENTS: Final[dict[str, str]] = {
+    "0": "other",
+    "1": "arm_curl",
+    "2": "back_extension",
+    "3": "ball_slam",
+    "4": "barbell_shoulder_press",
+    "5": "bench_press",
+    "6": "bench_sit_up",
+    "7": "biking",
+    "8": "biking_stationary",
+    "9": "burpee",
+    "10": "crunch",
+    "11": "deadlift",
+    "12": "double_arm_triceps_extension",
+    "13": "dumbbell_curl_left_arm",
+    "14": "dumbbell_curl_right_arm",
+    "15": "dumbbell_front_raise",
+    "16": "dumbbell_lateral_raise",
+    "17": "dumbbell_row",
+    "18": "dumbbell_triceps_extension_left_arm",
+    "19": "dumbbell_triceps_extension_right_arm",
+    "20": "dumbbell_triceps_extension_two_arm",
+    "21": "elliptical",
+    "22": "forward_twist",
+    "23": "front_raise",
+    "24": "high_intensity_interval_training",
+    "25": "hip_thrust",
+    "26": "hula_hoop",
+    "27": "jumping_jack",
+    "28": "jump_rope",
+    "29": "kettlebell_swing",
+    "30": "lateral_raise",
+    "31": "lat_pull_down",
+    "32": "leg_curl",
+    "33": "leg_extension",
+    "34": "leg_press",
+    "35": "leg_raise",
+    "36": "lunge",
+    "37": "mountain_climber",
+    "38": "other",
+    "39": "pause",
+    "40": "pilates",
+    "41": "plank",
+    "42": "pull_up",
+    "43": "punch",
+    "44": "rest",
+    "45": "rowing_machine",
+    "46": "running",
+    "47": "running_treadmill",
+    "48": "shoulder_press",
+    "49": "single_arm_triceps_extension",
+    "50": "sit_up",
+    "51": "squat",
+    "52": "stair_climbing",
+    "53": "stair_climbing_machine",
+    "54": "stretching",
+    "55": "swimming_backstroke",
+    "56": "swimming_breaststroke",
+    "57": "swimming_butterfly",
+    "58": "swimming_freestyle",
+    "59": "swimming_mixed",
+    "60": "swimming_open_water",
+    "61": "swimming_other",
+    "62": "swimming_pool",
+    "63": "upper_twist",
+    "64": "walking",
+    "65": "weightlifting",
+    "66": "wheelchair",
+    "67": "yoga",
+}
+
+
 #: Every key a workout can be shown as, which is the options of the Last workout sensor.
 WORKOUT_TYPES: Final[tuple[str, ...]] = tuple(
     dict.fromkeys([*HEALTH_CONNECT_TYPES.values(), *_IOS_TYPES.values()])
@@ -170,3 +245,8 @@ def workout_type(raw: Any) -> str:
     """The key a record's `type` is shown as; "other" for a type nothing here knows."""
     code = type_code(raw)
     return HEALTH_CONNECT_TYPES.get(code) or _IOS_TYPES.get(code.lower(), OTHER)
+
+
+def segment_type(raw: Any) -> str:
+    """The key an exercise segment's `type` is shown as; "other" for one nothing here knows."""
+    return HEALTH_CONNECT_SEGMENTS.get(type_code(raw), OTHER)

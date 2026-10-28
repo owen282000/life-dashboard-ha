@@ -38,9 +38,11 @@ _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 # 1.2 added the workouts, 1.3 what a prune carries (kept_from and carried, written only
-# once something was pruned). Minor versions, because each change only adds keys: an older
-# ledger reads as it is, and a downgrade to an earlier release still reads a newer one.
-STORAGE_MINOR_VERSION = 3
+# once something was pruned), 1.4 the records of the workouts' details (activity, and
+# source, laps and sets in a workout). Minor versions, because each change only adds keys:
+# an older ledger reads as it is, and a downgrade to an earlier release still reads a
+# newer one.
+STORAGE_MINOR_VERSION = 4
 SAVE_DELAY_SECONDS = 5
 
 # Units and names for the day sums, which have no sensor to borrow from.
@@ -72,7 +74,13 @@ class _LedgerStore(Store[dict[str, Any]]):
             # Nothing of the days, sessions and hours changes; the workouts start empty,
             # because the sessions kept for the statistics hold no type and no start. A
             # ledger that was never pruned has nothing carried, which is what 1.3 says too.
-            return {**old_data, "workouts": old_data.get("workouts") or {}}
+            # The records for the details start empty as well: the workouts kept so far
+            # read without details until their records come again.
+            return {
+                **old_data,
+                "workouts": old_data.get("workouts") or {},
+                "activity": old_data.get("activity") or {},
+            }
         raise NotImplementedError
 
 

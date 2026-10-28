@@ -6,6 +6,24 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Workout details. **Last workout**, and every session in the `sessions` of **Exercise today**
+  and **Exercise yesterday**, carry what was recorded during the workout: `active_calories`
+  and `total_calories`, `distance_km`, `pace_min_per_km` and `pace` (such as `5:12`) for
+  running, walking and hiking, `speed_kmh` for biking, `heart_rate_avg`, `heart_rate_min` and
+  `heart_rate_max`, `steps` and, on foot, `cadence_spm`, and the `laps`, `sets`, `repetitions`
+  and `exercises` the recording app wrote, each exercise by name (`squat`, `bench_press`) with
+  its `type_code`; rests and pauses are not sets. A key is left out when nothing was recorded for it.
+  Calories, distance and steps come from one app only, the workout's own when it wrote them,
+  so a walk that the phone and the watch both recorded is not counted twice; a record that is
+  partly inside the workout counts for its part. Records that come later, such as a watch
+  that uploads hours after the workout, fill the details in; one sent again or edited replaces
+  itself, and one deleted on the phone leaves them. Buckets from a data resolution are read
+  too. The ledger keeps the records of the workouts of yesterday and today, and those of the
+  last 6 hours for a workout still to come, and is now stored as version 1.4, which an
+  earlier release still reads; the details it kept are then gone.
+
 ## [0.11.1] - 2026-10-27
 
 Only documentation: HACS shows the README of the latest release, which still said Google Play was

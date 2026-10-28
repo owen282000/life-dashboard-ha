@@ -47,7 +47,7 @@
 
 - **Sensors for today.** Steps, distance and calories as day totals, and the latest heart rate, sleep, weight, blood pressure, glucose and more, each with the app that recorded it.
 - **A year of history.** Every day goes into long-term statistics on its own date, so a backfill from the phone fills a year of the **Statistics graph** card. That card shows it, not the sensor's own history.
-- **Workouts.** The last workout and the minutes of today and yesterday, with every session's kind, start and end.
+- **Workouts.** The last workout and the minutes of today and yesterday, with every session's kind, start and end, and what was recorded during it: calories, distance, pace or speed, heart rate, steps, laps and sets. A shortest workout setting keeps the walks the phone notices by itself out.
 - **Screen time per app** (Android). Minutes today and yesterday, the most used app and the top five, and a sensor per app if you want one.
 - **Back into Health Connect** (Android). Map a scale or blood pressure entity, and the phone writes each new reading into Health Connect, where Samsung Health and Google Health pick it up.
 - **An example dashboard** to start from: [examples/dashboard.yaml](https://github.com/owen282000/life-dashboard-ha/blob/main/examples/dashboard.yaml).

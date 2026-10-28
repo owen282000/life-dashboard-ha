@@ -22,7 +22,8 @@ from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Final
 
 from .payload import is_own_record, parse_instant
-from .workouts import keep_sessions
+from .workout_details import apply_records, clean_pool, prune_pool, windows_of
+from .workouts import cutoff, keep_sessions, stored_workouts
 
 # Day sums that come from Health Connect's own aggregate. Never summed from raw records:
 # a phone and a watch both record the same walk, and only the aggregate deduplicates that.
@@ -163,6 +164,8 @@ class Ledger:
     workouts: uuid -> type, start, end and length of each exercise session of yesterday
     and today, for the exercise sensors. Not the statistics' business: `exercise_minutes`
     is built from `sessions`, which keeps no type and no start.
+    activity: the records a workout's details are read from (workout_details.py): those
+    that overlap a kept workout, and those of the last hours that may still get one.
     kept_from: the cutoff of the last prune that dropped something ("YYYY-MM-DD"), None
     before that. Nothing older is taken in again, because its amount is already carried.
     carried: key -> the sum of the day amounts pruned, which the running sums start from.
@@ -172,6 +175,7 @@ class Ledger:
     sessions: dict[str, dict[str, list]] = field(default_factory=dict)
     hours: dict[str, dict[str, HourBucket]] = field(default_factory=dict)
     workouts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    activity: dict[str, Any] = field(default_factory=dict)
     kept_from: str | None = None
     carried: dict[str, float] = field(default_factory=dict)
 
@@ -185,6 +189,10 @@ class Ledger:
             },
             "workouts": self.workouts,
         }
+        # Only once there are records: a phone that sends nothing a workout reads, and a
+        # test ping, leave the file as it was.
+        if any(self.activity.values()):
+            data["activity"] = self.activity
         # Only once something was pruned: until then the file is what it always was.
         if self.kept_from is not None:
             data["kept_from"] = self.kept_from
@@ -207,6 +215,8 @@ class Ledger:
             },
             # Absent in a ledger written before the exercise sensors.
             workouts={u: dict(row) for u, row in (data.get("workouts") or {}).items()},
+            # Absent in a ledger written before the workout details.
+            activity=clean_pool(data.get("activity")),
             # Absent in a ledger that was never pruned.
             kept_from=data.get("kept_from") or None,
             carried={k: float(v) for k, v in (data.get("carried") or {}).items()},
@@ -228,8 +238,8 @@ class HistoryChange:
     day_keys: dict[str, date] = field(default_factory=dict)
     #: key -> the earliest hour whose bucket changed.
     hour_keys: dict[str, datetime] = field(default_factory=dict)
-    #: Whether the kept workouts changed. Nothing for the statistics, so it is not part of
-    #: is_empty; the exercise sensors are read from them.
+    #: Whether the kept workouts or the records of their details changed. Nothing for the
+    #: statistics, so it is not part of is_empty; the exercise sensors are read from them.
     workouts: bool = False
 
     @property
@@ -286,7 +296,12 @@ def apply_payload(
     _apply_screen_time(ledger, data, day_changes)
     _apply_sessions(ledger, data, tz, day_changes)
     _apply_measured(ledger, data, _first_hour(ledger, tz), hour_changes)
-    workouts = keep_sessions(ledger.workouts, data, now=now or datetime.now(UTC), tz=tz)
+    now = now or datetime.now(UTC)
+    workouts = keep_sessions(ledger.workouts, data, now=now, tz=tz)
+    records = apply_records(ledger.activity, data, now=now)
+    windows = windows_of(stored_workouts(ledger.workouts))
+    dropped = prune_pool(ledger.activity, windows, now=now, cutoff=cutoff(now, tz))
+    workouts = workouts or records or dropped
 
     return HistoryChange(day_keys=day_changes, hour_keys=hour_changes, workouts=workouts)
 

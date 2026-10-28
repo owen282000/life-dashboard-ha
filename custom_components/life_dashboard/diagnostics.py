@@ -59,6 +59,8 @@ async def async_get_config_entry_diagnostics(
             else {},
             # How many workouts of yesterday and today are kept, never what they were.
             "workouts": len(ledger.workouts) if ledger else 0,
+            # How many records their details are read from, per series; never the values.
+            "workout_records": _workout_records(ledger.activity) if ledger else {},
             # The day the ledger keeps from once it was pruned; never what it carries.
             "kept_from": ledger.kept_from if ledger else None,
         },
@@ -76,3 +78,10 @@ async def async_get_config_entry_diagnostics(
             **(writeback.queue.counts() if writeback else {}),
         },
     }
+
+
+def _workout_records(activity: dict[str, Any]) -> dict[str, int]:
+    counts = {series: len(rows) for series, rows in sorted(activity.get("add", {}).items())}
+    if heart_rate := activity.get("heart_rate"):
+        counts["heart_rate"] = len(heart_rate)
+    return counts

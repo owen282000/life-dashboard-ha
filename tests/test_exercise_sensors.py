@@ -574,7 +574,7 @@ async def test_a_ledger_of_0_9_0_is_taken_over_whole(
     assert ledger.workouts == {}
     # Migrated on the spot: the file says what it is now, and keeps everything it had.
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 3)
+    assert (saved["version"], saved["minor_version"]) == (1, 4)
     assert saved["data"]["days"] == OLD_LEDGER["days"]
     assert saved["data"]["sessions"] == OLD_LEDGER["sessions"]
     assert saved["data"]["workouts"] == {}
@@ -599,13 +599,14 @@ async def test_workouts_are_written_and_read_back(
     await hass.async_block_till_done()
 
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 3)
+    assert (saved["version"], saved["minor_version"]) == (1, 4)
     assert set(saved["data"]["workouts"]) == {"run", "walk-2"}
     assert saved["data"]["workouts"]["run"] == {
         "type": "56",
         "start": "2026-10-04T07:00:00+00:00",
         "end": "2026-10-04T08:00:00+00:00",
         "seconds": 3600.0,
+        "source": "com.google.android.apps.fitness",
     }
 
     assert await hass.config_entries.async_setup(loaded.entry_id)
@@ -651,3 +652,227 @@ async def test_a_release_before_the_workouts_still_reads_the_new_file(
     assert Ledger.from_dict({k: v for k, v in data.items() if k != "workouts"}).day_totals(
         "exercise_minutes"
     ) == {"2026-10-04": 60.0}
+
+
+# --- Workout details -----------------------------------------------------------
+
+
+def _heart_rate(record: str, start: str, seconds: int, bpm: int, source: str) -> list[dict]:
+    """One sample per second from 2026-10-04 `start` UTC, as a watch writes them."""
+    first = datetime.fromisoformat(f"2026-10-04T{start}:00+00:00")
+    samples = []
+    for offset in range(seconds):
+        millis = int(first.timestamp() * 1000) + offset * 1000
+        moment = datetime.fromtimestamp(millis / 1000, UTC)
+        samples.append(
+            {
+                "bpm": bpm,
+                "time": moment.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "uuid": f"{record}#{millis}",
+                "source": source,
+            }
+        )
+    return samples
+
+
+def _calories(uuid: str, start: str, end: str, kcal: float, source: str) -> dict:
+    return {
+        "calories": kcal,
+        "start_time": f"2026-10-04T{start}:00Z",
+        "end_time": f"2026-10-04T{end}:00Z",
+        "uuid": uuid,
+        "source": source,
+    }
+
+
+FITNESS = "com.google.android.apps.fitness"
+
+
+async def test_details_that_come_after_the_workout_fill_it_in(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """The run is synced first; its heart rate and calories come with the next sync."""
+    client = await hass_client_no_auth()
+    await _post(hass, client, _health(RUN))
+    assert "heart_rate_avg" not in hass.states.get(LAST).attributes
+    measured_at = hass.states.get(LAST).attributes["measured_at"]
+
+    later = {
+        "timestamp": "2026-10-04T12:15:00Z",
+        "app_version": "1.26.0",
+        "source": "health_connect",
+        "sequence": 2,
+        "heart_rate": _heart_rate("hr-1", "07:10", 120, 150, FITNESS),
+        "active_calories": [_calories("cal-1", "07:00", "08:00", 480.0, FITNESS)],
+    }
+    await _post(hass, client, later)
+
+    last = hass.states.get(LAST)
+    assert last.state == "running"
+    assert last.attributes["heart_rate_avg"] == 150
+    assert last.attributes["active_calories"] == 480
+    assert last.attributes["measured_at"] == measured_at
+    assert last.attributes["uuid"] == "run"
+    run = hass.states.get(TODAY).attributes["sessions"][0]
+    assert run["heart_rate_avg"] == 150
+    assert run["active_calories"] == 480
+    assert hass.states.get(TODAY).state == "60"
+
+    # The same sync again changes nothing, and a deletion takes the calories out.
+    await _post(hass, client, later)
+    assert hass.states.get(LAST).attributes["active_calories"] == 480
+    await _post(
+        hass,
+        client,
+        {
+            "timestamp": "2026-10-04T12:30:00Z",
+            "app_version": "1.26.0",
+            "source": "health_connect",
+            "sequence": 3,
+            "deleted_records": [{"type": "active_calories", "uuid": "cal-1"}],
+        },
+    )
+    assert "active_calories" not in hass.states.get(LAST).attributes
+    assert hass.states.get(LAST).attributes["heart_rate_avg"] == 150
+
+
+async def test_a_ride_with_its_records_in_the_same_sync(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    distance = {
+        "meters": 44000.0,
+        "start_time": "2026-10-04T09:00:00Z",
+        "end_time": "2026-10-04T10:50:00Z",
+        "uuid": "ride-distance",
+        "source": FITNESS,
+    }
+    await _post(hass, client, _health(RIDE, distance=[distance]))
+    last = hass.states.get(LAST)
+    assert last.attributes["distance_km"] == 44.0
+    assert last.attributes["speed_kmh"] == 24.0
+    assert "pace" not in last.attributes
+
+
+async def test_a_backfilled_workout_reads_the_records_of_its_own_payload(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """Older than the workouts that are kept, so only its payload can tell."""
+    client = await hass_client_no_auth()
+    old_run = {
+        "type": "56",
+        "start_time": "2026-09-20T07:00:00Z",
+        "end_time": "2026-09-20T07:30:00Z",
+        "duration_seconds": 1800,
+        "uuid": "old-run",
+        "source": FITNESS,
+    }
+    old_steps = {
+        "count": 4500,
+        "start_time": "2026-09-20T07:00:00Z",
+        "end_time": "2026-09-20T07:30:00Z",
+        "uuid": "old-steps",
+        "source": FITNESS,
+    }
+    await _post(hass, client, _health(old_run, steps=[old_steps], backfill=True))
+    last = hass.states.get(LAST)
+    assert last.attributes["steps"] == 4500
+    assert last.attributes["cadence_spm"] == 150
+    assert loaded.runtime_data.history.ledger.workouts == {}
+
+
+async def test_the_details_come_back_after_a_restart(
+    hass: HomeAssistant, entry: MockConfigEntry, entity_registry: er.EntityRegistry
+) -> None:
+    entity_registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_last_workout",
+        suggested_object_id="owen_s_pixel_last_workout",
+        config_entry=entry,
+    )
+    details = {
+        "active_calories": 480,
+        "distance_km": 10.0,
+        "pace_min_per_km": 6.0,
+        "pace": "6:00",
+        "heart_rate_avg": 150,
+        "heart_rate_min": 120,
+        "heart_rate_max": 175,
+        "steps": 9000,
+        "cadence_spm": 150,
+    }
+    mock_restore_cache_with_extra_data(
+        hass,
+        (
+            (
+                State(
+                    LAST,
+                    "running",
+                    attributes={
+                        "measured_at": "2026-10-04T08:00:00+00:00",
+                        "start": "2026-10-04T09:00:00+02:00",
+                        "end": "2026-10-04T10:00:00+02:00",
+                        "duration_minutes": 60,
+                        "type_code": "56",
+                        **details,
+                    },
+                ),
+                {"native_value": "running", "native_unit_of_measurement": None},
+            ),
+        ),
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    attributes = hass.states.get(LAST).attributes
+    assert {key: attributes.get(key) for key in details} == details
+
+
+async def test_a_ledger_of_0_10_1_gets_the_details(
+    hass: HomeAssistant, hass_storage, entry: MockConfigEntry, hass_client_no_auth
+) -> None:
+    """1.3 to 1.4: the kept run stays, and reads its records once they come."""
+    run_row = {
+        "type": "56",
+        "start": "2026-10-04T07:00:00+00:00",
+        "end": "2026-10-04T08:00:00+00:00",
+        "seconds": 3600.0,
+    }
+    hass_storage[_ledger_key()] = {
+        "version": 1,
+        "minor_version": 3,
+        "key": _ledger_key(),
+        "data": {**OLD_LEDGER, "workouts": {"run": run_row}},
+    }
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    saved = hass_storage[_ledger_key()]
+    assert (saved["version"], saved["minor_version"]) == (1, 4)
+    assert saved["data"]["workouts"] == {"run": run_row}
+    assert saved["data"]["activity"] == {}
+    assert hass.states.get(TODAY).state == "60"
+
+    client = await hass_client_no_auth()
+    await _post(
+        hass,
+        client,
+        _health(heart_rate=_heart_rate("hr-1", "07:30", 60, 140, FITNESS)) | {"exercise": []},
+    )
+    assert hass.states.get(TODAY).attributes["sessions"][0]["heart_rate_avg"] == 140
+
+
+async def test_a_release_before_the_details_still_reads_the_new_file(
+    hass: HomeAssistant, hass_storage, hass_client_no_auth, loaded
+) -> None:
+    """A downgrade to 0.10.1 takes the keys it knows and leaves the details out."""
+    client = await hass_client_no_auth()
+    await _post(
+        hass, client, _health(RUN, heart_rate=_heart_rate("hr-1", "07:30", 60, 140, FITNESS))
+    )
+    assert await hass.config_entries.async_unload(loaded.entry_id)
+    data = await Store(hass, 1, _ledger_key()).async_load()
+    assert data["activity"]["heart_rate"]
+    known = {k: v for k, v in data.items() if k in {"days", "sessions", "hours", "workouts"}}
+    old = Ledger.from_dict(known)
+    assert set(old.workouts) == {"run"}
+    assert old.day_totals("exercise_minutes") == {"2026-10-04": 60.0}
