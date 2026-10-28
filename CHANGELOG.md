@@ -6,6 +6,10 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-28
+
+Every workout now says what happened during it, read from the records the phone already sends.
+
 ### Added
 
 - Workout details. **Last workout**, and every session in the `sessions` of **Exercise today**
@@ -22,7 +26,8 @@ All notable changes to this integration are documented here. The format follows
   itself, and one deleted on the phone leaves them. Buckets from a data resolution are read
   too. The ledger keeps the records of the workouts of yesterday and today, and those of the
   last 6 hours for a workout still to come, and is now stored as version 1.4, which an
-  earlier release still reads; the details it kept are then gone.
+  earlier release still reads; the details it kept are then gone. Contributed by @ak111pro
+  in #31.
 
 ## [0.11.1] - 2026-10-27
 
@@ -377,6 +382,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.12.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.12.0
 [0.11.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.1
 [0.11.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.0
 [0.10.4]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.10.4
