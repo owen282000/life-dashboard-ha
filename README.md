@@ -37,7 +37,7 @@
 >
 > <a href="https://play.google.com/store/apps/details?id=com.owen282000.lifedashboard&referrer=utm_source%3Dgh-ha-readme%26utm_medium%3Dreadme"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="60" align="middle"></a> <a href="https://apps.apple.com/app/apple-store/id6824075761?pt=128699800&ct=gh-ha-readme&mt=8"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/badges/app-store.png" alt="Download on the App Store" height="40" align="middle"></a>
 
-**Works with your watch or scale.** Samsung Health and Galaxy Watch, Fitbit and Pixel Watch, Garmin, Oura, Withings: if its app syncs to Health Connect, the data shows up here. That includes Fitbit after Google switches off the Fitbit Web API on 30 October 2026. On an iPhone, anything in Apple Health.
+**Works with your watch or scale.** Samsung Health and Galaxy Watch, Fitbit and Pixel Watch, Garmin, Oura, Withings: if its app syncs to Health Connect, the data shows up here. That includes Fitbit after Google switches off the Fitbit Web API on 2 November 2026. On an iPhone, anything in Apple Health.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/readme-hero.png" alt="The integration's example dashboard: today's steps, distance, calories, screen time, heart rate and sleep, weight, resting heart rate and blood pressure, the top apps of the day, and charts of screen time and history" width="900">
