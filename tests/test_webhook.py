@@ -14,9 +14,11 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.util.aiohttp import MockRequest, MockStreamReader
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.life_dashboard import signal_update
@@ -95,6 +97,60 @@ def _health(**extra) -> dict:
     }
     payload.update(extra)
     return payload
+
+
+# --- Through Home Assistant Cloud ---------------------------------------------
+
+
+def _cloud_request(payload, *, secret: str = SECRET) -> MockRequest:
+    """A POST as a cloudhook hands it over: a MockRequest, which has no read()."""
+    body = json.dumps(payload).encode()
+    return MockRequest(
+        content=body,
+        method="POST",
+        mock_source="cloud",
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: signature_for(secret, body)},
+    )
+
+
+async def test_a_cloudhook_payload_is_accepted(hass: HomeAssistant, loaded, updates) -> None:
+    """Issue #35: this raised before the try, and Home Assistant answered a silent 200."""
+    response = await webhook.async_handle_webhook(
+        hass,
+        WEBHOOK_ID,
+        _cloud_request(
+            _health(
+                steps=[
+                    {
+                        "count": 100,
+                        "start_time": "2026-09-15T08:00:00Z",
+                        "end_time": "2026-09-15T09:00:00Z",
+                    }
+                ]
+            )
+        ),
+    )
+    await hass.async_block_till_done()
+    assert response.status == HTTPStatus.OK
+    assert response.body
+    assert updates
+
+
+async def test_a_cloudhook_payload_with_the_wrong_secret_is_refused(
+    hass: HomeAssistant, loaded
+) -> None:
+    response = await webhook.async_handle_webhook(
+        hass, WEBHOOK_ID, _cloud_request(_health(), secret="wrong")
+    )
+    assert response.status == HTTPStatus.UNAUTHORIZED
+
+
+async def test_a_body_that_cannot_be_read_is_not_a_silent_200(hass: HomeAssistant, loaded) -> None:
+    """Whatever goes wrong while reading, the app must not take it as delivered."""
+    request = _cloud_request(_health())
+    with patch.object(MockStreamReader, "read", side_effect=OSError("gone")):
+        response = await webhook.async_handle_webhook(hass, WEBHOOK_ID, request)
+    assert response.status == HTTPStatus.BAD_REQUEST
 
 
 # --- What gets refused -----------------------------------------------------
