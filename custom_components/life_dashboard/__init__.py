@@ -292,7 +292,18 @@ def _make_handler(entry: LifeDashboardConfigEntry):
     """
 
     async def handle(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
-        body = await request.read()
+        # Through Home Assistant Cloud this is a MockRequest, which has no read(). Inside a
+        # try, because an exception here would be the silent 200 described above.
+        try:
+            body = await (
+                request.read() if isinstance(request, web.Request) else request.content.read()
+            )
+        except web.HTTPException as err:
+            _LOGGER.warning("Refused a payload for %s: %s", entry.title, err.reason)
+            return web.Response(status=err.status)
+        except Exception:
+            _LOGGER.exception("Could not read a payload for %s", entry.title)
+            return web.Response(status=400)
         signature = request.headers.get(SIGNATURE_HEADER)
 
         if not verify_signature(entry.data[CONF_SECRET], body, signature):

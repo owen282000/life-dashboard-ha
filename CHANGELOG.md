@@ -6,6 +6,15 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Payloads sent through Home Assistant Cloud are no longer lost. A cloudhook hands the integration
+  a request without `read()`, so every payload raised an error that Home Assistant answered with a
+  200, and the app counted it as delivered. Reported by @Kiiiddd in
+  [#35](https://github.com/owen282000/life-dashboard-ha/issues/35). If you paired through Home
+  Assistant Cloud, run a backfill in the app after updating: each day lands on its own date.
+- A payload that cannot be read is now refused with an error status, not a silent 200.
+
 ## [0.12.0] - 2026-10-28
 
 Every workout now says what happened during it, read from the records the phone already sends.
