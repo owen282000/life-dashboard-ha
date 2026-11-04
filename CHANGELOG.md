@@ -6,6 +6,11 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The install steps name **Settings > Marketplace**, part of Home Assistant from 2026.11, with HACS
+  for older versions. A new install from the Marketplace needs no restart.
+
 ## [0.12.1] - 2026-11-04
 
 For everyone who paired through Home Assistant Cloud: your data now arrives.

@@ -4,7 +4,7 @@ GitHub shows this page when you open a new issue. Most questions have a faster a
 
 ## Setting it up
 
-The [README](../README.md) covers installing through HACS. The [docs](../docs/README.md) cover pairing a phone by QR code or by hand, what every sensor and statistic holds, and sending measurements to the phone. The app side is documented in the [Android app's usage guide](https://github.com/owen282000/life-dashboard-companion-app/blob/main/docs/usage.md) and the [iOS app's README](https://github.com/owen282000/life-dashboard-companion-app-ios).
+The [README](../README.md) covers installing through the Marketplace (HACS before Home Assistant 2026.11). The [docs](../docs/README.md) cover pairing a phone by QR code or by hand, what every sensor and statistic holds, and sending measurements to the phone. The app side is documented in the [Android app's usage guide](https://github.com/owen282000/life-dashboard-companion-app/blob/main/docs/usage.md) and the [iOS app's README](https://github.com/owen282000/life-dashboard-companion-app-ios).
 
 ## Something is not working
 
