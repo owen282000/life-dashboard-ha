@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration"><img src="https://img.shields.io/badge/HACS-Default-41BDF5" alt="In the default HACS list"></a>
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration"><img src="https://img.shields.io/badge/Marketplace-Listed-41BDF5" alt="Listed in the Home Assistant Marketplace"></a>
   <a href="https://github.com/owen282000/life-dashboard-ha/releases/latest"><img src="https://img.shields.io/github/v/release/owen282000/life-dashboard-ha?label=Release&color=30b77e" alt="Latest release"></a>
   <a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/Home%20Assistant-2026.3%2B-41BDF5" alt="Home Assistant 2026.3 or newer"></a>
   <a href="https://github.com/owen282000/life-dashboard-ha/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT license"></a>
@@ -58,14 +58,14 @@ The app on the phone reads Health Connect or Apple Health and sends each sync to
 
 ## Quick start
 
-About ten minutes, on the phone and in Home Assistant 2026.3 or newer with [HACS](https://hacs.xyz/docs/use/).
+About ten minutes, on the phone and in Home Assistant 2026.3 or newer. From 2026.11 nothing else needs installing; older versions need [HACS](https://hacs.xyz/docs/use/).
 
 1. **On the phone, first.** Install the Life Dashboard Companion app (see above). In your watch's app, switch on syncing to Health Connect: in Samsung Health it's **Settings > Health Connect**, and Fitbit, Garmin Connect and others have a similar setting. Open Life Dashboard and allow it to read Health Connect, including in the background (on an iPhone: Apple Health).
-2. **Install the integration.** In HACS, search for **Life Dashboard**, download it and restart Home Assistant.
+2. **Install the integration.** In **Settings > Marketplace** (HACS before Home Assistant 2026.11), search for **Life Dashboard** and install it. The first time, the Marketplace shows a notice about community projects that you need to accept. On HACS, download it and restart Home Assistant.
 
-   [![Open Life Dashboard in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
+   [![Open Life Dashboard in the Marketplace](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=owen282000&repository=life-dashboard-ha&category=integration)
 
-3. **Add a phone.** Go to **Settings > Devices & services > Add integration**, search for **Life Dashboard** and give the phone a name. The address is the one the phone sends to; see [the next section](https://github.com/owen282000/life-dashboard-ha#reaching-home-assistant-from-the-phone) if you're not sure.
+3. **Add a phone.** The Marketplace opens the setup by itself. Otherwise go to **Settings > Devices & services > Add integration** and search for **Life Dashboard**. Give the phone a name. The address is the one the phone sends to; see [the next section](https://github.com/owen282000/life-dashboard-ha#reaching-home-assistant-from-the-phone) if you're not sure.
 4. **Scan the code** in the app, with **Scan a pairing code**, or with the phone's camera. The app shows what it will fill in and asks you to confirm.
 5. **Sync.** Tap **Sync Now**. The phone shows up as a device under **Settings > Devices & services > Life Dashboard**, with a sensor for every type it sent. To fill a year of history, run a backfill in the app.
 
