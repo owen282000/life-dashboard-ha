@@ -44,8 +44,8 @@ Plain `http://` has limits on both phones. The Android app needs a switch for it
 Scanning, with the camera or in the app, ends in the same confirmation dialog on the phone, which shows what it's about to fill in.
 
 - **The phone's camera.** On Android the code is a link that opens the app directly, verified against the app's signing certificate. Without the app installed, it opens a page that says where to get it. An iPhone's camera always opens that pairing page in Safari, and a button on the page hands the code to the app.
-- **The scan button in the app.** On Android it's **Scan a pairing code** on the **Webhook** card of the **Health** and **Screen Time** tabs (a QR icon in the address field once an address is set), and the first choice in the setup wizard. On an iPhone it's **Scan a pairing code** under **Webhook URLs** on the **Health** tab.
-- **By hand.** Open **Or paste by hand** in the dialog and paste the URL and the secret into the app's webhook settings: on the **Health** tab, and on Android on the **Screen Time** tab as well.
+- **The scan button in the app.** On Android it's **Scan a pairing code** on the **Webhook** card of the **Health** and **Screen Time** tabs (a QR icon in the address field once an address is set), and the first choice in the setup wizard. On an iPhone it's **Scan a pairing code** in the setup, on the **Health** tab while there is no destination yet, or under **Add destination**.
+- **By hand.** Open **Or paste by hand** in the dialog and paste the URL and the secret into the app's webhook settings: on the **Health** tab, and on Android on the **Screen Time** tab as well. On an iPhone, tap **Add destination** on the **Health** tab, enter the URL, tap **Add webhook** and paste the secret under **HMAC Signing Secret** on the sheet that opens.
 
 Tapping **Pair** also sends a test ping (Android app 1.22.0 or newer, iOS app 1.4.0 or newer), so the device appears in Home Assistant right away, with its last-sync sensor.
 
