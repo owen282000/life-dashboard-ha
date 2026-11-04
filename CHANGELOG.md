@@ -6,6 +6,10 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-04
+
+For everyone who paired through Home Assistant Cloud: your data now arrives.
+
 ### Fixed
 
 - Payloads sent through Home Assistant Cloud are no longer lost. A cloudhook hands the integration
@@ -391,6 +395,7 @@ First release. Installable from HACS as a custom repository.
 - The app also publishes to MQTT with Discovery, using the same sensor names. Pick
   one of the two, or you get two devices holding the same numbers.
 
+[0.12.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.12.1
 [0.12.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.12.0
 [0.11.1]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.1
 [0.11.0]: https://github.com/owen282000/life-dashboard-ha/releases/tag/0.11.0
