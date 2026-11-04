@@ -77,7 +77,7 @@ A **Test ping** in the app updates the one for its tab, which is the quickest wa
 
 ### What gets no sensor
 
-Eight of the 33 Health Connect types are event-like: meals, mindfulness sessions, sexual activity and the cycle tracking types (period, flow, intermenstrual bleeding, ovulation tests, cervical mucus). A single value can't represent them honestly, so they get no sensor. Mindfulness does count toward the [day statistics](#history). Workouts are event-like too, and get [sensors](#exercise) that show the last one and the sessions of the last two days.
+Eight of the 34 Health Connect types are event-like: meals, mindfulness sessions, sexual activity and the cycle tracking types (period, flow, intermenstrual bleeding, ovulation tests, cervical mucus). A single value can't represent them honestly, so they get no sensor. Mindfulness does count toward the [day statistics](#history). Workouts are event-like too, and get [sensors](#exercise) that show the last one and the sessions of the last two days.
 
 For the raw records, add a second webhook URL in the app that points at your own backend or at an automation with a webhook trigger. Neither this integration nor MQTT passes them on.
 
