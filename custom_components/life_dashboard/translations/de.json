@@ -333,11 +333,11 @@
   "issues": {
     "writeback_permission_denied": {
       "title": "{phone} lehnt {type} aus Home Assistant ab",
-      "description": "Die App Life Dashboard Companion auf {phone} hat keine Berechtigung, {type} in Health Connect zu schreiben. Öffne die App, geh im Tab Gesundheit zu „Empfangen“ und schalte {type} wieder ein, um die Berechtigung zu erteilen. Die abgelehnten Messwerte werden nicht erneut angeboten; nutze „Verlauf an Telefon senden“, sobald die Berechtigung erteilt ist."
+      "description": "Die App Life Dashboard Companion auf {phone} hat keine Berechtigung, {type} in Health Connect zu schreiben. Öffne die App, geh im Tab Gesundheit zu „Empfangen“ und schalte {type} wieder ein, um die Berechtigung zu erteilen. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
     },
     "writeback_unsupported_type": {
       "title": "{phone} kennt {type} nicht",
-      "description": "Die App Life Dashboard Companion auf {phone} ist zu alt, um {type} in Health Connect zu schreiben. Aktualisiere die App. Die abgelehnten Messwerte werden nicht erneut angeboten; nutze nach dem Update „Verlauf an Telefon senden“."
+      "description": "Die App Life Dashboard Companion auf {phone} ist zu alt, um {type} in Health Connect zu schreiben. Aktualisiere die App. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
     }
   },
   "selector": {

@@ -25,6 +25,12 @@ Check these when you update. Anything else keeps working as it did.
 - The install steps name **Settings > Marketplace**, part of Home Assistant from 2026.11, with HACS
   for older versions. A new install from the Marketplace needs no restart.
 
+### Fixed
+
+- The repairs for a refused reading told you to use **Send history to phone**, which doesn't offer those
+  readings again. They now say that new readings go through once you've fixed the cause, and that the
+  refused ones stay out of Health Connect.
+
 ## [0.12.1] - 2026-11-04
 
 For everyone who paired through Home Assistant Cloud: your data now arrives.
