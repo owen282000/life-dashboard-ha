@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -25,10 +26,18 @@ async def async_setup_entry(
     entry: LifeDashboardConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Add the button when something is mapped; the options flow reloads the entry."""
+    """Add the button when something is mapped; the options flow reloads the entry.
+
+    An iPhone has no Receive, so its button is removed rather than left unavailable.
+    """
     writeback = entry.runtime_data.writeback
     if writeback is not None and writeback.configured:
         async_add_entities([QueueHistoryButton(entry)])
+    elif writeback is not None and not writeback.receives:
+        registry = er.async_get(hass)
+        unique_id = f"{entry.entry_id}_{KEY_QUEUE_HISTORY}"
+        if entity_id := registry.async_get_entity_id("button", DOMAIN, unique_id):
+            registry.async_remove(entity_id)
 
 
 class QueueHistoryButton(ButtonEntity):

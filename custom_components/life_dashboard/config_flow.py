@@ -52,12 +52,14 @@ from .const import (
     CONF_BASE_URL,
     CONF_CLOUDHOOK_URL,
     CONF_MIN_WORKOUT_MINUTES,
+    CONF_PLATFORM,
     CONF_SECRET,
     CONF_URL_CHOICE,
     CONF_WEBHOOK_ID,
     DEFAULT_MIN_WORKOUT_MINUTES,
     DEFAULT_NAME,
     DOMAIN,
+    PLATFORM_IPHONE,
     URL_CHOICE_CLOUD,
     URL_CHOICE_EXTERNAL,
     URL_CHOICE_URL,
@@ -388,6 +390,19 @@ def _own_entities(hass: HomeAssistant, entry: ConfigEntry) -> list[str]:
     ]
 
 
+def _minutes_selector() -> NumberSelector:
+    """The shortest workout that counts, for an Android phone and an iPhone alike."""
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=0,
+            max=MAX_MIN_WORKOUT_MINUTES,
+            step=1,
+            mode=NumberSelectorMode.BOX,
+            unit_of_measurement="min",
+        )
+    )
+
+
 def _options_schema(own: list[str]) -> vol.Schema:
     """The shortest workout, then one collapsed section per type; entity pickers without
     a device class filter.
@@ -403,15 +418,9 @@ def _options_schema(own: list[str]) -> vol.Schema:
         EntitySelectorConfig(domain="sensor", device_class="timestamp", exclude_entities=own)
     )
     fields: dict[Any, Any] = {
-        vol.Optional(CONF_MIN_WORKOUT_MINUTES, default=DEFAULT_MIN_WORKOUT_MINUTES): NumberSelector(
-            NumberSelectorConfig(
-                min=0,
-                max=MAX_MIN_WORKOUT_MINUTES,
-                step=1,
-                mode=NumberSelectorMode.BOX,
-                unit_of_measurement="min",
-            )
-        )
+        vol.Optional(
+            CONF_MIN_WORKOUT_MINUTES, default=DEFAULT_MIN_WORKOUT_MINUTES
+        ): _minutes_selector()
     }
     for kind in WRITEBACK_TYPES:
         inner: dict[Any, Any] = {vol.Optional(role): picker for role in _ROLES[kind]}
@@ -510,6 +519,8 @@ class WritebackOptionsFlow(OptionsFlowWithReload):
     """Choose the shortest workout that counts, and per type which entity goes to this phone."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if self.config_entry.data.get(CONF_PLATFORM) == PLATFORM_IPHONE:
+            return await self.async_step_iphone(user_input)
         own = _own_entities(self.hass, self.config_entry)
         errors: dict[str, str] = {}
         placeholders: dict[str, str] = {}
@@ -539,4 +550,29 @@ class WritebackOptionsFlow(OptionsFlowWithReload):
             data_schema=self.add_suggested_values_to_schema(_options_schema(own), suggested),
             errors=errors,
             description_placeholders=placeholders,
+        )
+
+    async def async_step_iphone(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """An iPhone has no Receive: only the shortest workout, and the mapping is kept."""
+        if user_input is not None:
+            return self.async_create_entry(
+                data={
+                    **self.config_entry.options,
+                    CONF_MIN_WORKOUT_MINUTES: int(
+                        user_input.get(CONF_MIN_WORKOUT_MINUTES, DEFAULT_MIN_WORKOUT_MINUTES)
+                    ),
+                }
+            )
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_MIN_WORKOUT_MINUTES, default=DEFAULT_MIN_WORKOUT_MINUTES
+                ): _minutes_selector(),
+            }
+        )
+        return self.async_show_form(
+            step_id="iphone",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {CONF_MIN_WORKOUT_MINUTES: min_workout_minutes(self.config_entry)}
+            ),
         )
