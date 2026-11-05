@@ -313,13 +313,13 @@ async def test_screen_time_sensors(hass: HomeAssistant, hass_client_no_auth, loa
     await hass.async_block_till_done()
 
     today = hass.states.get("sensor.owen_s_pixel_screen_time_today")
-    assert today.state == "143"
+    assert today.state == str(round(143 / 60, 5))  # in hours since 1.0.0
     assert "state_class" not in today.attributes
     assert today.attributes["top_apps"] == "Chrome (61 min), WhatsApp (44 min)"
     assert today.attributes["app_count"] == 2
 
     yesterday = hass.states.get("sensor.owen_s_pixel_screen_time_yesterday")
-    assert yesterday.state == "212"
+    assert yesterday.state == str(round(212 / 60, 5))
     assert "state_class" not in yesterday.attributes
     assert "last_reset" not in yesterday.attributes
 

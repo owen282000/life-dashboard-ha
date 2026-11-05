@@ -144,7 +144,9 @@ async def test_every_app_of_the_week_gets_a_disabled_sensor(
     assert entries[CHROME].original_icon is None  # From icons.json, by translation key.
 
     # The device page is what it was: the aggregate sensors are there, enabled.
-    assert hass.states.get("sensor.owen_s_pixel_screen_time_today").state == "127"
+    assert float(hass.states.get("sensor.owen_s_pixel_screen_time_today").state) == pytest.approx(
+        127 / 60, abs=1e-4
+    )
 
 
 async def test_an_enabled_sensor_reads_today_straight_after_the_reload(
@@ -156,10 +158,10 @@ async def test_an_enabled_sensor_reads_today_straight_after_the_reload(
     await _enable(hass, entity_registry, loaded, CHROME, SPOTIFY)
 
     chrome = hass.states.get("sensor.owen_s_pixel_chrome_screen_time")
-    assert chrome.state == "61"
-    assert chrome.attributes["unit_of_measurement"] == "min"
+    assert float(chrome.state) == pytest.approx(61 / 60, abs=1e-4)
+    assert chrome.attributes["unit_of_measurement"] == "h"
     assert chrome.attributes["device_class"] == SensorDeviceClass.DURATION
-    # Like Screen time today: no state class, so no long-term statistics per app.
+    # Like Screen time today: no state class; its days go into a statistic of its own.
     assert "state_class" not in chrome.attributes
     assert chrome.attributes["friendly_name"] == "Owen's Pixel Chrome screen time"
     assert chrome.attributes["app"] == "Chrome"
@@ -168,7 +170,7 @@ async def test_an_enabled_sensor_reads_today_straight_after_the_reload(
     assert chrome.attributes["week_minutes"] == 61
 
     spotify = hass.states.get("sensor.owen_s_pixel_spotify_screen_time")
-    assert spotify.state == "22"
+    assert float(spotify.state) == pytest.approx(22 / 60, abs=1e-4)
     assert spotify.attributes["week_minutes"] == 117
 
     # The one left disabled stays off the state machine.
@@ -208,7 +210,9 @@ async def test_a_filtered_app_gets_no_sensor_and_reads_zero_once_filtered(
     await _post(hass, client, _screen_time(filtered, app_filter="blocklist"))
     assert set(_app_entries(entity_registry, loaded)) == {CHROME, SPOTIFY}
     await _enable(hass, entity_registry, loaded, SPOTIFY)
-    assert hass.states.get("sensor.owen_s_pixel_spotify_screen_time").state == "22"
+    assert float(hass.states.get("sensor.owen_s_pixel_spotify_screen_time").state) == pytest.approx(
+        22 / 60, abs=1e-4
+    )
 
     # Spotify is now left out too: the same day comes again without it.
     narrower = _day("2026-09-15", (CHROME, "Chrome", 65))
@@ -234,7 +238,9 @@ async def test_the_next_day_starts_at_zero(
     client = await hass_client_no_auth()
     await _post(hass, client, _screen_time(*TWO_DAYS))
     await _enable(hass, entity_registry, loaded, CHROME)
-    assert hass.states.get("sensor.owen_s_pixel_chrome_screen_time").state == "61"
+    assert float(hass.states.get("sensor.owen_s_pixel_chrome_screen_time").state) == pytest.approx(
+        61 / 60, abs=1e-4
+    )
 
     await _post(
         hass,
@@ -275,7 +281,7 @@ async def test_a_renamed_app_keeps_its_sensor(
     assert set(entries) == {SPOTIFY}
     assert entries[SPOTIFY].entity_id == before.entity_id
     state = hass.states.get(before.entity_id)
-    assert state.state == "30"
+    assert float(state.state) == pytest.approx(30 / 60, abs=1e-4)
     assert state.attributes["app"] == "Spotify: Music and Podcasts"
 
     # Once rebuilt, the name follows too; the entity id stays what automations use.
@@ -308,7 +314,7 @@ async def test_an_uninstalled_app_keeps_its_real_name(
         ),
     )
     state = hass.states.get("sensor.owen_s_pixel_spotify_screen_time")
-    assert state.state == "3"
+    assert float(state.state) == pytest.approx(3 / 60, abs=1e-4)
     assert state.attributes["app"] == "Spotify"
     assert loaded.runtime_data.apps.labels[SPOTIFY] == "Spotify"
 
@@ -386,7 +392,7 @@ async def test_app_sensors_come_back_before_the_phone_does(
     assert await hass.config_entries.async_setup(loaded.entry_id)
     await hass.async_block_till_done()
     whatsapp = hass.states.get("sensor.owen_s_pixel_whatsapp_screen_time")
-    assert whatsapp.state == "44"
+    assert float(whatsapp.state) == pytest.approx(44 / 60, abs=1e-4)
     assert whatsapp.attributes["friendly_name"] == "Owen's Pixel WhatsApp screen time"
     # The disabled ones keep their name in the registry too.
     assert _app_entries(entity_registry, loaded)[CHROME].original_name == "Chrome screen time"
@@ -459,7 +465,8 @@ async def test_a_deleted_enabled_sensor_goes_from_the_state_machine_too(
         "sensor.owen_s_pixel_chrome_screen_time", new_entity_id="sensor.browser_minutes"
     )
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.browser_minutes").state == "61"
+    browser = hass.states.get("sensor.browser_minutes")
+    assert float(browser.state) == pytest.approx(61 / 60, abs=1e-4)
 
     entity_registry.async_remove("sensor.browser_minutes")
     await hass.async_block_till_done()

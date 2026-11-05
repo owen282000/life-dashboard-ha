@@ -456,7 +456,15 @@ def _app_sensors(
 
 
 def _on_main() -> dict[str, Any]:
-    return json.loads(ON_MAIN.read_text())
+    """The readings on main, with the screen time days in hours, as they are since 1.0.0."""
+    readings = json.loads(ON_MAIN.read_text())
+    for scenario in readings.values():
+        for key in ("screen_time_today", "screen_time_yesterday"):
+            sensor = scenario["sensors"].get(key)
+            if sensor and sensor["state"] not in (None, "unknown", "unavailable"):
+                # Rounded as Home Assistant rounds a state with a display precision of 3.
+                sensor["state"] = str(round(int(sensor["state"]) / 60, 5))
+    return readings
 
 
 def test_every_scenario_has_its_main_reading() -> None:
@@ -587,7 +595,7 @@ async def test_app_sensors_of_each_version(
         assert state.attributes["package"] == package
         reads[package] = (
             state.attributes["app"],
-            int(state.state),
+            round(float(state.state) * 60),  # in hours since 1.0.0
             state.attributes["week_minutes"],
             state.attributes["date"],
         )

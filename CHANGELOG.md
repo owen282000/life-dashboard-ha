@@ -19,6 +19,12 @@ Check these when you update. Anything else keeps working as it did.
     statistics graphs are not affected.
   - The history graph of this sensor can show old values in minutes next to new ones in hours for a
     while. That clears up on its own.
+- **Screen time today, Screen time yesterday and the per-app screen time sensors** are now in hours
+  too, so a tile reads 2h 51m instead of 171m. The state changes from `171` to `2.85`.
+  - **What to do:** an automation or template that reads them as minutes needs an update, the same
+    way: multiply by 60, or change a trigger such as "above 120" to "above 2".
+  - **What stays the same:** the entity IDs, the attributes in minutes (`top_apps`, `minutes`,
+    `week_minutes`, `all_apps_minutes`) and the long-term statistic `screen_time`.
 
 ### Added
 
@@ -29,10 +35,12 @@ Check these when you update. Anything else keeps working as it did.
 - History older than 400 days that arrives later, such as a longer backfill or a second phone, now
   lands in the statistics instead of being ignored. A day with no row yet is added, and the running
   totals after it move up to match. A day or hour that already has a row is left alone.
+- Every app whose screen time sensor you enable gets a long-term statistic with its minutes per day,
+  so a statistics graph shows the app over weeks or a year. The sensor itself only shows the newest
+  day.
 - The statistics of distance, energy, sleep and the other minutes, water and weight carry the
-  recorder's unit class, so a statistics graph can show them in km, hours or another unit of the same
-  kind with `unit: km` or `unit: h`. The stored values and the statistic IDs stay the same; the class
-  is added the next time the phone sends that type.
+  recorder's unit class, so the recorder knows what kind of unit each is. The stored values and the
+  statistic IDs stay the same; the class is added the next time the phone sends that type.
 - Adding a phone offers to take over the statistics of a phone you removed, so its graphs and
   running totals carry on instead of starting again. They're copied and checked before the old ones
   are removed; make a backup first if you want a way back.

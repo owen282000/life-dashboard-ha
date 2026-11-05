@@ -64,10 +64,10 @@ Android only. [Screen time](#screen-time) below explains them.
 
 | Sensor | Unit | Attributes |
 |---|---|---|
-| `screen_time_today` | min | `date`, `app_count`, `top_apps` (the top five with their minutes) |
-| `screen_time_yesterday` | min | `date`, `app_count`, `top_apps` |
+| `screen_time_today` | h | `date`, `app_count`, `top_apps` (the top five with their minutes) |
+| `screen_time_yesterday` | h | `date`, `app_count`, `top_apps` |
 | `most_used_app_today` | the app's name | `package`, `minutes`, `date` |
-| `<app>_screen_time`, one per app, [disabled](#per-app) until you enable it | min | `app`, `package`, `date`, `week_minutes` |
+| `<app>_screen_time`, one per app, [disabled](#per-app) until you enable it | h | `app`, `package`, `date`, `week_minutes` |
 
 When **Apps to send** in the app leaves some apps out, `screen_time_today` and `screen_time_yesterday` count only the apps that are sent, and carry the total of every app as `all_apps_minutes`.
 
@@ -202,7 +202,7 @@ actions:
 type: markdown
 title: Yesterday on the phone
 content: >-
-  {{ states('sensor.owen_s_pixel_screen_time_yesterday') }} minutes.
+  {{ (states('sensor.owen_s_pixel_screen_time_yesterday') | float(0) * 60) | round }} minutes.
   {{ state_attr('sensor.owen_s_pixel_screen_time_yesterday', 'top_apps') }}
 ```
 
@@ -217,7 +217,7 @@ The apps you use also get a sensor each with their minutes today, such as `senso
 - An app gets a sensor once it has 5 minutes over those days, so an app opened once for a moment gets none. A phone gets 50 app sensors at most, disabled ones included, the most used apps first. An app keeps its sensor when you stop using it, so automations built on it keep working.
 - A sensor you delete stays deleted, even after a restart and while the phone keeps sending the app, and it frees its slot. Removing the phone and adding it again is the only way to get it back.
 - An app you leave out of **Apps to send** never reaches Home Assistant and gets no sensor.
-- Like `screen_time_today` they have no state class. The recorder keeps their history as states, for its usual 10 days, and they add nothing to long-term statistics.
+- Like `screen_time_today` they have no state class, so the sensor itself shows only the newest day. Each enabled app also gets a long-term statistic of its own, `life_dashboard:<entry>_app_<package>` (the package with its dots as underscores, such as `app_com_google_android_youtube`), with its minutes per day. Put it in a statistics graph to see the app over weeks or a year. It starts when you enable the sensor, with the days the next sync carries, up to seven back.
 
 ```yaml
 # Turn the TV off after an hour of a game on a school day.
@@ -262,6 +262,7 @@ A sensor can only hold now, so on its own a year of backfilled readings would al
 | `sleep_minutes`, `exercise_minutes`, `mindfulness_minutes` | The day's total, from the sessions that ended that day. A workout that crosses midnight counts whole on the day it ended here, where the [exercise sensors](#exercise) split it. |
 | `hydration_total` | Liters drunk that day. |
 | `screen_time` | Minutes on the phone that day. Every sync carries the last seven days, so a day that was still running when it was sent is corrected by the next one. |
+| `app_<package>` | Minutes in one app that day, for each app whose [sensor](#per-app) you enabled. |
 | `heart_rate`, `weight`, `blood_pressure_systolic`, `blood_pressure_diastolic` and every other value in the [latest reading](#latest-reading) table except sleep and the last drink | Mean, minimum and maximum per hour. |
 
 A day without data has no row, rather than a zero. Each statistic's ID is `life_dashboard:<entry>_<statistic>`, where `<entry>` is the phone's config entry ID in lowercase, and its name is the device name followed by the statistic, such as "Owen's Pixel steps".
@@ -280,20 +281,7 @@ entities:
   - life_dashboard:<entry>_steps   # pick "Owen's Pixel steps" from the picker
 ```
 
-Distance, energy, sleep and the other minutes, water and weight are stored in m, kcal, min, L and kg, and carry the recorder's unit class, so a graph can show them in another unit of the same kind. Add `unit: km` to a distance graph, or `unit: h` to a sleep graph:
-
-```yaml
-type: statistics-graph
-title: Sleep per night
-chart_type: bar
-period: day
-days_to_show: 30
-unit: h
-stat_types:
-  - change
-entities:
-  - life_dashboard:<entry>_sleep_minutes
-```
+Distance, energy, sleep and the other minutes, water and weight are stored in m, kcal, min, L and kg, with the recorder's unit class for each, so the recorder can convert them. The statistics graph card doesn't offer that yet: its `unit` option only switches between units its statistics are already stored in.
 
 <p align="center">
   <img src="screenshots/statistics.png" alt="Two statistics graph cards fed by the integration: steps per week as bars, and heart rate per day as a line with its min and max band" width="520">

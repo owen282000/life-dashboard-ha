@@ -22,11 +22,13 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .apps import app_unique_id
 from .const import DOMAIN
 from .history import (
     HistoryChange,
     HourBucket,
     Ledger,
+    app_key,
     apply_payload,
     day_rows,
     earliest_day,
@@ -49,6 +51,9 @@ STORAGE_MINOR_VERSION = 4
 SAVE_DELAY_SECONDS = 5
 
 # Units and names for the day sums, which have no sensor to borrow from.
+# One app's screen time per day, for the apps whose sensor is on (`history.app_key`).
+APP_PREFIX = "app_"
+
 _DAY_UNITS: dict[str, str] = {
     "steps": "steps",
     "distance": "m",
@@ -114,6 +119,8 @@ async def async_remove_store(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 def _unit(key: str) -> str | None:
+    if key.startswith(APP_PREFIX):
+        return "min"
     if key in _DAY_UNITS:
         return _DAY_UNITS[key]
     spec = SENSOR_SPECS.get(key)
@@ -169,6 +176,8 @@ class HistoryWriter:
         self.ledger = Ledger()
         # The day of the last prune, so the whole ledger is walked once a day at most.
         self._pruned_on: date | None = None
+        # Statistic key to package, for the apps whose sensor is on (see `_apps_on`).
+        self._app_packages: dict[str, str] = {}
         # One fill of old history at a time: each reads the rows the one before wrote.
         self._old_lock = asyncio.Lock()
 
@@ -186,7 +195,7 @@ class HistoryWriter:
     def async_apply(self, data: dict[str, Any]) -> HistoryChange:
         """Fold a payload into the ledger, import the rows it changed, and prune it."""
         tz = dt_util.get_default_time_zone()
-        change = apply_payload(self.ledger, data, tz=tz)
+        change = apply_payload(self.ledger, data, tz=tz, apps=self._apps_on())
         if not change.is_empty:
             self._import(change, data, tz)
         if (change.old_days or change.old_hours) and self.available:
@@ -371,6 +380,15 @@ class HistoryWriter:
         )
         return True
 
+    def _statistic_name(self, key: str) -> str:
+        """An app's statistic is named after the app, as its sensor is."""
+        package = self._app_packages.get(key)
+        if package is None:
+            return _name(self._entry, key)
+        roster = getattr(getattr(self._entry, "runtime_data", None), "apps", None)
+        label = roster.labels.get(package, package) if roster is not None else package
+        return f"{self._entry.title} {label} screen time"
+
     async def _async_import_old(
         self,
         old_days: dict[str, dict[str, float]],
@@ -485,11 +503,30 @@ class HistoryWriter:
                 )
                 self._store.async_delay_save(self.ledger.to_dict, SAVE_DELAY_SECONDS)
 
+    def _apps_on(self) -> dict[str, str]:
+        """The packages whose screen time sensor is on, each with its statistic key.
+
+        Their sensors only show the newest day; the statistic keeps every day. An app whose
+        sensor is off gets none, so the statistics hold only what the user chose to see.
+        """
+        from homeassistant.helpers import entity_registry as er
+
+        prefix = app_unique_id(self._entry.entry_id, "")
+        packages = {
+            item.unique_id.removeprefix(prefix)
+            for item in er.async_entries_for_config_entry(
+                er.async_get(self._hass), self._entry.entry_id
+            )
+            if item.unique_id.startswith(prefix) and item.disabled_by is None
+        }
+        self._app_packages = {app_key(package): package for package in packages}
+        return {package: app_key(package) for package in packages}
+
     def _metadata(self, key: str, *, sum_kind: bool, mean_type: Any) -> dict[str, Any]:
         return {
             "statistic_id": statistic_id(self._entry, key),
             "source": DOMAIN,
-            "name": _name(self._entry, key),
+            "name": self._statistic_name(key),
             "unit_of_measurement": _unit(key),
             "unit_class": _UNIT_CLASSES.get(_unit(key) or ""),
             "has_sum": sum_kind,

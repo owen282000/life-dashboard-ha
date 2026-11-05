@@ -17,7 +17,7 @@ than restored, because a disabled entity never holds a state to restore.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Final
 
 from homeassistant.components.sensor import (
     RestoreSensor,
@@ -146,6 +146,12 @@ def _device_info(entry: LifeDashboardConfigEntry) -> DeviceInfo:
     )
 
 
+# Sensors in minutes before 1.0.0 and in hours since, so a tile reads 7h 30m.
+_HOURS_SINCE_1_0: Final = frozenset(
+    {"sleep_duration", "screen_time_today", "screen_time_yesterday"}
+)
+
+
 class LifeDashboardSensor(RestoreSensor):
     """One value from the phone."""
 
@@ -215,9 +221,9 @@ class LifeDashboardSensor(RestoreSensor):
             name: value for name, value in state.attributes.items() if name in _PAYLOAD_ATTRIBUTES
         }
         value = stored.native_value
-        # Kept before 1.0.0, when this sensor was still in minutes.
+        # Kept before 1.0.0, when these sensors were still in minutes.
         if (
-            self._key == "sleep_duration"
+            self._key in _HOURS_SINCE_1_0
             and stored.native_unit_of_measurement == UnitOfTime.MINUTES
             and isinstance(value, int | float)
         ):
@@ -261,9 +267,9 @@ class AppScreenTimeSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_translation_key = "app_screen_time"
-    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_device_class = SensorDeviceClass.DURATION
-    _attr_suggested_display_precision = 0
+    _attr_suggested_display_precision = 3
     # Fifty of these on the device page would bury the rest; the user picks a few.
     _attr_entity_registry_enabled_default = False
 
@@ -304,7 +310,8 @@ class AppScreenTimeSensor(SensorEntity):
     def _apply(self, update: SensorUpdate) -> None:
         """Hold this app's row of a table, or 0 when the day does not have it."""
         row = update.attributes.get("apps", {}).get(self._package)
-        self._attr_native_value = row["minutes"] if row else 0
+        # In hours, so a tile reads 1h 25m; the attributes keep minutes.
+        self._attr_native_value = row["minutes"] / 60 if row and row["minutes"] else 0
         self._attr_extra_state_attributes = {
             # The current label: the entity name takes a new one when it is rebuilt.
             "app": self._label(row),
