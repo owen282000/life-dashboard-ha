@@ -564,6 +564,17 @@ def test_every_sensor_has_a_name() -> None:
         assert value["name"], key
 
 
+@pytest.mark.parametrize("name", ["strings.json", "translations/en.json", "translations/de.json"])
+def test_the_repairs_do_not_promise_the_refused_readings_back(name: str) -> None:
+    """A refused reading is not offered again, so no repair may send you to the button for it."""
+    with open(f"custom_components/life_dashboard/{name}", encoding="utf-8") as handle:
+        issues = json.load(handle)["issues"]
+    for key in ("writeback_permission_denied", "writeback_unsupported_type"):
+        text = issues[key]["description"]
+        assert "use Send history" not in text
+        assert "nutze" not in text or "Verlauf an Telefon senden" not in text.split("nutze")[-1]
+
+
 def test_strings_and_translations_match() -> None:
     """A HACS install reads translations/en.json, not strings.json."""
     with open("custom_components/life_dashboard/strings.json") as handle:
