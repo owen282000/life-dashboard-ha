@@ -248,6 +248,82 @@ async def test_the_ledger_lets_old_days_go_and_the_sums_carry_on(
     assert ledger.carried == {"steps": 100.0, "sleep_minutes": 10.0}
 
 
+async def test_days_from_before_the_ledger_are_added_and_later_sums_move_up(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """P2-28: a day the recorder has no row for counts, however old it is."""
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    day = {n: (_today() - timedelta(days=n)).isoformat() for n in (600, 500, 450, 1)}
+    first = _backfill(
+        daily_totals=[{"date": day[500], "steps": 100}, {"date": day[1], "steps": 200}]
+    )
+    assert await _post(client, first) == 200
+    await async_wait_recording_done(hass)
+    ledger = entry.runtime_data.history.ledger
+    assert ledger.carried == {"steps": 100.0}
+
+    # Older than anything kept, and a gap between two rows: both before kept_from.
+    older = _backfill(
+        daily_totals=[{"date": day[600], "steps": 50}, {"date": day[450], "steps": 30}],
+        sleep=[{"session_end_time": f"{day[600]}T06:00:00Z", "duration_seconds": 600, "uuid": "x"}],
+    )
+    assert await _post(client, older) == 200
+    await async_wait_recording_done(hass)
+    steps = _rows(hass, entry, "steps", "day", {"state", "sum"})
+    assert [(r["state"], r["sum"]) for r in steps] == [
+        (50.0, 50.0),
+        (100.0, 150.0),
+        (30.0, 180.0),
+        (200.0, 380.0),
+    ]
+    assert [r["sum"] for r in _rows(hass, entry, "sleep_minutes", "day", {"sum"})] == [10.0]
+    assert ledger.carried == {"steps": 180.0, "sleep_minutes": 10.0}
+
+    # The rows the ledger writes later count them in.
+    assert await _post(client, _backfill(daily_totals=[{"date": day[1], "steps": 250}])) == 200
+    await async_wait_recording_done(hass)
+    assert _rows(hass, entry, "steps", "day", {"sum"})[-1]["sum"] == 430.0
+
+    # Sent again, they have rows now, so nothing moves.
+    assert await _post(client, older) == 200
+    await async_wait_recording_done(hass)
+    assert [r["sum"] for r in _rows(hass, entry, "steps", "day", {"sum"})] == [
+        50.0,
+        150.0,
+        180.0,
+        430.0,
+    ]
+    assert ledger.carried == {"steps": 180.0, "sleep_minutes": 10.0}
+
+
+async def test_hours_from_before_the_ledger_are_written_where_none_are(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    oldest = (_today() - timedelta(days=600)).isoformat()
+    old = (_today() - timedelta(days=500)).isoformat()
+    recent = (_today() - timedelta(days=1)).isoformat()
+    first = _backfill(daily_totals=[{"date": oldest, "steps": 1}, {"date": recent, "steps": 1}])
+    assert await _post(client, first) == 200
+    await async_wait_recording_done(hass)
+    assert entry.runtime_data.history.ledger.kept_from is not None
+
+    heart = [{"bpm": 60, "time": f"{old}T08:10:00Z"}, {"bpm": 70, "time": f"{old}T08:50:00Z"}]
+    assert await _post(client, _backfill(heart_rate=heart)) == 200
+    await async_wait_recording_done(hass)
+    rows = _rows(hass, entry, "heart_rate", "hour", {"mean", "min", "max"})
+    assert [(r["mean"], r["min"], r["max"]) for r in rows] == [(65.0, 60.0, 70.0)]
+
+    # The hour has a row now; a later delivery of it is left alone.
+    again = [{"bpm": 100, "time": f"{old}T08:30:00Z"}]
+    assert await _post(client, _backfill(heart_rate=again)) == 200
+    await async_wait_recording_done(hass)
+    rows = _rows(hass, entry, "heart_rate", "hour", {"mean", "min", "max"})
+    assert [(r["mean"], r["min"], r["max"]) for r in rows] == [(65.0, 60.0, 70.0)]
+
+
 async def test_a_ledger_that_was_pruned_is_written(
     hass: HomeAssistant, hass_client_no_auth, hass_storage, freezer
 ) -> None:
