@@ -28,6 +28,13 @@
           "use_cloud": "Creates a cloudhook, so the phone syncs from anywhere without port forwarding. The address above is then not used.",
           "regenerate_secret": "The phone stops syncing until it has the new secret: scan the new code, or paste the secret in the app."
         }
+      },
+      "history": {
+        "title": "History of a removed phone",
+        "description": "Home Assistant still has the statistics of a phone you removed. Take them over, and this phone's statistics continue where that one stopped, with the running totals carrying on. They're copied to this phone and then removed from the old one, which can't be undone, so make a backup first if you want a way back. The number is how many statistics the phone has.",
+        "data": {
+          "take_over": "Take over"
+        }
       }
     },
     "error": {
@@ -382,6 +389,11 @@
         "bone_mass": "Bone mass",
         "body_water_mass": "Body water mass",
         "blood_pressure": "Blood pressure"
+      }
+    },
+    "take_over": {
+      "options": {
+        "none": "Don't take over, start empty"
       }
     }
   },

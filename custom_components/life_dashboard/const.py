@@ -16,6 +16,9 @@ CONF_CLOUDHOOK_URL: Final = "cloudhook_url"
 CONF_PLATFORM: Final = "platform"
 PLATFORM_ANDROID: Final = "android"
 PLATFORM_IPHONE: Final = "iphone"
+# The lowercased entry id of a removed phone whose statistics a new pairing takes over,
+# kept in the entry's data until the setup has done it (statistics.py).
+CONF_TAKE_OVER: Final = "take_over"
 
 # Values for CONF_URL_CHOICE. "url" is an address the user typed or accepted, kept in
 # CONF_BASE_URL; "cloud" is a cloudhook. Internal and external are what entries from
