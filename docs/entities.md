@@ -224,7 +224,7 @@ The apps you use also get a sensor each with their time today, such as `sensor.o
 triggers:
   - trigger: numeric_state
     entity_id: sensor.kids_tablet_minecraft_screen_time
-    above: 60
+    above: 1  # hours since 1.0.0
 conditions:
   - condition: time
     weekday: [mon, tue, wed, thu, fri]
