@@ -389,7 +389,7 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         # Day totals. TOTAL rather than TOTAL_INCREASING: Health Connect can revise a
         # day downward after deduplicating, and TOTAL_INCREASING reads that as a reset.
         SensorSpec("steps_today", "steps", precision=0),
-        SensorSpec("distance_today", "m", "distance", precision=0),
+        SensorSpec("distance_today", "km", "distance", precision=2),
         # No energy device class for calories: that would offer them to the Energy
         # dashboard, which is not what these are.
         SensorSpec("active_calories_today", "kcal", precision=0),
@@ -544,7 +544,12 @@ def _parse_health(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
                 updates.append(
                     SensorUpdate(
                         key=key,
-                        value=int(value) if key == "steps_today" else float(value),
+                        # Distance in km, as its statistic and the graphs have it.
+                        value=int(value)
+                        if key == "steps_today"
+                        else float(value) / 1000
+                        if key == "distance_today"
+                        else float(value),
                         measured_at=midnight,
                         attributes={"date": day.isoformat()},
                         last_reset=midnight,

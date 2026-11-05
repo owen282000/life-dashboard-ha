@@ -24,7 +24,7 @@ These come from Health Connect's own deduplicated figures, or HealthKit's statis
 | Sensor | Unit |
 |---|---|
 | `steps_today` | steps |
-| `distance_today` | m |
+| `distance_today` | km |
 | `active_calories_today` | kcal |
 | `total_calories_today` | kcal |
 

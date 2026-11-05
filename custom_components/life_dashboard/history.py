@@ -181,9 +181,10 @@ class Ledger:
     activity: dict[str, Any] = field(default_factory=dict)
     kept_from: str | None = None
     carried: dict[str, float] = field(default_factory=dict)
-    #: The units the statistics were written in: 1 up to 0.12 (m and min), 2 since 1.0.0
-    #: (km and h). A new ledger starts at 2: it has written nothing in the old ones.
-    units: int = 2
+    #: How the statistics were written: 1 up to 0.12 (m and min, a row at midnight only),
+    #: 3 since 1.0.0 (km and h, and a closing row at 23:00; 2 was a build in between). A new
+    #: ledger starts at 3: it has written nothing the old way.
+    units: int = 3
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -639,6 +640,46 @@ def day_rows(ledger: Ledger, key: str, since: date, *, tz: tzinfo) -> list[dict[
             }
         )
     return rows
+
+
+def closing_rows(ledger: Ledger, key: str, since: date, *, tz: tzinfo) -> list[dict[str, Any]]:
+    """A day sum's closing rows: at 23:00 of the evening before every day from `since` on
+    that has an amount, with the running total of that evening.
+
+    The recorder takes the start of a period's change from the first row an hour before
+    the period starts or later. With only a row at midnight, a week or a month that starts
+    on a day with an amount finds that day's own row there, whose total already holds the
+    day, and leaves the day out. The evening before is what it finds instead; and a period
+    that starts on a day without an amount finds the next evening row, whose total is the
+    same, since nothing was added in between. The evening's own amount stays its `state`,
+    so a graph of the days reads as before; an evening without one has none.
+
+    No row before the first day there is: the recorder starts a period from 0 when it
+    begins before the oldest row.
+    """
+    totals = ledger.day_totals(key)
+    if not totals:
+        return []
+    days = sorted(date.fromisoformat(iso) for iso in totals)
+    running = ledger.carried.get(key, 0.0)
+    rows: list[dict[str, Any]] = []
+    for day in days:
+        if day >= since and (running or day > days[0] or ledger.carried.get(key)):
+            eve = day - timedelta(days=1)
+            rows.append(
+                {
+                    "start": closing_start(eve, tz),
+                    "state": totals.get(eve.isoformat()),
+                    "sum": running,
+                }
+            )
+        running += totals[day.isoformat()]
+    return rows
+
+
+def closing_start(day: date, tz: tzinfo) -> datetime:
+    """Where a day's closing row starts: 23:00 local, the day's last hour."""
+    return datetime.combine(day, time(23), tzinfo=tz)
 
 
 def hour_rows(ledger: Ledger, key: str, since: datetime) -> list[dict[str, Any]]:

@@ -67,8 +67,18 @@ async def _post(client, payload: dict) -> int:
 
 
 def _rows(hass, entry, key, period, types, start=datetime(2020, 1, 1, tzinfo=UTC)):
+    """The rows of the days and hours that have figures. A day sum also has a row on the
+    evening before each day (history.closing_rows); on a day without an amount that row
+    has no state, and is left out here."""
     sid = statistic_id(entry, key)
-    return statistics_during_period(hass, start, None, {sid}, period, None, types).get(sid, [])
+    asked = set(types) | ({"state"} if {"sum", "change"} & set(types) else set())
+    rows = statistics_during_period(hass, start, None, {sid}, period, None, asked).get(sid, [])
+    if "state" in asked and "state" not in types:
+        rows = [r for r in rows if r.get("state") is not None]
+        return [{k: v for k, v in r.items() if k != "state"} for r in rows]
+    if {"sum", "change"} & set(types):
+        rows = [r for r in rows if r.get("state") is not None]
+    return rows
 
 
 def _backfill(**parts):
@@ -346,6 +356,44 @@ async def test_an_app_whose_sensor_is_on_keeps_its_days_as_a_statistic(
     assert (item["statistics_unit_of_measurement"], item["unit_class"]) == ("h", "duration")
 
 
+async def _change(hass, entry, key, start):
+    """A period's change as a statistic card reads it, from `start` until now."""
+    from homeassistant.components.recorder.statistics import statistic_during_period
+
+    found = await hass.async_add_executor_job(
+        statistic_during_period, hass, start, None, statistic_id(entry, key), {"change"}, None
+    )
+    return found["change"]
+
+
+async def test_a_period_counts_its_first_day(hass: HomeAssistant, hass_client_no_auth) -> None:
+    """A week or a month that starts on a day with steps counts that day (1.0.0).
+
+    The recorder reads a period's start from the first row an hour before it; with only
+    the day's own row at midnight that was the day itself, and its steps fell out.
+    """
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    day = {n: _today() - timedelta(days=n) for n in (6, 5, 3, 2, 1)}
+    steps = {6: 1000, 5: 2000, 2: 3000, 1: 4000}
+    totals = [{"date": day[n].isoformat(), "steps": count} for n, count in steps.items()]
+    assert await _post(client, _backfill(daily_totals=totals)) == 200
+    await async_wait_recording_done(hass)
+
+    def midnight(n: int) -> datetime:
+        return dt_util.start_of_local_day(day[n])
+
+    assert await _change(hass, entry, "steps", midnight(5)) == 9000.0
+    assert await _change(hass, entry, "steps", midnight(2)) == 7000.0
+    # From a day without steps: the next day's evening row has the same total.
+    assert await _change(hass, entry, "steps", midnight(3)) == 7000.0
+    # From before the first day: everything.
+    assert await _change(hass, entry, "steps", midnight(6) - timedelta(days=1)) == 10000.0
+    # The days themselves still read as before.
+    states = [r["state"] for r in _rows(hass, entry, "steps", "day", {"state", "sum"})]
+    assert states == [1000.0, 2000.0, 3000.0, 4000.0]
+
+
 async def test_distance_is_kept_in_km_and_sleep_in_hours(
     hass: HomeAssistant, hass_client_no_auth
 ) -> None:
@@ -430,7 +478,9 @@ async def test_statistics_from_0_12_in_m_and_min_move_to_km_and_hours(
     }
     assert units[statistic_id(entry, "distance")] == "km"
     assert units[statistic_id(entry, "sleep_minutes")] == "h"
-    assert entry.runtime_data.history.ledger.units == 2
+    assert entry.runtime_data.history.ledger.units == 3
+    # And a period from the second day counts it: the evening rows came with the move.
+    assert await _change(hass, entry, "distance", starts[1]) == 2.0
     # The webhook opens once that is done.
     payload = _backfill(daily_totals=[{"date": _today().isoformat(), "distance_meters": 1500}])
     assert await _post(await hass_client_no_auth(), payload) == 200

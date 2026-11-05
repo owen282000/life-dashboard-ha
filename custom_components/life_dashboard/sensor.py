@@ -25,7 +25,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTime
+from homeassistant.const import UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -221,13 +221,19 @@ class LifeDashboardSensor(RestoreSensor):
             name: value for name, value in state.attributes.items() if name in _PAYLOAD_ATTRIBUTES
         }
         value = stored.native_value
-        # Kept before 1.0.0, when these sensors were still in minutes.
+        # Kept before 1.0.0, when these sensors were still in minutes and metres.
         if (
             self._key in _HOURS_SINCE_1_0
             and stored.native_unit_of_measurement == UnitOfTime.MINUTES
             and isinstance(value, int | float)
         ):
             value = value / 60
+        if (
+            self._key == "distance_today"
+            and stored.native_unit_of_measurement == UnitOfLength.METERS
+            and isinstance(value, int | float)
+        ):
+            value = value / 1000
 
         return SensorUpdate(
             key=self._key,

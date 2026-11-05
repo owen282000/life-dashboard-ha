@@ -215,7 +215,7 @@ def test_health_minimal() -> None:
 
     # The newest day wins, and a missing field produces no sensor rather than a zero.
     assert updates["steps_today"].value == 4212
-    assert updates["distance_today"].value == 3128.5
+    assert updates["distance_today"].value == 3128.5 / 1000  # in km since 1.0.0
     assert "active_calories_today" not in updates
     assert "total_calories_today" not in updates
 
@@ -611,7 +611,7 @@ def test_healthkit_ios_daily_totals() -> None:
     )
     assert updates["steps_today"].value == 4212
     assert updates["steps_today"].attributes == {"date": "2026-09-15"}
-    assert updates["distance_today"].value == 3150.25
+    assert updates["distance_today"].value == 3150.25 / 1000
     assert updates["active_calories_today"].value == 310.4
     assert "total_calories_today" not in updates
     assert updates[KEY_LAST_HEALTH_SYNC].attributes["source"] == "healthkit_ios"
