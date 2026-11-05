@@ -62,6 +62,18 @@ _DAY_UNITS: dict[str, str] = {
 }
 
 
+# The recorder's unit class per unit, so a statistics graph can show a statistic in another
+# unit of its kind: distance in km or mi, sleep in hours, energy in kJ. Only units with an
+# obvious class; steps, bpm and the like have none.
+_UNIT_CLASSES: dict[str, str] = {
+    "m": "distance",
+    "kcal": "energy",
+    "min": "duration",
+    "L": "volume",
+    "kg": "mass",
+}
+
+
 def statistic_id(entry: ConfigEntry, key: str) -> str:
     """The recorder accepts [0-9a-z_] only, and an entry id is an uppercase ULID."""
     return f"{DOMAIN}:{entry.entry_id.lower()}_{key}"
@@ -306,6 +318,7 @@ class HistoryWriter:
             )
             # The unit as the old statistic has it, for a key this release no longer knows.
             metadata["unit_of_measurement"] = item.get("statistics_unit_of_measurement")
+            metadata["unit_class"] = _UNIT_CLASSES.get(metadata["unit_of_measurement"] or "")
             async_add_external_statistics(self._hass, metadata, rows)
             taken[old_sid] = len(rows)
             if has_sum:
@@ -478,7 +491,7 @@ class HistoryWriter:
             "source": DOMAIN,
             "name": _name(self._entry, key),
             "unit_of_measurement": _unit(key),
-            "unit_class": None,
+            "unit_class": _UNIT_CLASSES.get(_unit(key) or ""),
             "has_sum": sum_kind,
             "mean_type": mean_type,
         }

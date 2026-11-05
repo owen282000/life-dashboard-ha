@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from homeassistant.components.recorder.statistics import async_list_statistic_ids
 from homeassistant.core import HomeAssistant
 from homeassistant.core_config import async_process_ha_core_config
 from homeassistant.util import dt as dt_util
@@ -246,6 +247,43 @@ async def test_the_ledger_lets_old_days_go_and_the_sums_carry_on(
     steps = _rows(hass, entry, "steps", "day", {"state", "sum"})
     assert [(r["state"], r["sum"]) for r in steps] == [(100.0, 100.0), (250.0, 350.0)]
     assert ledger.carried == {"steps": 100.0, "sleep_minutes": 10.0}
+
+
+async def test_statistics_carry_a_unit_class_so_a_graph_can_convert(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """Distance in km and sleep in hours in a statistics graph need the recorder's class."""
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    day = (_today() - timedelta(days=1)).isoformat()
+    payload = _backfill(
+        daily_totals=[{"date": day, "steps": 100, "distance_meters": 2500, "active_calories": 90}],
+        sleep=[{"session_end_time": f"{day}T06:00:00Z", "duration_seconds": 27000, "uuid": "n"}],
+        heart_rate=HEART,
+    )
+    assert await _post(client, payload) == 200
+    await async_wait_recording_done(hass)
+
+    classes = {
+        item["statistic_id"]: item["unit_class"] for item in await async_list_statistic_ids(hass)
+    }
+    assert classes[statistic_id(entry, "distance")] == "distance"
+    assert classes[statistic_id(entry, "sleep_minutes")] == "duration"
+    assert classes[statistic_id(entry, "active_calories")] == "energy"
+    assert classes[statistic_id(entry, "steps")] is None
+    assert classes[statistic_id(entry, "heart_rate")] is None
+
+    # As a graph asks for it with `unit: km`.
+    rows = statistics_during_period(
+        hass,
+        datetime(2020, 1, 1, tzinfo=UTC),
+        None,
+        {statistic_id(entry, "distance")},
+        "day",
+        {"distance": "km"},
+        {"sum"},
+    )[statistic_id(entry, "distance")]
+    assert rows[-1]["sum"] == 2.5
 
 
 async def test_days_from_before_the_ledger_are_added_and_later_sums_move_up(

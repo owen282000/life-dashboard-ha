@@ -280,6 +280,21 @@ entities:
   - life_dashboard:<entry>_steps   # pick "Owen's Pixel steps" from the picker
 ```
 
+Distance, energy, sleep and the other minutes, water and weight are stored in m, kcal, min, L and kg, and carry the recorder's unit class, so a graph can show them in another unit of the same kind. Add `unit: km` to a distance graph, or `unit: h` to a sleep graph:
+
+```yaml
+type: statistics-graph
+title: Sleep per night
+chart_type: bar
+period: day
+days_to_show: 30
+unit: h
+stat_types:
+  - change
+entities:
+  - life_dashboard:<entry>_sleep_minutes
+```
+
 <p align="center">
   <img src="screenshots/statistics.png" alt="Two statistics graph cards fed by the integration: steps per week as bars, and heart rate per day as a line with its min and max band" width="520">
 </p>
