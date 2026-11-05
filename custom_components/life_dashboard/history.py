@@ -17,6 +17,9 @@ exhaustively, and statistics.py is the thin layer that talks to the recorder.
 
 from __future__ import annotations
 
+import math
+import re
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Final
@@ -281,8 +284,19 @@ def _note_hour(changes: dict[str, datetime], key: str, hour: datetime) -> None:
         changes[key] = hour
 
 
+def app_key(package: str) -> str:
+    """The ledger and statistic key of one app's screen time: [0-9a-z_] only, as the
+    recorder wants, from the package, which stays the same when the app is renamed."""
+    return "app_" + re.sub(r"[^0-9a-z]+", "_", package.lower()).strip("_")
+
+
 def apply_payload(
-    ledger: Ledger, data: dict[str, Any], *, tz: tzinfo, now: datetime | None = None
+    ledger: Ledger,
+    data: dict[str, Any],
+    *,
+    tz: tzinfo,
+    now: datetime | None = None,
+    apps: Collection[str] = (),
 ) -> HistoryChange:
     """Fold one payload into the ledger, and report what it changed.
 
@@ -301,7 +315,7 @@ def apply_payload(
         return HistoryChange()
 
     _apply_daily_totals(ledger, data, day_changes, old_days)
-    _apply_screen_time(ledger, data, day_changes, old_days)
+    _apply_screen_time(ledger, data, day_changes, old_days, apps)
     _apply_sessions(ledger, data, tz, day_changes, old_days)
     _apply_measured(ledger, data, _first_hour(ledger, tz), hour_changes, old_hours)
     now = now or datetime.now(UTC)
@@ -357,8 +371,13 @@ def _apply_screen_time(
     data: dict[str, Any],
     changes: dict[str, date],
     old: dict[str, dict[str, float]],
+    apps: Collection[str],
 ) -> None:
-    """A day's screen time replaces what we had, like a daily total."""
+    """A day's screen time replaces what we had, like a daily total.
+
+    So does each app's in `apps`, the packages whose sensor is on: an app missing from a
+    day the phone sent had no minutes that day, as its sensor reads 0 then.
+    """
     entries = data.get("screen_time")
     if not isinstance(entries, list):
         return
@@ -379,14 +398,33 @@ def _apply_screen_time(
         minutes = _number(entry.get(key))
         if minutes is None:
             continue
-        if _pruned(ledger, day):
-            old.setdefault(SCREEN_TIME_KEY, {})[day.isoformat()] = minutes
-            continue
-        days = ledger.days.setdefault(SCREEN_TIME_KEY, {})
+        figures = {SCREEN_TIME_KEY: minutes}
+        if apps:
+            per_app = _app_minutes(entry)
+            figures |= {app_key(package): per_app.get(package, 0.0) for package in apps}
         iso = day.isoformat()
-        if days.get(iso) != minutes:
-            days[iso] = minutes
-            _note_day(changes, SCREEN_TIME_KEY, day)
+        for key, amount in figures.items():
+            if _pruned(ledger, day):
+                old.setdefault(key, {})[iso] = amount
+                continue
+            days = ledger.days.setdefault(key, {})
+            if days.get(iso) != amount:
+                days[iso] = amount
+                _note_day(changes, key, day)
+
+
+def _app_minutes(entry: dict[str, Any]) -> dict[str, float]:
+    """Minutes per package of a screen time day; a row without a package or a finite
+    figure is left out, as the app table leaves it out."""
+    minutes: dict[str, float] = {}
+    rows = entry.get("apps")
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or not isinstance(package := row.get("package"), str):
+            continue
+        value = _number(row.get("minutes"))
+        if value is not None and math.isfinite(value):
+            minutes[package] = minutes.get(package, 0.0) + value
+    return minutes
 
 
 def _apply_sessions(

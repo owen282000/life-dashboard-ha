@@ -400,8 +400,8 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec(KEY_EXERCISE_TODAY, "min", "duration", precision=0),
         SensorSpec(KEY_EXERCISE_YESTERDAY, "min", "duration", precision=0),
         # Screen time.
-        SensorSpec("screen_time_today", "min", "duration", precision=0),
-        SensorSpec("screen_time_yesterday", "min", "duration", precision=0),
+        SensorSpec("screen_time_today", "h", "duration", precision=3),
+        SensorSpec("screen_time_yesterday", "h", "duration", precision=3),
         # A text sensor: no unit, no device class and no state class, or Home
         # Assistant refuses a non-numeric state.
         SensorSpec("screen_time_top_app"),
@@ -622,7 +622,8 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
             updates.append(
                 SensorUpdate(
                     key=key,
-                    value=int(minutes),
+                    # In hours, so a tile reads 2h 51m, as the last sleep does.
+                    value=minutes / 60,
                     measured_at=midnight,
                     attributes=_screen_time_attributes(entry, day),
                     last_reset=midnight if key == "screen_time_today" else None,

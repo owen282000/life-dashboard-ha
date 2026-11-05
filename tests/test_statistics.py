@@ -286,6 +286,61 @@ async def test_statistics_carry_a_unit_class_so_a_graph_can_convert(
     assert rows[-1]["sum"] == 2.5
 
 
+async def test_an_app_whose_sensor_is_on_keeps_its_days_as_a_statistic(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """The app's sensor shows the newest day only; its statistic keeps every day."""
+    from homeassistant.helpers import entity_registry as er
+
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    yesterday = (_today() - timedelta(days=1)).isoformat()
+    today = _today().isoformat()
+    youtube, chrome = "com.google.android.youtube", "com.android.chrome"
+
+    def week(youtube_today: int) -> dict:
+        def app(package: str, name: str, minutes: int) -> dict:
+            return {"package": package, "name": name, "minutes": minutes}
+
+        return {
+            "timestamp": "2026-09-15T18:00:00Z",
+            "source": "screen_time",
+            "screen_time": [
+                {
+                    "date": yesterday,
+                    "total_screen_time_minutes": 100,
+                    "apps": [app(youtube, "YouTube", 60), app(chrome, "Chrome", 40)],
+                },
+                {
+                    "date": today,
+                    "total_screen_time_minutes": youtube_today,
+                    "apps": [app(youtube, "YouTube", youtube_today)],
+                },
+            ],
+        }
+
+    assert await _post(client, week(30)) == 200
+    await hass.async_block_till_done()
+    # The app sensors come disabled; the user turns on YouTube's only.
+    registry = er.async_get(hass)
+    for item in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if item.unique_id.endswith(f"screen_time_app_{youtube}"):
+            registry.async_update_entity(item.entity_id, disabled_by=None)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert await _post(client, week(45)) == 200
+    await async_wait_recording_done(hass)
+
+    rows = _rows(hass, entry, "app_com_google_android_youtube", "day", {"state", "sum"})
+    assert [(r["state"], r["sum"]) for r in rows] == [(60.0, 60.0), (45.0, 105.0)]
+    assert _rows(hass, entry, "app_com_android_chrome", "day", {"sum"}) == []
+    items = {i["statistic_id"]: i for i in await async_list_statistic_ids(hass)}
+    item = items[statistic_id(entry, "app_com_google_android_youtube")]
+    assert item["name"] == "Owen's Pixel YouTube screen time"
+    assert (item["statistics_unit_of_measurement"], item["unit_class"]) == ("min", "duration")
+
+
 async def test_days_from_before_the_ledger_are_added_and_later_sums_move_up(
     hass: HomeAssistant, hass_client_no_auth
 ) -> None:
