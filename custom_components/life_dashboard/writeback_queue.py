@@ -328,6 +328,7 @@ class WritebackQueue:
     the same value, not even by the backfill; a corrected value is a new version.
     seen: entity -> the last accepted measurement, for the debounce.
     refused: type -> the code that earned it a repair issue, until an ack clears it.
+    not_asked: type -> how many requests in a row carried a writeback block without it.
     """
 
     pending: dict[str, Reading] = field(default_factory=dict)
@@ -335,9 +336,21 @@ class WritebackQueue:
     delivered: dict[str, dict[str, Any]] = field(default_factory=dict)
     seen: dict[str, _Seen] = field(default_factory=dict)
     refused: dict[str, str] = field(default_factory=dict)
+    not_asked: dict[str, int] = field(default_factory=dict)
     acked_total: int = 0
     failed_total: dict[str, int] = field(default_factory=dict)
     last_ack_at: datetime | None = None
+
+    # --- What the phone asks for ----------------------------------------------
+
+    def note_asked(self, asked: set[str], mapped: set[str]) -> None:
+        """Count, per mapped type, the requests in a row that left it out.
+
+        Only a request with a writeback block counts: the app lists every type it has
+        switched on under Receive and may write, whether or not anything was measured,
+        so a type that is missing has been switched off or lost its permission.
+        """
+        self.not_asked = {kind: self.not_asked.get(kind, 0) + 1 for kind in sorted(mapped - asked)}
 
     # --- Offering ------------------------------------------------------------
 
@@ -597,6 +610,7 @@ class WritebackQueue:
                 for entity_id, seen in self.seen.items()
             },
             "refused": dict(self.refused),
+            "not_asked": dict(self.not_asked),
             "acked_total": self.acked_total,
             "failed_total": dict(self.failed_total),
             "last_ack_at": self.last_ack_at.isoformat() if self.last_ack_at else None,
@@ -636,6 +650,11 @@ class WritebackQueue:
                 )
             except (KeyError, TypeError, ValueError, AttributeError):
                 continue
+        queue.not_asked = {
+            kind: int(count)
+            for kind, count in (data.get("not_asked") or {}).items()
+            if isinstance(count, int) and count > 0
+        }
         queue.refused = {
             kind: code
             for kind, code in (data.get("refused") or {}).items()

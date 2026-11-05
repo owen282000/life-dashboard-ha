@@ -348,6 +348,10 @@
     "writeback_unsupported_type": {
       "title": "{phone} does not know {type}",
       "description": "The Life Dashboard Companion app on {phone} is too old to write {type} to Health Connect. Update the app. New readings then go through as usual. The readings that were already refused stay out of Health Connect: they are not offered again, not even by Send history to phone."
+    },
+    "writeback_not_asked": {
+      "title": "{phone} does not ask for {type}",
+      "description": "In its last syncs, the Life Dashboard Companion app on {phone} did not ask for {type}, so what Home Assistant has for it waits, for up to 90 days. In the app, open Receive on the Health tab and check that {type} is on and allowed to write to Health Connect. If {type} should no longer go to this phone, clear it in this integration's options. This goes away by itself once the phone asks for {type} again."
     }
   },
   "selector": {
