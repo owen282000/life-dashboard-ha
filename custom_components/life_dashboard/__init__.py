@@ -29,6 +29,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
@@ -184,13 +185,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     entry.runtime_data.version = str(integration.version)
     history = HistoryWriter(hass, entry)
     await history.async_load()
-    if owner := entry.data.get(CONF_TAKE_OVER):
-        # Before the webhook is up, so the copy is in before this phone writes a row.
-        await history.async_take_over(owner)
-        data = {key: value for key, value in entry.data.items() if key != CONF_TAKE_OVER}
-        hass.config_entries.async_update_entry(entry, data=data)
-    # Before the webhook is up as well: statistics from 0.12 in m and min go to km and h.
-    await history.async_migrate_units()
     entry.runtime_data.history = history
     writeback = WritebackManager(hass, entry)
     await writeback.async_load()
@@ -204,16 +198,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     if apps.latest is not None:
         entry.runtime_data.latest[KEY_SCREEN_TIME_APPS] = apps.latest
 
-    webhook.async_register(
-        hass,
-        DOMAIN,
-        entry.title,
-        entry.data[CONF_WEBHOOK_ID],
-        _make_handler(entry),
-        allowed_methods=["POST"],
-    )
-    # Registering the same id twice raises, so a reload has to unregister first.
-    entry.async_on_unload(lambda: webhook.async_unregister(hass, entry.data[CONF_WEBHOOK_ID]))
+    if history.available and (entry.data.get(CONF_TAKE_OVER) or history.needs_unit_migration):
+        # The recorder works its queue only once Home Assistant has started, and waiting
+        # for it here would hold the start up for good. Until then the webhook stays closed,
+        # and the phone keeps what it sends in its outbox for a little while.
+
+        @callback
+        def _prepare(_hass: HomeAssistant) -> None:
+            # After the start, so a tracked task holds nothing up; it can be waited for.
+            entry.async_create_task(
+                hass, _async_prepare_history(hass, entry), f"{DOMAIN} prepare history"
+            )
+
+        entry.async_on_unload(async_at_started(hass, _prepare))
+    else:
+        if entry.data.get(CONF_TAKE_OVER):
+            await history.async_take_over(entry.data[CONF_TAKE_OVER])
+            _drop_take_over(hass, entry)
+        _open_webhook(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -266,6 +268,40 @@ def async_publish_exercise(hass: HomeAssistant, entry: LifeDashboardConfigEntry)
     for update in updates:
         if runtime.apply(update):
             async_dispatcher_send(hass, signal_update(entry.entry_id), update)
+
+
+async def _async_prepare_history(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> None:
+    """Take over a removed phone's history and bring 0.12's units over, then take payloads.
+
+    Both before the webhook is up, so no row of this phone lands in between.
+    """
+    history = entry.runtime_data.history
+    assert history is not None
+    if owner := entry.data.get(CONF_TAKE_OVER):
+        await history.async_take_over(owner)
+        _drop_take_over(hass, entry)
+    await history.async_migrate_units()
+    _open_webhook(hass, entry)
+
+
+@callback
+def _drop_take_over(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> None:
+    data = {key: value for key, value in entry.data.items() if key != CONF_TAKE_OVER}
+    hass.config_entries.async_update_entry(entry, data=data)
+
+
+@callback
+def _open_webhook(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> None:
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        entry.title,
+        entry.data[CONF_WEBHOOK_ID],
+        _make_handler(entry),
+        allowed_methods=["POST"],
+    )
+    # Registering the same id twice raises, so a reload has to unregister first.
+    entry.async_on_unload(lambda: webhook.async_unregister(hass, entry.data[CONF_WEBHOOK_ID]))
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> bool:

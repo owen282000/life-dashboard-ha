@@ -306,15 +306,21 @@ class HistoryWriter:
                 earliest_day(change),
             )
 
+    @property
+    def needs_unit_migration(self) -> bool:
+        """Whether this phone's statistics may still be in m and min (0.12 and earlier)."""
+        return self.available and self.ledger.units < 2
+
     async def async_migrate_units(self) -> None:
         """Bring this phone's day sums in m or min over to km and h, once (1.0.0).
 
         The recorder converts a statistic's unit only for those it compiles itself, so the
         rows are written again in the new unit: an import replaces a row with the same start,
         and takes the new unit into the metadata. Run before the webhook is up, so no row in
-        the new unit can land next to old ones.
+        the new unit can land next to old ones, and after Home Assistant has started: the
+        recorder works its queue only from then on.
         """
-        if not self.available:
+        if not self.needs_unit_migration:
             return
         from homeassistant.components.recorder import get_instance
         from homeassistant.components.recorder.models import StatisticMeanType
@@ -363,6 +369,8 @@ class HistoryWriter:
             _LOGGER.info(
                 "Statistics of %s now in km and hours: %s", self._entry.title, ", ".join(moved)
             )
+        self.ledger.units = 2
+        await self.async_flush()
 
     async def async_take_over(self, owner: str) -> bool:
         """Move a removed phone's statistics to this entry, and carry on their sums (P2-30).
