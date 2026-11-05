@@ -56,14 +56,33 @@ APP_PREFIX = "app_"
 
 _DAY_UNITS: dict[str, str] = {
     "steps": "steps",
-    "distance": "m",
+    "distance": "km",
     "active_calories": "kcal",
     "total_calories": "kcal",
-    "sleep_minutes": "min",
-    "exercise_minutes": "min",
-    "mindfulness_minutes": "min",
+    "sleep_minutes": "h",
+    "exercise_minutes": "h",
+    "mindfulness_minutes": "h",
     "hydration_total": "L",
-    "screen_time": "min",
+    "screen_time": "h",
+}
+
+# The day sums kept in a larger unit than the ledger's, which holds what the phone sends:
+# key -> (the ledger's unit, the factor to the statistic's). A graph cannot convert an
+# external statistic, so 4.2 km and 7.5 h are stored as such. Up to 0.12 these were in
+# m and min; `async_migrate_units` brings such a statistic over once.
+_SCALED: dict[str, tuple[str, float]] = {
+    "distance": ("m", 1 / 1000),
+    "sleep_minutes": ("min", 1 / 60),
+    "exercise_minutes": ("min", 1 / 60),
+    "mindfulness_minutes": ("min", 1 / 60),
+    "screen_time": ("min", 1 / 60),
+}
+
+# Names for the keys whose own name would say the old unit.
+_NAMES: dict[str, str] = {
+    "sleep_minutes": "sleep",
+    "exercise_minutes": "exercise",
+    "mindfulness_minutes": "mindfulness",
 }
 
 
@@ -72,8 +91,10 @@ _DAY_UNITS: dict[str, str] = {
 # obvious class; steps, bpm and the like have none.
 _UNIT_CLASSES: dict[str, str] = {
     "m": "distance",
+    "km": "distance",
     "kcal": "energy",
     "min": "duration",
+    "h": "duration",
     "L": "volume",
     "kg": "mass",
 }
@@ -118,9 +139,30 @@ async def async_remove_store(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await _store(hass, entry.entry_id).async_remove()
 
 
+def _scale(key: str) -> tuple[str, float] | None:
+    """The ledger's unit of a scaled day sum and its factor to the statistic's unit."""
+    if key.startswith(APP_PREFIX):
+        return ("min", 1 / 60)
+    return _SCALED.get(key)
+
+
+def _factor(key: str) -> float:
+    return scale[1] if (scale := _scale(key)) else 1.0
+
+
+def _scaled(key: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Day rows from the ledger's unit into the statistic's."""
+    if (factor := _factor(key)) == 1.0:
+        return rows
+    return [
+        row | {name: row[name] * factor for name in ("state", "sum") if row.get(name) is not None}
+        for row in rows
+    ]
+
+
 def _unit(key: str) -> str | None:
     if key.startswith(APP_PREFIX):
-        return "min"
+        return "h"
     if key in _DAY_UNITS:
         return _DAY_UNITS[key]
     spec = SENSOR_SPECS.get(key)
@@ -128,7 +170,7 @@ def _unit(key: str) -> str | None:
 
 
 def _name(entry: ConfigEntry, key: str) -> str:
-    return f"{entry.title} {key.replace('_', ' ')}"
+    return f"{entry.title} {_NAMES.get(key, key.replace('_', ' '))}"
 
 
 def _split(sid: str) -> tuple[str, str] | None:
@@ -239,7 +281,7 @@ class HistoryWriter:
         from homeassistant.components.recorder.statistics import async_add_external_statistics
 
         for key, since in change.day_keys.items():
-            rows = day_rows(self.ledger, key, since, tz=tz)
+            rows = _scaled(key, day_rows(self.ledger, key, since, tz=tz))
             if rows:
                 async_add_external_statistics(
                     self._hass,
@@ -262,6 +304,64 @@ class HistoryWriter:
                 " calorie history stays empty (the Android app sends them from 1.17.0,"
                 " the iOS app from 1.4.0)",
                 earliest_day(change),
+            )
+
+    async def async_migrate_units(self) -> None:
+        """Bring this phone's day sums in m or min over to km and h, once (1.0.0).
+
+        The recorder converts a statistic's unit only for those it compiles itself, so the
+        rows are written again in the new unit: an import replaces a row with the same start,
+        and takes the new unit into the metadata. Run before the webhook is up, so no row in
+        the new unit can land next to old ones.
+        """
+        if not self.available:
+            return
+        from homeassistant.components.recorder import get_instance
+        from homeassistant.components.recorder.models import StatisticMeanType
+        from homeassistant.components.recorder.statistics import (
+            async_add_external_statistics,
+            async_list_statistic_ids,
+            statistics_during_period,
+        )
+
+        recorder = get_instance(self._hass)
+        await recorder.async_db_ready
+        owner = self._entry.entry_id.lower()
+        moved = []
+        for item in await async_list_statistic_ids(self._hass):
+            parts = _split(item["statistic_id"])
+            if item.get("source") != DOMAIN or parts is None or parts[0] != owner:
+                continue
+            key = parts[1]
+            scale = _scale(key)
+            if scale is None or item.get("statistics_unit_of_measurement") != scale[0]:
+                continue
+            sid = item["statistic_id"]
+            found = await recorder.async_add_executor_job(
+                statistics_during_period,
+                self._hass,
+                datetime.fromtimestamp(0, UTC),
+                None,
+                {sid},
+                "hour",
+                None,
+                {"state", "sum"},
+            )
+            rows = [
+                {"start": datetime.fromtimestamp(row["start"], UTC)}
+                | {name: row[name] for name in ("state", "sum") if row.get(name) is not None}
+                for row in found.get(sid, [])
+            ]
+            async_add_external_statistics(
+                self._hass,
+                self._metadata(key, sum_kind=True, mean_type=StatisticMeanType.NONE),
+                _scaled(key, rows),
+            )
+            moved.append(key)
+        if moved:
+            await _async_settled(recorder)
+            _LOGGER.info(
+                "Statistics of %s now in km and hours: %s", self._entry.title, ", ".join(moved)
             )
 
     async def async_take_over(self, owner: str) -> bool:
@@ -325,14 +425,22 @@ class HistoryWriter:
                 sum_kind=has_sum,
                 mean_type=StatisticMeanType.NONE if has_sum else StatisticMeanType.ARITHMETIC,
             )
-            # The unit as the old statistic has it, for a key this release no longer knows.
-            metadata["unit_of_measurement"] = item.get("statistics_unit_of_measurement")
-            metadata["unit_class"] = _UNIT_CLASSES.get(metadata["unit_of_measurement"] or "")
+            copied_unit = item.get("statistics_unit_of_measurement")
+            scale = _scale(key)
+            if has_sum and scale is not None and copied_unit == scale[0]:
+                # From a phone on 0.12 or older, in m or min: copied in km or h.
+                rows = _scaled(key, rows)
+            else:
+                # The unit as the old statistic has it, for a key this release no longer knows.
+                metadata["unit_of_measurement"] = copied_unit
+                metadata["unit_class"] = _UNIT_CLASSES.get(copied_unit or "")
             async_add_external_statistics(self._hass, metadata, rows)
             taken[old_sid] = len(rows)
             if has_sum:
+                # Back in the ledger's unit, which is what the phone sends.
+                back = 1 / _factor(key) if metadata["unit_of_measurement"] == _unit(key) else 1.0
                 sums[key] = [
-                    (row["start"], row.get("state") or 0.0, row["sum"])
+                    (row["start"], (row.get("state") or 0.0) * back, row["sum"] * back)
                     for row in rows
                     if row.get("sum") is not None
                 ]
@@ -441,17 +549,19 @@ class HistoryWriter:
                     continue
 
                 unit = _unit(key)
+                # The statistics are in the statistic's unit, the ledger in the phone's.
+                factor = _factor(key)
                 for start, amount in new.items():
                     if any(ts > start.timestamp() for ts in existing):
                         recorder.async_adjust_statistics(
-                            sid, start + timedelta(hours=1), amount, unit or ""
+                            sid, start + timedelta(hours=1), amount * factor, unit or ""
                         )
                 rows = []
                 for start in sorted(new):
                     before = [ts for ts in existing if ts < start.timestamp()]
                     base = existing[max(before)] if before else 0.0
-                    total = base + sum(a for s, a in new.items() if s <= start)
-                    rows.append({"start": start, "state": new[start], "sum": total})
+                    total = base + factor * sum(a for s, a in new.items() if s <= start)
+                    rows.append({"start": start, "state": new[start] * factor, "sum": total})
                 async_add_external_statistics(
                     self._hass,
                     self._metadata(key, sum_kind=True, mean_type=StatisticMeanType.NONE),

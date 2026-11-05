@@ -24,7 +24,15 @@ Check these when you update. Anything else keeps working as it did.
   - **What to do:** an automation or template that reads them as minutes needs an update, the same
     way: multiply by 60, or change a trigger such as "above 120" to "above 2".
   - **What stays the same:** the entity IDs, the attributes in minutes (`top_apps`, `minutes`,
-    `week_minutes`, `all_apps_minutes`) and the long-term statistic `screen_time`.
+    `week_minutes`, `all_apps_minutes`).
+- **The long-term statistics of distance, sleep, workouts, mindfulness and screen time** are now in
+  km and hours instead of m and minutes, so a statistics graph reads 42 km and 7.5 h. Home Assistant
+  can't convert an external statistic in a graph, so they are stored that way.
+  - **What to do:** nothing for your graphs: the first start after the update rewrites the history
+    you have in km and hours, and the totals carry on. A template or automation that reads these
+    statistics as m or minutes needs an update.
+  - **What stays the same:** the statistic IDs, also `sleep_minutes` and the other `_minutes` ones,
+    which now hold hours. Steps, calories, water and weight keep their units.
 
 ### Added
 

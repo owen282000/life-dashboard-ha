@@ -4,7 +4,11 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from homeassistant.components.recorder.statistics import async_list_statistic_ids
+from homeassistant.components.recorder.models import StatisticMeanType
+from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics,
+    async_list_statistic_ids,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.core_config import async_process_ha_core_config
 from homeassistant.util import dt as dt_util
@@ -115,7 +119,7 @@ async def test_a_backfill_lands_on_its_own_days(hass: HomeAssistant, hass_client
     )
 
     sleep = _rows(hass, entry, "sleep_minutes", "day", {"state"})
-    assert [r["state"] for r in sleep] == [450.0]
+    assert [r["state"] for r in sleep] == [7.5], "in hours since 1.0.0"
 
     hr = _rows(hass, entry, "heart_rate", "hour", {"mean", "min", "max"})
     assert [(r["mean"], r["min"], r["max"]) for r in hr] == [(65.0, 60.0, 70.0)]
@@ -132,7 +136,7 @@ async def test_the_same_backfill_twice_does_not_double(
     await async_wait_recording_done(hass)
 
     assert [r["sum"] for r in _rows(hass, entry, "steps", "day", {"sum"})] == [100.0]
-    assert [r["state"] for r in _rows(hass, entry, "sleep_minutes", "day", {"state"})] == [450.0]
+    assert [r["state"] for r in _rows(hass, entry, "sleep_minutes", "day", {"state"})] == [7.5]
 
 
 async def test_the_ledger_survives_a_reload(hass: HomeAssistant, hass_client_no_auth) -> None:
@@ -202,7 +206,8 @@ async def test_screen_time_becomes_a_day_statistic(
     await async_wait_recording_done(hass)
 
     rows = _rows(hass, entry, "screen_time", "day", {"state", "sum"})
-    assert [(r["state"], r["sum"]) for r in rows] == [(180.0, 180.0), (25.0, 205.0)]
+    hours = [(r["state"] * 60, r["sum"] * 60) for r in rows]  # stored in hours since 1.0.0
+    assert hours == pytest.approx([(180.0, 180.0), (25.0, 205.0)])
 
 
 def _today():
@@ -333,12 +338,98 @@ async def test_an_app_whose_sensor_is_on_keeps_its_days_as_a_statistic(
     await async_wait_recording_done(hass)
 
     rows = _rows(hass, entry, "app_com_google_android_youtube", "day", {"state", "sum"})
-    assert [(r["state"], r["sum"]) for r in rows] == [(60.0, 60.0), (45.0, 105.0)]
+    assert [(r["state"], r["sum"]) for r in rows] == [(1.0, 1.0), (0.75, 1.75)], "in hours"
     assert _rows(hass, entry, "app_com_android_chrome", "day", {"sum"}) == []
     items = {i["statistic_id"]: i for i in await async_list_statistic_ids(hass)}
     item = items[statistic_id(entry, "app_com_google_android_youtube")]
     assert item["name"] == "Owen's Pixel YouTube screen time"
-    assert (item["statistics_unit_of_measurement"], item["unit_class"]) == ("min", "duration")
+    assert (item["statistics_unit_of_measurement"], item["unit_class"]) == ("h", "duration")
+
+
+async def test_distance_is_kept_in_km_and_sleep_in_hours(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """A graph cannot convert an external statistic, so they are stored as they read."""
+    entry = await _entry(hass)
+    client = await hass_client_no_auth()
+    day = (_today() - timedelta(days=1)).isoformat()
+    payload = _backfill(
+        daily_totals=[{"date": day, "distance_meters": 4200}],
+        sleep=[{"session_end_time": f"{day}T06:00:00Z", "duration_seconds": 27000, "uuid": "n"}],
+    )
+    assert await _post(client, payload) == 200
+    await async_wait_recording_done(hass)
+
+    assert [r["state"] for r in _rows(hass, entry, "distance", "day", {"state"})] == [4.2]
+    items = {i["statistic_id"]: i for i in await async_list_statistic_ids(hass)}
+    distance = items[statistic_id(entry, "distance")]
+    sleep = items[statistic_id(entry, "sleep_minutes")]
+    assert distance["statistics_unit_of_measurement"] == "km"
+    assert (sleep["statistics_unit_of_measurement"], sleep["name"]) == ("h", "Owen's Pixel sleep")
+    # The ledger keeps what the phone sends.
+    assert entry.runtime_data.history.ledger.days["distance"] == {day: 4200.0}
+
+
+async def test_statistics_from_0_12_in_m_and_min_move_to_km_and_hours(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """Rewritten once at setup, before the webhook is up, so the totals carry on."""
+    await async_process_ha_core_config(hass, {"time_zone": "Europe/Amsterdam"})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Owen's Pixel",
+        unique_id=WEBHOOK_ID,
+        data={
+            CONF_WEBHOOK_ID: WEBHOOK_ID,
+            CONF_SECRET: SECRET,
+            CONF_URL_CHOICE: URL_CHOICE_INTERNAL,
+        },
+    )
+    entry.add_to_hass(hass)
+    days = [_today() - timedelta(days=n) for n in (3, 2)]
+    starts = [dt_util.start_of_local_day(day) for day in days]
+    old = {
+        "distance": ("m", [(3000.0, 3000.0), (2000.0, 5000.0)]),
+        "sleep_minutes": ("min", [(420.0, 420.0), (480.0, 900.0)]),
+    }
+    for key, (unit, values) in old.items():
+        async_add_external_statistics(
+            hass,
+            {
+                "statistic_id": statistic_id(entry, key),
+                "source": DOMAIN,
+                "name": f"Owen's Pixel {key}",
+                "unit_of_measurement": unit,
+                "unit_class": None,
+                "has_sum": True,
+                "mean_type": StatisticMeanType.NONE,
+            },
+            [
+                {"start": start, "state": state, "sum": total}
+                for start, (state, total) in zip(starts, values, strict=True)
+            ],
+        )
+    await async_wait_recording_done(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await async_wait_recording_done(hass)
+
+    distance = _rows(hass, entry, "distance", "day", {"state", "sum"})
+    assert [(r["state"], r["sum"]) for r in distance] == [(3.0, 3.0), (2.0, 5.0)]
+    sleep = _rows(hass, entry, "sleep_minutes", "day", {"state", "sum"})
+    assert [(r["state"], r["sum"]) for r in sleep] == [(7.0, 7.0), (8.0, 15.0)]
+    units = {
+        i["statistic_id"]: i["statistics_unit_of_measurement"]
+        for i in await async_list_statistic_ids(hass)
+    }
+    assert units[statistic_id(entry, "distance")] == "km"
+    assert units[statistic_id(entry, "sleep_minutes")] == "h"
+
+    # A second start leaves them as they are.
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await async_wait_recording_done(hass)
+    distance = _rows(hass, entry, "distance", "day", {"sum"})
+    assert [r["sum"] for r in distance] == [3.0, 5.0]
 
 
 async def test_days_from_before_the_ledger_are_added_and_later_sums_move_up(
@@ -370,7 +461,10 @@ async def test_days_from_before_the_ledger_are_added_and_later_sums_move_up(
         (30.0, 180.0),
         (200.0, 380.0),
     ]
-    assert [r["sum"] for r in _rows(hass, entry, "sleep_minutes", "day", {"sum"})] == [10.0]
+    sleep = _rows(hass, entry, "sleep_minutes", "day", {"sum"})
+    assert [r["sum"] * 60 for r in sleep] == pytest.approx([10.0]), (
+        "in hours, the ledger in minutes"
+    )
     assert ledger.carried == {"steps": 180.0, "sleep_minutes": 10.0}
 
     # The rows the ledger writes later count them in.

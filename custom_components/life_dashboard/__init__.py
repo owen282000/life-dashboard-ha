@@ -189,6 +189,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
         await history.async_take_over(owner)
         data = {key: value for key, value in entry.data.items() if key != CONF_TAKE_OVER}
         hass.config_entries.async_update_entry(entry, data=data)
+    # Before the webhook is up as well: statistics from 0.12 in m and min go to km and h.
+    await history.async_migrate_units()
     entry.runtime_data.history = history
     writeback = WritebackManager(hass, entry)
     await writeback.async_load()
