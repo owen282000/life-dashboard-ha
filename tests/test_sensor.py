@@ -211,7 +211,7 @@ async def test_day_total_resets_at_local_midnight(
 
     distance = hass.states.get("sensor.owen_s_pixel_distance_today")
     assert distance.attributes["device_class"] == SensorDeviceClass.DISTANCE
-    assert distance.attributes["unit_of_measurement"] == "m"
+    assert distance.attributes["unit_of_measurement"] == "km"
 
 
 async def test_sleep_is_presented_in_minutes(

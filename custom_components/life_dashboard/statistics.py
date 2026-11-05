@@ -30,6 +30,8 @@ from .history import (
     Ledger,
     app_key,
     apply_payload,
+    closing_rows,
+    closing_start,
     day_rows,
     earliest_day,
     hour_rows,
@@ -281,7 +283,12 @@ class HistoryWriter:
         from homeassistant.components.recorder.statistics import async_add_external_statistics
 
         for key, since in change.day_keys.items():
-            rows = _scaled(key, day_rows(self.ledger, key, since, tz=tz))
+            rows = sorted(
+                day_rows(self.ledger, key, since, tz=tz)
+                + closing_rows(self.ledger, key, since, tz=tz),
+                key=lambda row: row["start"],
+            )
+            rows = _scaled(key, rows)
             if rows:
                 async_add_external_statistics(
                     self._hass,
@@ -308,11 +315,13 @@ class HistoryWriter:
 
     @property
     def needs_unit_migration(self) -> bool:
-        """Whether this phone's statistics may still be in m and min (0.12 and earlier)."""
-        return self.available and self.ledger.units < 2
+        """Whether this phone's statistics may still be in m and min, or lack the closing rows
+        a period's start is read from (both before 1.0.0)."""
+        return self.available and self.ledger.units < 3
 
     async def async_migrate_units(self) -> None:
-        """Bring this phone's day sums in m or min over to km and h, once (1.0.0).
+        """Bring this phone's day sums up to 1.0.0, once: km and h instead of m and min, and
+        a closing row for every past day (`history.closing_rows`).
 
         The recorder converts a statistic's unit only for those it compiles itself, so the
         rows are written again in the new unit: an import replaces a row with the same start,
@@ -332,6 +341,7 @@ class HistoryWriter:
 
         recorder = get_instance(self._hass)
         await recorder.async_db_ready
+        tz = dt_util.get_default_time_zone()
         owner = self._entry.entry_id.lower()
         moved = []
         for item in await async_list_statistic_ids(self._hass):
@@ -339,9 +349,11 @@ class HistoryWriter:
             if item.get("source") != DOMAIN or parts is None or parts[0] != owner:
                 continue
             key = parts[1]
-            scale = _scale(key)
-            if scale is None or item.get("statistics_unit_of_measurement") != scale[0]:
+            if not item.get("has_sum"):
                 continue
+            unit = item.get("statistics_unit_of_measurement")
+            scale = _scale(key)
+            convert = scale is not None and unit == scale[0]
             sid = item["statistic_id"]
             found = await recorder.async_add_executor_job(
                 statistics_during_period,
@@ -358,18 +370,26 @@ class HistoryWriter:
                 | {name: row[name] for name in ("state", "sum") if row.get(name) is not None}
                 for row in found.get(sid, [])
             ]
-            async_add_external_statistics(
-                self._hass,
-                self._metadata(key, sum_kind=True, mean_type=StatisticMeanType.NONE),
-                _scaled(key, rows),
-            )
+            if convert:
+                rows = _scaled(key, rows)
+            closing = _missing_closing_rows(rows, tz=tz)
+            if not convert and not closing:
+                continue
+            metadata = self._metadata(key, sum_kind=True, mean_type=StatisticMeanType.NONE)
+            if not convert:
+                # The unit as the statistic has it, for a key this release no longer knows.
+                metadata["unit_of_measurement"] = unit
+                metadata["unit_class"] = _UNIT_CLASSES.get(unit or "")
+            # Converted, every row goes again; otherwise only the closing rows are new.
+            written = sorted(rows + closing, key=lambda row: row["start"]) if convert else closing
+            async_add_external_statistics(self._hass, metadata, written)
             moved.append(key)
         if moved:
             await _async_settled(recorder)
             _LOGGER.info(
-                "Statistics of %s now in km and hours: %s", self._entry.title, ", ".join(moved)
+                "Statistics of %s brought up to 1.0.0: %s", self._entry.title, ", ".join(moved)
             )
-        self.ledger.units = 2
+        self.ledger.units = 3
         await self.async_flush()
 
     async def async_take_over(self, owner: str) -> bool:
@@ -544,9 +564,10 @@ class HistoryWriter:
                     {sid},
                     "hour",
                     None,
-                    {"sum"},
+                    {"state", "sum"},
                 )
                 existing = {row["start"]: row.get("sum") or 0.0 for row in found.get(sid, [])}
+                states = {row["start"]: row.get("state") for row in found.get(sid, [])}
                 new = {
                     start: amount
                     for iso, amount in amounts.items()
@@ -569,7 +590,27 @@ class HistoryWriter:
                     before = [ts for ts in existing if ts < start.timestamp()]
                     base = existing[max(before)] if before else 0.0
                     total = base + factor * sum(a for s, a in new.items() if s <= start)
-                    rows.append({"start": start, "state": new[start] * factor, "sum": total})
+                    state = new[start] * factor
+                    rows.append({"start": start, "state": state, "sum": total})
+                    # The evening rows a period's start is read from (history.closing_rows):
+                    # the one before the new day, with the day before's amount as its state,
+                    # and the new day's own evening when a later day already has a row there.
+                    day = start.astimezone(tz).date()
+                    eve = closing_start(day - timedelta(days=1), tz)
+                    eve_midnight = _day_start(day - timedelta(days=1), tz)
+                    # None before the very first day: a period from there starts at 0.
+                    first = not before and start == min(new)
+                    if eve.timestamp() not in existing and not first:
+                        eve_state = (
+                            new[eve_midnight] * factor
+                            if eve_midnight in new
+                            else states.get(eve_midnight.timestamp())
+                        )
+                        rows.append({"start": eve, "state": eve_state, "sum": total - state})
+                    own = closing_start(day, tz)
+                    if own.timestamp() in existing:
+                        rows.append({"start": own, "state": state, "sum": total})
+                rows.sort(key=lambda row: row["start"])
                 async_add_external_statistics(
                     self._hass,
                     self._metadata(key, sum_kind=True, mean_type=StatisticMeanType.NONE),
@@ -664,6 +705,31 @@ async def _async_settled(recorder: Any) -> None:
     future: asyncio.Future[None] = recorder.hass.loop.create_future()
     recorder.queue_task(SynchronizeTask(future))
     await future
+
+
+def _missing_closing_rows(rows: list[dict[str, Any]], *, tz: tzinfo) -> list[dict[str, Any]]:
+    """The evening rows a day sum written before 1.0.0 lacks (`history.closing_rows`): one
+    at 23:00 before every day with a row at midnight, with the total of that evening and
+    the evening's own amount as its state, except before the very first day."""
+    taken = {row["start"].timestamp() for row in rows}
+    states = {row["start"].timestamp(): row.get("state") for row in rows}
+    closing: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        start = row["start"].astimezone(tz)
+        if start.hour != 0 or row.get("sum") is None:
+            continue
+        state = row.get("state") or 0.0
+        before = row["sum"] - state
+        if index == 0 and not before:
+            continue
+        day = start.date()
+        eve = closing_start(day - timedelta(days=1), tz)
+        if eve.timestamp() in taken:
+            continue
+        eve_state = states.get(_day_start(day - timedelta(days=1), tz).timestamp())
+        closing.append({"start": eve, "state": eve_state, "sum": before})
+        taken.add(eve.timestamp())
+    return closing
 
 
 def _day_start(day: date, tz: tzinfo) -> datetime:

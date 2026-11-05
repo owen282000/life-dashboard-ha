@@ -116,8 +116,11 @@ async def _pair(hass: HomeAssistant, take_over: str | None):
 
 
 def _rows(hass, sid, types):
+    """The rows at midnight, leaving out the evening rows a day sum also has."""
     start = datetime(2020, 1, 1, tzinfo=UTC)
-    return statistics_during_period(hass, start, None, {sid}, "hour", None, types).get(sid, [])
+    rows = statistics_during_period(hass, start, None, {sid}, "hour", None, types).get(sid, [])
+    tz = dt_util.get_default_time_zone()
+    return [r for r in rows if datetime.fromtimestamp(r["start"], tz).hour != 23]
 
 
 async def _post(client, payload: dict) -> int:
