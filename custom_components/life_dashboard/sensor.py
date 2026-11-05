@@ -214,9 +214,18 @@ class LifeDashboardSensor(RestoreSensor):
         attributes = {
             name: value for name, value in state.attributes.items() if name in _PAYLOAD_ATTRIBUTES
         }
+        value = stored.native_value
+        # Kept before 1.0.0, when this sensor was still in minutes.
+        if (
+            self._key == "sleep_duration"
+            and stored.native_unit_of_measurement == UnitOfTime.MINUTES
+            and isinstance(value, int | float)
+        ):
+            value = value / 60
+
         return SensorUpdate(
             key=self._key,
-            value=stored.native_value,
+            value=value,
             measured_at=measured_at,
             attributes=attributes,
             last_reset=last_reset,

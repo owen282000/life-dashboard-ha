@@ -130,7 +130,7 @@
           "uuid": "sleep-1"
         },
         "entity_id": "sensor.owen_s_pixel_last_sleep_duration",
-        "state": "450.0"
+        "state": "7.5"
       },
       "steps_today": {
         "attributes": {

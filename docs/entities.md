@@ -37,7 +37,7 @@ Each holds the newest record, with the time it describes as `measured_at`, the a
 | `heart_rate` | bpm | | `body_temperature` | °C |
 | `resting_heart_rate` | bpm | | `skin_temperature_delta` | °C |
 | `heart_rate_variability` | ms | | `basal_body_temperature` | °C |
-| `last_sleep_duration` | min | | `respiratory_rate` | breaths/min |
+| `last_sleep_duration` | h | | `respiratory_rate` | breaths/min |
 | `weight` | kg | | `last_drink` | L |
 | `blood_pressure_systolic` | mmHg | | `body_fat` | % |
 | `blood_pressure_diastolic` | mmHg | | `lean_body_mass` | kg |
@@ -242,7 +242,7 @@ actions:
 
 Paste it into a new dashboard's raw configuration editor. Replace `owen_s_pixel` in the entity IDs with your phone's name, and the four statistic IDs with the ones the picker offers under that name. Drop the tiles and rows for types you don't sync; Home Assistant shows a missing entity as an error.
 
-With the sensor's native unit, `min`, the last sleep tile shows minutes only. To see hours and minutes, set the sensor's unit to `h` in its settings and raise the display precision to four decimals. The frontend rounds down when it splits hours into minutes, so the tile can show a minute less.
+The last sleep tile shows hours and minutes, such as 7h 30m. The frontend rounds down when it splits hours into minutes, so it can show a minute less than the phone.
 
 <p align="center">
   <img src="screenshots/dashboard.png" alt="The example dashboard in three sections: Today with colored tiles for steps, distance, calories, screen time, heart rate and last sleep, a Body list with weight, resting heart rate, heart rate variability and blood pressure, and the two sync times; On the phone with the most used app, the top apps of the day and a bar chart of screen time per day; History with steps per week as bars and heart rate per day as a line with its min and max band" width="900">

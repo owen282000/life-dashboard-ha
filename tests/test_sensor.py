@@ -225,9 +225,65 @@ async def test_sleep_is_presented_in_minutes(
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.owen_s_pixel_last_sleep_duration")
-    assert state.state == "455.0"
+    assert float(state.state) == pytest.approx(27300 / 3600, abs=1e-3)
     assert state.attributes["device_class"] == SensorDeviceClass.DURATION
-    assert state.attributes["unit_of_measurement"] == "min"
+    assert state.attributes["unit_of_measurement"] == "h"
+
+
+@pytest.mark.parametrize(
+    ("seconds", "shown"),
+    [(27000, "7h 30m"), (24420, "6h 46m"), (28800, "8h 0m"), (25830, "7h 10m"), (1800, "0h 30m")],
+)
+async def test_last_sleep_reads_as_hours_and_minutes(
+    hass: HomeAssistant, hass_client_no_auth, loaded, seconds: int, shown: str
+) -> None:
+    """What a tile makes of the state: the frontend's formatDuration for the unit h, which
+    rounds to the display precision and then down to the minute."""
+    client = await hass_client_no_auth()
+    await _post(
+        client,
+        _health(sleep=[{"session_end_time": "2026-09-15T06:45:00Z", "duration_seconds": seconds}]),
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.owen_s_pixel_last_sleep_duration")
+    assert state.attributes["unit_of_measurement"] == "h"
+    value = round(float(state.state), SENSOR_SPECS["sleep_duration"].precision)
+    hours = int(value)
+    assert f"{hours}h {int((value - hours) * 60)}m" == shown
+
+
+async def test_last_sleep_kept_in_minutes_comes_back_in_hours(
+    hass: HomeAssistant, entry: MockConfigEntry, entity_registry: er.EntityRegistry
+) -> None:
+    """A value kept before 1.0.0, in minutes, must not show as 450 hours after the update."""
+    entity_registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_sleep_duration",
+        suggested_object_id="owen_s_pixel_last_sleep_duration",
+        config_entry=entry,
+    )
+    mock_restore_cache_with_extra_data(
+        hass,
+        (
+            (
+                State(
+                    "sensor.owen_s_pixel_last_sleep_duration",
+                    "450.0",
+                    attributes={"measured_at": "2026-09-15T05:30:00+00:00", "uuid": "sleep-1"},
+                ),
+                {"native_value": 450.0, "native_unit_of_measurement": "min"},
+            ),
+        ),
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.owen_s_pixel_last_sleep_duration")
+    assert float(state.state) == 7.5
+    assert state.attributes["unit_of_measurement"] == "h"
 
 
 async def test_screen_time_sensors(hass: HomeAssistant, hass_client_no_auth, loaded) -> None:

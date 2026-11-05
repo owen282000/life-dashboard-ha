@@ -6,6 +6,20 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Breaking changes
+
+Check these when you update. Anything else keeps working as it did.
+
+- **Last sleep duration** is now in hours, so a tile reads 7h 30m instead of 450m. The state changes
+  from `450` to `7.5`.
+  - **What to do:** an automation or template that reads it as minutes needs an update. Multiply by
+    60 to get minutes: `{{ states('sensor.your_phone_last_sleep_duration') | float(0) * 60 }}`. A
+    trigger such as "below 360" becomes "below 6".
+  - **What stays the same:** the entity ID and the long-term statistic `sleep_minutes`, so your
+    statistics graphs are not affected.
+  - The history graph of this sensor can show old values in minutes next to new ones in hours for a
+    while. That clears up on its own.
+
 ### Changed
 
 - The install steps name **Settings > Marketplace**, part of Home Assistant from 2026.11, with HACS

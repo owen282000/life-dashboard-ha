@@ -264,8 +264,8 @@ def test_health_every_latest_sensor() -> None:
     assert updates["resting_heart_rate"].value == 54
     assert updates["heart_rate_variability"].value == 48.5
     assert updates["speed"].value == 3.2
-    # Sleep is sent in seconds and presented in minutes.
-    assert updates["sleep_duration"].value == 450
+    # Sleep is sent in seconds and presented in hours.
+    assert updates["sleep_duration"].value == 7.5
     assert updates["weight"].value == 78.4
     assert updates["blood_pressure_systolic"].value == 118.0
     assert updates["blood_pressure_diastolic"].value == 76.0
@@ -998,8 +998,8 @@ def test_only_floats_are_rounded() -> None:
     assert isinstance(state_value("heart_rate", 61), int)
     # A bucket's average heart rate is a float, and keeps two decimals.
     assert state_value("heart_rate", 61.333333) == 61.33
-    # Sleep is seconds over 60, so it is a float too.
-    assert state_value("sleep_duration", 27010 / 60) == 450.17
+    # Sleep is seconds over 3600, so it is a float too, and keeps five decimals.
+    assert state_value("sleep_duration", 27010 / 3600) == 7.50278
     assert state_value("screen_time_top_app", "YouTube") == "YouTube"
     synced = datetime(2026, 9, 15, 18, 0, tzinfo=UTC)
     assert state_value(KEY_LAST_HEALTH_SYNC, synced) is synced
