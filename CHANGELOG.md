@@ -6,7 +6,7 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-11-05
+## [1.0.0] - 2026-11-06
 
 The first stable version. Within 1.x an update keeps your entities, statistics, automations and
 pairing working: [docs/compatibility.md](docs/compatibility.md) lists what that covers, and a
@@ -48,6 +48,11 @@ Check these when you update. Anything else keeps working as it did.
 
 ### Added
 
+- An example Health dashboard to copy, with a theme in the colors of the apps: today, recovery,
+  sleep, training, heart, activity and body, plus a screen time view and a view for two phones, all
+  from Home Assistant's own cards. [docs/dashboard.md](docs/dashboard.md) shows how to set it up.
+  It replaces the old `examples/dashboard.yaml`, whose `owen_s_pixel` became `your_phone` and
+  `<entry>`.
 - A repair when the phone stops asking for a type you mapped for three syncs in a row, because it was
   switched off under Receive or lost its permission. Before, the readings waited unnoticed for up to
   90 days. A type that is on but has nothing new to send, such as a scale you haven't used in a while,
@@ -55,7 +60,7 @@ Check these when you update. Anything else keeps working as it did.
 - History older than 400 days that arrives later, such as a longer backfill or a second phone, now
   lands in the statistics instead of being ignored. A day with no row yet is added, and the running
   totals after it move up to match. A day or hour that already has a row is left alone.
-- Every app whose screen time sensor you enable gets a long-term statistic with its minutes per day,
+- Every app whose screen time sensor you enable gets a long-term statistic with its time per day in hours,
   so a statistics graph shows the app over weeks or a year. The sensor itself only shows the newest
   day.
 - The statistics of distance, energy, sleep and the other minutes, water and weight carry the

@@ -4,6 +4,8 @@ This is the other direction. **Configure** on the integration maps one entity pe
 
 This is Android only. It needs the Android app 1.20.0 or newer; the iOS app doesn't receive measurements from Home Assistant. For an iPhone the integration shows none of it: once the phone's first health payload arrives, the options keep only the shortest workout, the **Send history to phone** button goes away and nothing is queued.
 
+It doesn't work yet when the phone is paired through Home Assistant Cloud ([#39](https://github.com/owen282000/life-dashboard-ha/issues/39)): the cloud passes the integration's answer to the phone without the header that signs it, so the app refuses the readings, as it should. Pair the phone with an address of your own if you want to send measurements to it.
+
 What shows up in Samsung Health or Google Health from there is theirs to decide. Both pick up weight and body fat from Health Connect. Whether Samsung Health shows body composition or blood pressure written by another app varies by version, and Google Health doesn't read blood pressure. The integration and the app can only promise that the reading lands in Health Connect.
 
 - [What can go to the phone](#what-can-go-to-the-phone)

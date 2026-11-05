@@ -175,11 +175,11 @@ The Android app reads Android's usage statistics, the same numbers as the Digita
 
 | Sensor | What it holds |
 |---|---|
-| `screen_time_today` | Minutes of foreground use since the day boundary, which you set in the app (a "day" can end at 4 AM if that's when you sleep). |
+| `screen_time_today` | Time on the phone in the foreground, in hours, since the day boundary, which you set in the app (a "day" can end at 4 AM if that's when you sleep). |
 | `screen_time_yesterday` | The finished total for the day before, for a daily automation that doesn't race the clock. |
 | `most_used_app_today` | The app with the most minutes today, with its package name and minutes as attributes. It reads `none` when **Apps to send** leaves out every app used today. The top five with their minutes are the `top_apps` attribute of both minutes sensors. |
 
-Both minutes sensors carry the day they describe as an attribute, and update as the number grows, so a dashboard shows the phone's day as it happens. Every day also goes into long-term statistics, so a year from now the statistics graph still shows your heaviest phone weeks.
+Both sensors carry the day they describe as an attribute, and update as the number grows, so a dashboard shows the phone's day as it happens. Every day also goes into long-term statistics, so a year from now the statistics graph still shows your heaviest phone weeks.
 
 Two things people do with it:
 
@@ -188,7 +188,7 @@ Two things people do with it:
 triggers:
   - trigger: numeric_state
     entity_id: sensor.owen_s_pixel_screen_time_today
-    above: 180
+    above: 3
 actions:
   - action: notify.mobile_app_owen_s_pixel
     data:
@@ -210,7 +210,7 @@ Screen time is Android only: iOS has no API that lets an app read it and send it
 
 ### Per app
 
-The apps you use also get a sensor each with their minutes today, such as `sensor.owen_s_pixel_youtube_screen_time`. They're created disabled, so the device page stays as it was. Open the device, show the disabled entities, and enable the apps you want a sensor for. Home Assistant reloads the integration about 30 seconds later, and the sensor shows today's minutes right away.
+The apps you use also get a sensor each with their time today, such as `sensor.owen_s_pixel_youtube_screen_time`. They're created disabled, so the device page stays as it was. Open the device, show the disabled entities, and enable the apps you want a sensor for. Home Assistant reloads the integration about 30 seconds later, and the sensor shows today's minutes right away.
 
 - The sensor belongs to the app's package, not its name, so a renamed app keeps its sensor and entity ID. The new name shows up in the `app` attribute right away, and the entity name follows at the next restart.
 - An app that's missing from a newer day reads 0 for that day, even when you leave it out of **Apps to send**: it never keeps yesterday's minutes. `week_minutes` holds its minutes over the days the last sync carried, up to seven.
@@ -236,21 +236,7 @@ actions:
 
 ## A dashboard to start from
 
-[examples/dashboard.yaml](../examples/dashboard.yaml) is a view for one phone in three sections:
-
-- **Today**: tiles for steps, distance, calories, screen time, heart rate and last sleep, a body card, and the two sync times.
-- **On the phone**: the most used app, the top apps of the day, and screen time per day.
-- **History**: steps per week, heart rate per day, and weight per day over a year.
-
-Paste it into a new dashboard's raw configuration editor. Replace `owen_s_pixel` in the entity IDs with your phone's name, and the four statistic IDs with the ones the picker offers under that name. Drop the tiles and rows for types you don't sync; Home Assistant shows a missing entity as an error.
-
-The last sleep tile shows hours and minutes, such as 7h 30m. The frontend rounds down when it splits hours into minutes, so it can show a minute less than the phone.
-
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="The example dashboard in three sections: Today with colored tiles for steps, distance, calories, screen time, heart rate and last sleep, a Body list with weight, resting heart rate, heart rate variability and blood pressure, and the two sync times; On the phone with the most used app, the top apps of the day and a bar chart of screen time per day; History with steps per week as bars and heart rate per day as a line with its min and max band" width="900">
-</p>
-
-That's the view on a phone that backfilled five months and then went quiet, with the two long graphs widened from 90 and 30 days to a year so the backfill shows. The weight graph came later and isn't in it yet.
+The [Health dashboard](dashboard.md) puts these sensors and statistics on one page, with a theme in the colors of the apps and a view for two phones side by side. It uses only Home Assistant's own cards: copy it, replace your phone's name, and remove what you don't sync.
 
 ## History
 

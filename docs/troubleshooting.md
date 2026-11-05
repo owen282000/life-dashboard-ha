@@ -67,7 +67,7 @@ entities:
   - life_dashboard:<entry>_weight   # pick "Owen's Pixel weight" from the picker
 ```
 
-It works the same for every type: steps, heart rate, sleep, screen time and the rest each have a statistic. [History](entities.md#history) lists them, and the [example dashboard](../examples/dashboard.yaml) has this weight graph.
+It works the same for every type: steps, heart rate, sleep, screen time and the rest each have a statistic. [History](entities.md#history) lists them, and the [Health dashboard](dashboard.md) has a weight graph per week.
 
 ### How do I get back an app sensor I deleted?
 
