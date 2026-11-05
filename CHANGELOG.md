@@ -26,6 +26,9 @@ Check these when you update. Anything else keeps working as it did.
   switched off under Receive or lost its permission. Before, the readings waited unnoticed for up to
   90 days. A type that is on but has nothing new to send, such as a scale you haven't used in a while,
   raises nothing.
+- History older than 400 days that arrives later, such as a longer backfill or a second phone, now
+  lands in the statistics instead of being ignored. A day with no row yet is added, and the running
+  totals after it move up to match. A day or hour that already has a row is left alone.
 
 ### Changed
 

@@ -12,8 +12,9 @@ history.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import date, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -24,6 +25,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 from .history import (
     HistoryChange,
+    HourBucket,
     Ledger,
     apply_payload,
     day_rows,
@@ -119,6 +121,8 @@ class HistoryWriter:
         self.ledger = Ledger()
         # The day of the last prune, so the whole ledger is walked once a day at most.
         self._pruned_on: date | None = None
+        # One fill of old history at a time: each reads the rows the one before wrote.
+        self._old_lock = asyncio.Lock()
 
     async def async_load(self) -> None:
         self.ledger = Ledger.from_dict(await self._store.async_load())
@@ -137,6 +141,12 @@ class HistoryWriter:
         change = apply_payload(self.ledger, data, tz=tz)
         if not change.is_empty:
             self._import(change, data, tz)
+        if (change.old_days or change.old_hours) and self.available:
+            self._entry.async_create_task(
+                self._hass,
+                self._async_import_old(change.old_days, change.old_hours, tz),
+                f"{DOMAIN} old history",
+            )
 
         pruned = self._prune(tz)
 
@@ -197,6 +207,120 @@ class HistoryWriter:
                 earliest_day(change),
             )
 
+    async def _async_import_old(
+        self,
+        old_days: dict[str, dict[str, float]],
+        old_hours: dict[str, dict[str, HourBucket]],
+        tz: tzinfo,
+    ) -> None:
+        """Write the days and hours from before what the ledger keeps (P2-28).
+
+        The ledger no longer holds those, so it cannot tell a day it counted from one it
+        never saw. The recorder can: a day with a row there was counted. A day without one
+        is new, and every later row's running sum moves up by its amount, which the
+        recorder does itself (adjust_statistics) before the new rows are added. The amount
+        joins what the ledger carries, so the rows it writes later agree.
+
+        What this cannot see: a second session on an old day that already has a row, or the
+        rest of an hour whose row exists. Both are left out rather than counted twice.
+        """
+        from homeassistant.components.recorder import get_instance
+        from homeassistant.components.recorder.models import StatisticMeanType
+        from homeassistant.components.recorder.statistics import (
+            async_add_external_statistics,
+            statistics_during_period,
+        )
+
+        recorder = get_instance(self._hass)
+        async with self._old_lock:
+            # The rows earlier payloads queued must be in before they are read back.
+            await recorder.async_block_till_done()
+            added = 0
+            for key, amounts in old_days.items():
+                sid = statistic_id(self._entry, key)
+                found = await recorder.async_add_executor_job(
+                    statistics_during_period,
+                    self._hass,
+                    datetime.fromtimestamp(0, UTC),
+                    None,
+                    {sid},
+                    "hour",
+                    None,
+                    {"sum"},
+                )
+                existing = {row["start"]: row.get("sum") or 0.0 for row in found.get(sid, [])}
+                new = {
+                    start: amount
+                    for iso, amount in amounts.items()
+                    if (start := _day_start(date.fromisoformat(iso), tz)).timestamp()
+                    not in existing
+                }
+                if not new:
+                    continue
+
+                unit = _unit(key)
+                for start, amount in new.items():
+                    if any(ts > start.timestamp() for ts in existing):
+                        recorder.async_adjust_statistics(
+                            sid, start + timedelta(hours=1), amount, unit or ""
+                        )
+                rows = []
+                for start in sorted(new):
+                    before = [ts for ts in existing if ts < start.timestamp()]
+                    base = existing[max(before)] if before else 0.0
+                    total = base + sum(a for s, a in new.items() if s <= start)
+                    rows.append({"start": start, "state": new[start], "sum": total})
+                async_add_external_statistics(
+                    self._hass,
+                    self._metadata(key, sum_kind=True, mean_type=StatisticMeanType.NONE),
+                    rows,
+                )
+                # Nothing awaited since the adjustment was queued, so a payload cannot slip
+                # in between and write a row that misses the amount.
+                self.ledger.carried[key] = self.ledger.carried.get(key, 0.0) + sum(new.values())
+                added += len(new)
+
+            for key, buckets in old_hours.items():
+                sid = statistic_id(self._entry, key)
+                hours = {datetime.fromisoformat(iso): bucket for iso, bucket in buckets.items()}
+                starts = sorted(hours)
+                found = await recorder.async_add_executor_job(
+                    statistics_during_period,
+                    self._hass,
+                    starts[0],
+                    starts[-1] + timedelta(hours=1),
+                    {sid},
+                    "hour",
+                    None,
+                    {"mean"},
+                )
+                taken = {row["start"] for row in found.get(sid, [])}
+                rows = [
+                    {
+                        "start": start,
+                        "mean": hours[start].mean,
+                        "min": hours[start].minimum,
+                        "max": hours[start].maximum,
+                    }
+                    for start in starts
+                    if start.timestamp() not in taken
+                ]
+                if rows:
+                    async_add_external_statistics(
+                        self._hass,
+                        self._metadata(key, sum_kind=False, mean_type=StatisticMeanType.ARITHMETIC),
+                        rows,
+                    )
+                    added += len(rows)
+
+            if added:
+                _LOGGER.info(
+                    "Added %d days and hours from before the ledger to the history of %s",
+                    added,
+                    self._entry.title,
+                )
+                self._store.async_delay_save(self.ledger.to_dict, SAVE_DELAY_SECONDS)
+
     def _metadata(self, key: str, *, sum_kind: bool, mean_type: Any) -> dict[str, Any]:
         return {
             "statistic_id": statistic_id(self._entry, key),
@@ -207,3 +331,8 @@ class HistoryWriter:
             "has_sum": sum_kind,
             "mean_type": mean_type,
         }
+
+
+def _day_start(day: date, tz: tzinfo) -> datetime:
+    """Where a day's row starts: local midnight on the hour, as day_rows writes it."""
+    return datetime.combine(day, time.min, tzinfo=tz).replace(minute=0, second=0, microsecond=0)

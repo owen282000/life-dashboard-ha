@@ -241,6 +241,12 @@ class HistoryChange:
     #: Whether the kept workouts or the records of their details changed. Nothing for the
     #: statistics, so it is not part of is_empty; the exercise sensors are read from them.
     workouts: bool = False
+    #: Days from before what the ledger keeps (kept_from): key -> day -> amount. The
+    #: ledger cannot tell whether they were counted before, the recorder can: a day
+    #: without a row there is new (statistics.py, P2-28).
+    old_days: dict[str, dict[str, float]] = field(default_factory=dict)
+    #: Hours from before what the ledger keeps: key -> ISO hour -> bucket, likewise.
+    old_hours: dict[str, dict[str, HourBucket]] = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:
@@ -288,14 +294,16 @@ def apply_payload(
     """
     day_changes: dict[str, date] = {}
     hour_changes: dict[str, datetime] = {}
+    old_days: dict[str, dict[str, float]] = {}
+    old_hours: dict[str, dict[str, HourBucket]] = {}
 
     if data.get("test") is True:
         return HistoryChange()
 
-    _apply_daily_totals(ledger, data, day_changes)
-    _apply_screen_time(ledger, data, day_changes)
-    _apply_sessions(ledger, data, tz, day_changes)
-    _apply_measured(ledger, data, _first_hour(ledger, tz), hour_changes)
+    _apply_daily_totals(ledger, data, day_changes, old_days)
+    _apply_screen_time(ledger, data, day_changes, old_days)
+    _apply_sessions(ledger, data, tz, day_changes, old_days)
+    _apply_measured(ledger, data, _first_hour(ledger, tz), hour_changes, old_hours)
     now = now or datetime.now(UTC)
     workouts = keep_sessions(ledger.workouts, data, now=now, tz=tz)
     records = apply_records(ledger.activity, data, now=now)
@@ -303,10 +311,21 @@ def apply_payload(
     dropped = prune_pool(ledger.activity, windows, now=now, cutoff=cutoff(now, tz))
     workouts = workouts or records or dropped
 
-    return HistoryChange(day_keys=day_changes, hour_keys=hour_changes, workouts=workouts)
+    return HistoryChange(
+        day_keys=day_changes,
+        hour_keys=hour_changes,
+        workouts=workouts,
+        old_days=old_days,
+        old_hours=old_hours,
+    )
 
 
-def _apply_daily_totals(ledger: Ledger, data: dict[str, Any], changes: dict[str, date]) -> None:
+def _apply_daily_totals(
+    ledger: Ledger,
+    data: dict[str, Any],
+    changes: dict[str, date],
+    old: dict[str, dict[str, float]],
+) -> None:
     """A day's aggregate replaces what we had: it is the authority for that day."""
     totals = data.get("daily_totals")
     if not isinstance(totals, list):
@@ -319,11 +338,12 @@ def _apply_daily_totals(ledger: Ledger, data: dict[str, Any], changes: dict[str,
             day = date.fromisoformat(entry.get("date", ""))
         except (TypeError, ValueError):
             continue
-        if _pruned(ledger, day):
-            continue
         for key, field_name in DAILY_TOTAL_KEYS.items():
             amount = _number(entry.get(field_name))
             if amount is None:
+                continue
+            if _pruned(ledger, day):
+                old.setdefault(key, {})[day.isoformat()] = amount
                 continue
             days = ledger.days.setdefault(key, {})
             iso = day.isoformat()
@@ -332,7 +352,12 @@ def _apply_daily_totals(ledger: Ledger, data: dict[str, Any], changes: dict[str,
                 _note_day(changes, key, day)
 
 
-def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, date]) -> None:
+def _apply_screen_time(
+    ledger: Ledger,
+    data: dict[str, Any],
+    changes: dict[str, date],
+    old: dict[str, dict[str, float]],
+) -> None:
     """A day's screen time replaces what we had, like a daily total."""
     entries = data.get("screen_time")
     if not isinstance(entries, list):
@@ -345,8 +370,6 @@ def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, 
             day = date.fromisoformat(entry.get("date", ""))
         except (TypeError, ValueError):
             continue
-        if _pruned(ledger, day):
-            continue
         # The apps that are sent, when the app filtered them, as the sensors show.
         key = (
             "filtered_screen_time_minutes"
@@ -356,6 +379,9 @@ def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, 
         minutes = _number(entry.get(key))
         if minutes is None:
             continue
+        if _pruned(ledger, day):
+            old.setdefault(SCREEN_TIME_KEY, {})[day.isoformat()] = minutes
+            continue
         days = ledger.days.setdefault(SCREEN_TIME_KEY, {})
         iso = day.isoformat()
         if days.get(iso) != minutes:
@@ -364,10 +390,16 @@ def _apply_screen_time(ledger: Ledger, data: dict[str, Any], changes: dict[str, 
 
 
 def _apply_sessions(
-    ledger: Ledger, data: dict[str, Any], tz: tzinfo, changes: dict[str, date]
+    ledger: Ledger,
+    data: dict[str, Any],
+    tz: tzinfo,
+    changes: dict[str, date],
+    old: dict[str, dict[str, float]],
 ) -> None:
     """Sessions are summed per day and keyed by uuid, so a re-delivery replaces itself."""
     for series in SESSION_SERIES:
+        # A record that appears twice in one payload counts once on an old day too.
+        old_seen: set[str] = set()
         records = data.get(series.array)
         if not isinstance(records, list):
             continue
@@ -385,13 +417,17 @@ def _apply_sessions(
 
             amount = raw / series.divisor
             day = _local_day(moment, tz)
-            if _pruned(ledger, day):
-                continue
             # A record without a uuid still cannot be counted twice: its moment and value
             # identify it well enough for the only case that matters, the same batch
             # arriving again.
             uuid = record.get("uuid")
             identity = uuid if isinstance(uuid, str) and uuid else f"{moment.isoformat()}:{raw}"
+            if _pruned(ledger, day):
+                if identity not in old_seen:
+                    old_seen.add(identity)
+                    days = old.setdefault(series.key, {})
+                    days[day.isoformat()] = days.get(day.isoformat(), 0.0) + amount
+                continue
 
             known = ledger.sessions.setdefault(series.key, {})
             previous = known.get(identity)
@@ -421,6 +457,7 @@ def _apply_measured(
     data: dict[str, Any],
     first_hour: datetime | None,
     changes: dict[str, datetime],
+    old: dict[str, dict[str, HourBucket]],
 ) -> None:
     """Point-in-time readings become hourly buckets; bucketed series merge straight in."""
     for series in MEASURED_SERIES:
@@ -432,7 +469,7 @@ def _apply_measured(
         if isinstance(first, dict) and "bucket_start" in first:
             key = BUCKETED_KEYS.get(series.array)
             if key == series.key:
-                _apply_buckets(ledger, key, records, first_hour, changes)
+                _apply_buckets(ledger, key, records, first_hour, changes, old)
             continue
 
         for record in records:
@@ -454,6 +491,7 @@ def _apply_measured(
                 HourBucket(1, value, value, value),
                 first_hour,
                 changes,
+                old,
             )
 
 
@@ -463,6 +501,7 @@ def _apply_buckets(
     buckets: list[Any],
     first_hour: datetime | None,
     changes: dict[str, datetime],
+    old: dict[str, dict[str, HourBucket]],
 ) -> None:
     """A bucketed series is already aggregated; its window may be finer than an hour."""
     for bucket in buckets:
@@ -490,6 +529,7 @@ def _apply_buckets(
             ),
             first_hour,
             changes,
+            old,
         )
 
 
@@ -500,10 +540,15 @@ def _merge_hour(
     bucket: HourBucket,
     first_hour: datetime | None,
     changes: dict[str, datetime],
+    old: dict[str, dict[str, HourBucket]],
 ) -> None:
     start = datetime.fromisoformat(hour)
     if first_hour is not None and start < first_hour:
         # Pruned already; merging it into a fresh bucket would overwrite the hour's row.
+        # Held apart instead: statistics.py writes it only where the recorder has no row.
+        hours = old.setdefault(key, {})
+        existing = hours.get(hour)
+        hours[hour] = bucket if existing is None else existing.merged(bucket)
         return
     buckets = ledger.hours.setdefault(key, {})
     existing = buckets.get(hour)
