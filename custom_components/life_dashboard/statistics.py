@@ -33,6 +33,7 @@ from .history import (
     hour_rows,
     keep_from,
     prune,
+    seed_taken_over,
 )
 from .payload import SENSOR_SPECS
 
@@ -249,12 +250,11 @@ class HistoryWriter:
         under this entry's ids, checked, and only then is the old copy cleared. A check that
         fails leaves the old statistics where they were.
 
-        The ledger was deleted with the old entry. It starts again the day after the last
-        copied row, carrying each sum as it stood, so the next day continues the total.
-        Anything older that arrives later is added only where the copy has no row (P2-28),
-        so a backfill counts nothing twice. The cost: the last day stays as the old phone
-        sent it. Tried once: after a failure this entry writes its own rows, and a later
-        copy would land on top of them. Returns whether it was done.
+        The ledger was deleted with the old entry; `seed_taken_over` starts it again on the
+        last copied day, so the totals continue and that day can still change. Anything
+        older that arrives later is added only where the copy has no row (P2-28), so a
+        backfill counts nothing twice. Tried once: after a failure this entry writes its own
+        rows, and a later copy would land on top of them. Returns whether it was done.
         """
         if not self.available:
             _LOGGER.warning("Recorder not loaded; history of a removed phone not taken over yet")
@@ -269,11 +269,11 @@ class HistoryWriter:
 
         recorder = get_instance(self._hass)
         await recorder.async_db_ready
-        await recorder.async_block_till_done()
+        await _async_settled(recorder)
         tz = dt_util.get_default_time_zone()
         taken: dict[str, int] = {}
-        last_day: date | None = None
-        last_sums: dict[str, float] = {}
+        sums: dict[str, list[tuple[datetime, float, float]]] = {}
+        hours: dict[str, list[tuple[datetime, float, float, float]]] = {}
         for item in await async_list_statistic_ids(self._hass):
             parts = _split(item["statistic_id"])
             if item.get("source") != DOMAIN or parts is None or parts[0] != owner:
@@ -305,17 +305,30 @@ class HistoryWriter:
                 mean_type=StatisticMeanType.NONE if has_sum else StatisticMeanType.ARITHMETIC,
             )
             # The unit as the old statistic has it, for a key this release no longer knows.
-            metadata["unit_of_measurement"] = item.get("unit_of_measurement")
+            metadata["unit_of_measurement"] = item.get("statistics_unit_of_measurement")
             async_add_external_statistics(self._hass, metadata, rows)
             taken[old_sid] = len(rows)
-            day = rows[-1]["start"].astimezone(tz).date()
-            last_day = day if last_day is None else max(last_day, day)
-            if has_sum and rows[-1].get("sum") is not None:
-                last_sums[key] = rows[-1]["sum"]
+            if has_sum:
+                sums[key] = [
+                    (row["start"], row.get("state") or 0.0, row["sum"])
+                    for row in rows
+                    if row.get("sum") is not None
+                ]
+            else:
+                hours[key] = [
+                    (
+                        row["start"],
+                        row["mean"],
+                        row.get("min", row["mean"]),
+                        row.get("max", row["mean"]),
+                    )
+                    for row in rows
+                    if row.get("mean") is not None
+                ]
 
         if not taken:
             return True
-        await recorder.async_block_till_done()
+        await _async_settled(recorder)
         for old_sid, count in taken.items():
             new_sid = statistic_id(self._entry, _split(old_sid)[1])  # type: ignore[index]
             found = await recorder.async_add_executor_job(
@@ -338,9 +351,7 @@ class HistoryWriter:
                 return False
 
         recorder.async_clear_statistics(list(taken))
-        if last_day is not None:
-            self.ledger.kept_from = (last_day + timedelta(days=1)).isoformat()
-            self.ledger.carried.update(last_sums)
+        seed_taken_over(self.ledger, sums=sums, hours=hours, today=dt_util.now(tz).date(), tz=tz)
         await self.async_flush()
         _LOGGER.info(
             "Took over %d statistics of a removed phone for %s", len(taken), self._entry.title
@@ -374,7 +385,7 @@ class HistoryWriter:
         recorder = get_instance(self._hass)
         async with self._old_lock:
             # The rows earlier payloads queued must be in before they are read back.
-            await recorder.async_block_till_done()
+            await _async_settled(recorder)
             added = 0
             for key, amounts in old_days.items():
                 sid = statistic_id(self._entry, key)
@@ -471,6 +482,20 @@ class HistoryWriter:
             "has_sum": sum_kind,
             "mean_type": mean_type,
         }
+
+
+async def _async_settled(recorder: Any) -> None:
+    """Wait until the recorder ran and committed every task queued before this one.
+
+    Not `async_block_till_done`: that returns at once when the queue is empty, which it
+    also is while the recorder still runs the last task it took, so a read straight after
+    could miss rows an import was writing. A synchronize task is queued behind them all.
+    """
+    from homeassistant.components.recorder.tasks import SynchronizeTask
+
+    future: asyncio.Future[None] = recorder.hass.loop.create_future()
+    recorder.queue_task(SynchronizeTask(future))
+    await future
 
 
 def _day_start(day: date, tz: tzinfo) -> datetime:
