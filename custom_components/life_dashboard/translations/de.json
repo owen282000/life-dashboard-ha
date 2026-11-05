@@ -348,6 +348,10 @@
     "writeback_unsupported_type": {
       "title": "{phone} kennt {type} nicht",
       "description": "Die App Life Dashboard Companion auf {phone} ist zu alt, um {type} in Health Connect zu schreiben. Aktualisiere die App. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
+    },
+    "writeback_not_asked": {
+      "title": "{phone} fragt nicht nach {type}",
+      "description": "Bei den letzten Synchronisierungen hat die App Life Dashboard Companion auf {phone} nicht nach {type} gefragt, daher warten die Werte von Home Assistant dafür, bis zu 90 Tage. Öffne in der App im Tab Gesundheit „Empfangen“ und prüfe, ob {type} eingeschaltet ist und in Health Connect geschrieben werden darf. Soll {type} nicht mehr an dieses Telefon gehen, entferne es in den Optionen dieser Integration. Diese Meldung verschwindet von selbst, sobald das Telefon wieder nach {type} fragt."
     }
   },
   "selector": {

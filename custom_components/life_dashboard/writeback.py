@@ -95,6 +95,9 @@ from .writeback_queue import (
 _LOGGER = logging.getLogger(__name__)
 
 OPTION_WRITEBACK: Final = "writeback"
+#: Requests in a row that left a mapped type out before the repair appears: one is a
+#: moment, three is a phone where the type was switched off or lost its permission.
+NOT_ASKED_ROUNDS: Final = 3
 CONF_ENTITY: Final = "entity"
 CONF_TIME_ENTITY: Final = "time_entity"
 CONF_SYSTOLIC: Final = FIELD_SYSTOLIC
@@ -701,6 +704,9 @@ class WritebackManager:
                 self._save()
             if isinstance(raw_types := request.get("types"), list):
                 types = raw_types
+                self.queue.note_asked(
+                    {kind for kind in raw_types if isinstance(kind, str)}, set(self.mappings)
+                )
 
         self.queue.prune(now)
         pending: list[dict[str, Any]] | None = None
@@ -756,8 +762,22 @@ class WritebackManager:
             )
 
     def _sync_issues(self) -> None:
-        """One repair per type the phone refused for a reason the user can fix."""
+        """One repair per type the phone refused for a reason the user can fix, and one
+        per mapped type the phone stopped asking for."""
         for kind in WRITEBACK_TYPES:
+            issue_id = f"writeback_{self._entry.entry_id}_{kind}_not_asked"
+            if kind in self.mappings and self.queue.not_asked.get(kind, 0) >= NOT_ASKED_ROUNDS:
+                ir.async_create_issue(
+                    self._hass,
+                    DOMAIN,
+                    issue_id,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="writeback_not_asked",
+                    translation_placeholders={"phone": self._entry.title, "type": kind},
+                )
+            else:
+                ir.async_delete_issue(self._hass, DOMAIN, issue_id)
             issue_id = f"writeback_{self._entry.entry_id}_{kind}"
             code = self.queue.refused.get(kind)
             if code is None or kind not in self.mappings:

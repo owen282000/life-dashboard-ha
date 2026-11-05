@@ -20,6 +20,13 @@ Check these when you update. Anything else keeps working as it did.
   - The history graph of this sensor can show old values in minutes next to new ones in hours for a
     while. That clears up on its own.
 
+### Added
+
+- A repair when the phone stops asking for a type you mapped for three syncs in a row, because it was
+  switched off under Receive or lost its permission. Before, the readings waited unnoticed for up to
+  90 days. A type that is on but has nothing new to send, such as a scale you haven't used in a while,
+  raises nothing.
+
 ### Changed
 
 - An iPhone has no Receive, so for a phone the integration knows is an iPhone, from the source of
