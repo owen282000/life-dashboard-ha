@@ -430,6 +430,11 @@ def _apply_sessions(
                 continue
 
             known = ledger.sessions.setdefault(series.key, {})
+            # A backfill sends a day's sessions again, so they take the stand-in's place.
+            if data.get("backfill") is True:
+                stand_in = f"{TAKEN_OVER}{day.isoformat()}"
+                if known.pop(stand_in, None) is not None:
+                    _note_day(changes, series.key, day)
             previous = known.get(identity)
             if previous == [day.isoformat(), amount]:
                 continue
@@ -613,6 +618,60 @@ def hour_rows(ledger: Ledger, key: str, since: datetime) -> list[dict[str, Any]]
             }
         )
     return rows
+
+
+# The identity of a day's sessions as a removed phone left them in its statistics (P2-30).
+TAKEN_OVER: Final = "taken_over:"
+
+
+def seed_taken_over(
+    ledger: Ledger,
+    *,
+    sums: dict[str, list[tuple[datetime, float, float]]],
+    hours: dict[str, list[tuple[datetime, float, float, float]]],
+    today: date,
+    tz: tzinfo,
+) -> None:
+    """Start an empty ledger where a removed phone's statistics stopped (P2-30).
+
+    `sums` holds each sum key's rows as (start, state, sum), `hours` each measured key's as
+    (start, mean, min, max), oldest first. The ledger keeps from the last day the rows reach,
+    never later than today, so a reading dated in the future cannot freeze the days before
+    it. Each sum carries what it stood at before that day, and the day itself is put back
+    as the old phone sent it, so the new phone can still change it: a day total replaces it,
+    a new session adds to it, and its hours take new readings. Days before it are older
+    than the ledger, and only added where the statistics have no row (P2-28).
+    """
+    last = [start.astimezone(tz).date() for rows in sums.values() for start, _, _ in rows[-1:]]
+    if not last:
+        last = [start.astimezone(tz).date() for rows in hours.values() for start, *_ in rows[-1:]]
+    if not last:
+        return
+    day = min(max(last), today)
+    begin = datetime.combine(day, time.min, tzinfo=tz)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz)
+    iso = day.isoformat()
+    sessions = {series.key for series in SESSION_SERIES}
+
+    ledger.kept_from = iso
+    for key, rows in sums.items():
+        before = [total for start, _, total in rows if start < begin]
+        if before:
+            ledger.carried[key] = before[-1]
+        on_day = [state for start, state, _ in rows if begin <= start < end]
+        if not on_day:
+            continue
+        if key in sessions:
+            # One stand-in for the day's sessions, which have no uuids in the statistics.
+            ledger.sessions.setdefault(key, {})[f"{TAKEN_OVER}{iso}"] = [iso, on_day[0]]
+        else:
+            ledger.days.setdefault(key, {})[iso] = on_day[0]
+    for key, rows in hours.items():
+        for start, mean, minimum, maximum in rows:
+            if begin <= start < end:
+                ledger.hours.setdefault(key, {})[_hour_key(start)] = HourBucket(
+                    1, mean, minimum, maximum
+                )
 
 
 def keep_from(ledger: Ledger, *, today: date, tz: tzinfo) -> date | None:

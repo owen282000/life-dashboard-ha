@@ -84,4 +84,4 @@ The statistics belong to the phone you paired, so a phone you remove and add aga
 
 The statistics are copied to the new phone, checked, and only then removed from the old one. That can't be undone, so make a backup first if you want a way back. If the copy doesn't check out, the old statistics stay where they were and the log says so.
 
-The last day the old phone sent stays as it sent it. From the next day on, the new phone adds to the totals. A backfill after taking over counts nothing twice: a day the old phone already sent is left alone, and a day it never sent is added. Pick "Don't take over" to start with an empty history; the old statistics then stay as they are.
+The new phone carries on from the last day the old one sent, so a phone swapped during the day still updates that day: today's steps from the new phone replace what the old one had sent. A backfill after taking over counts nothing twice: a day the old phone already sent is left alone, and a day it never sent is added. Pick "Don't take over" to start with an empty history; the old statistics then stay as they are.

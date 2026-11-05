@@ -145,8 +145,17 @@ async def test_the_new_phone_continues_the_removed_ones_history(
     assert not any(OLD in sid for sid in left)
 
     ledger = entry.runtime_data.history.ledger
-    assert ledger.kept_from == _day(1).isoformat()
-    assert ledger.carried == {"steps": 150.0}
+    # The ledger starts on the last day the old phone sent, with that day put back.
+    assert ledger.kept_from == _day(2).isoformat()
+    assert ledger.carried == {"steps": 100.0}
+    assert ledger.days == {"steps": {_day(2).isoformat(): 50.0}}
+    assert list(ledger.hours["heart_rate"].values())[0].mean == 60.0
+    units = {
+        item["statistic_id"]: item["statistics_unit_of_measurement"]
+        for item in await async_list_statistic_ids(hass)
+    }
+    assert units[steps] == "steps"
+    assert units[statistic_id(entry, "heart_rate")] == "bpm"
 
     # The next day carries on from the old total.
     client = await hass_client_no_auth()
@@ -169,6 +178,96 @@ async def test_the_new_phone_continues_the_removed_ones_history(
     assert await _post(client, again) == 200
     await async_wait_recording_done(hass)
     assert [r["sum"] for r in _rows(hass, steps, {"sum"})] == [40.0, 140.0, 190.0, 260.0]
+
+
+async def test_the_last_day_of_the_old_phone_can_still_change(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """Swapped the same day: today's total from the new phone replaces the old one's."""
+    await _old_phone(hass)
+    entry = await _pair(hass, OLD)
+    client = await hass_client_no_auth()
+    steps = statistic_id(entry, "steps")
+
+    payload = {"daily_totals": [{"date": _day(2).isoformat(), "steps": 80}]}
+    assert await _post(client, payload) == 200
+    await async_wait_recording_done(hass)
+    assert [(r["state"], r["sum"]) for r in _rows(hass, steps, {"state", "sum"})] == [
+        (100.0, 100.0),
+        (80.0, 180.0),
+    ]
+
+
+async def test_a_reading_dated_in_the_future_does_not_hold_the_days_before(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    await _old_phone(hass)
+    future = _start(-20) + timedelta(hours=9)
+    heart = {
+        "statistic_id": f"{DOMAIN}:{OLD}_heart_rate",
+        "source": DOMAIN,
+        "name": "Old Pixel heart rate",
+        "unit_of_measurement": "bpm",
+        "unit_class": None,
+        "has_sum": False,
+        "mean_type": StatisticMeanType.ARITHMETIC,
+    }
+    async_add_external_statistics(
+        hass, heart, [{"start": future, "mean": 80.0, "min": 80.0, "max": 80.0}]
+    )
+    await async_wait_recording_done(hass)
+    entry = await _pair(hass, OLD)
+    assert entry.runtime_data.history.ledger.kept_from == _day(2).isoformat()
+
+    client = await hass_client_no_auth()
+    for count in (100, 300):
+        payload = {"daily_totals": [{"date": _day(0).isoformat(), "steps": count}]}
+        assert await _post(client, payload) == 200
+        await async_wait_recording_done(hass)
+    assert _rows(hass, statistic_id(entry, "steps"), {"state"})[-1]["state"] == 300.0
+
+
+async def test_a_backfill_replaces_the_stand_in_for_the_last_days_sessions(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """The statistics hold a day's sleep as one figure; a backfill brings the sessions."""
+    await async_process_ha_core_config(hass, {"time_zone": "Europe/Amsterdam"})
+    sleep = {
+        "statistic_id": f"{DOMAIN}:{OLD}_sleep_minutes",
+        "source": DOMAIN,
+        "name": "Old Pixel sleep minutes",
+        "unit_of_measurement": "min",
+        "unit_class": None,
+        "has_sum": True,
+        "mean_type": StatisticMeanType.NONE,
+    }
+    async_add_external_statistics(
+        hass,
+        sleep,
+        [
+            {"start": _start(3), "state": 400.0, "sum": 400.0},
+            {"start": _start(2), "state": 420.0, "sum": 820.0},
+        ],
+    )
+    await async_wait_recording_done(hass)
+    entry = await _pair(hass, OLD)
+    client = await hass_client_no_auth()
+    sid = statistic_id(entry, "sleep_minutes")
+
+    # A nap from a normal sync adds to the day.
+    nap = {"session_end_time": f"{_day(2).isoformat()}T14:00:00Z", "duration_seconds": 1200}
+    assert await _post(client, {"backfill": False, "sleep": [{**nap, "uuid": "nap"}]}) == 200
+    await async_wait_recording_done(hass)
+    last = _rows(hass, sid, {"state", "sum"})[-1]
+    assert (last["state"], last["sum"]) == (440.0, 840.0)
+
+    # A backfill sends the night and the nap again: they replace the stand-in, once.
+    night = {"session_end_time": f"{_day(2).isoformat()}T06:00:00Z", "duration_seconds": 25200}
+    payload = {"sleep": [{**night, "uuid": "night"}, {**nap, "uuid": "nap"}]}
+    assert await _post(client, payload) == 200
+    await async_wait_recording_done(hass)
+    last = _rows(hass, sid, {"state", "sum"})[-1]
+    assert (last["state"], last["sum"]) == (440.0, 840.0)
 
 
 async def test_starting_empty_leaves_the_old_history_alone(hass: HomeAssistant) -> None:
