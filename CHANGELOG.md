@@ -6,6 +6,13 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-05
+
+The first stable version. Within 1.x an update keeps your entities, statistics, automations and
+pairing working: [docs/compatibility.md](docs/compatibility.md) lists what that covers, and a
+change to any of it waits for 2.0.0. The breaking changes below are the last ones before that
+promise, so read them before you update.
+
 ### Breaking changes
 
 Check these when you update. Anything else keeps working as it did.

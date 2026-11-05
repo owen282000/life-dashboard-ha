@@ -5,7 +5,7 @@
 <h1 align="center">Life Dashboard for Home Assistant</h1>
 
 <p align="center">
-  <b>Steps, sleep, heart rate, weight and workouts from your phone as Home Assistant sensors, with a year of history.</b><br>
+  <b>Steps, sleep, heart rate, weight and workouts from your phone as Home Assistant sensors, with all your history.</b><br>
   Screen time per app on Android. Paired with a QR code: no broker, no YAML.
 </p>
 
@@ -46,9 +46,9 @@
 ## What you get
 
 - **Sensors for today.** Steps, distance and calories as day totals, and the latest heart rate, sleep, weight, blood pressure, glucose and more, each with the app that recorded it.
-- **A year of history.** Every day goes into long-term statistics on its own date, so a backfill from the phone fills a year of the **Statistics graph** card. That card shows it, not the sensor's own history.
+- **All your history.** Every day goes into long-term statistics on its own date, so a backfill from the phone fills the **Statistics graph** card as far back as the phone has data, with distance in km and sleep in hours. That card shows it, not the sensor's own history.
 - **Workouts.** The last workout and the minutes of today and yesterday, with every session's kind, start and end, and what was recorded during it: calories, distance, pace or speed, heart rate, steps, laps and sets. A shortest workout setting keeps the walks the phone notices by itself out.
-- **Screen time per app** (Android). Minutes today and yesterday, the most used app and the top five, and a sensor per app if you want one.
+- **Screen time per app** (Android). Today and yesterday, the most used app and the top five, and per app a sensor and its history if you want one.
 - **Back into Health Connect** (Android). Map a scale or blood pressure entity, and the phone writes each new reading into Health Connect, where Samsung Health and Google Health pick it up.
 - **An example dashboard** to start from: [examples/dashboard.yaml](https://github.com/owen282000/life-dashboard-ha/blob/main/examples/dashboard.yaml).
 
@@ -67,7 +67,7 @@ About ten minutes, on the phone and in Home Assistant 2026.3 or newer. From 2026
 
 3. **Add a phone.** The Marketplace opens the setup by itself. Otherwise go to **Settings > Devices & services > Add integration** and search for **Life Dashboard**. Give the phone a name. The address is the one the phone sends to; see [the next section](https://github.com/owen282000/life-dashboard-ha#reaching-home-assistant-from-the-phone) if you're not sure.
 4. **Scan the code** in the app, with **Scan a pairing code**, or with the phone's camera. The app shows what it will fill in and asks you to confirm.
-5. **Sync.** Tap **Sync Now**. The phone shows up as a device under **Settings > Devices & services > Life Dashboard**, with a sensor for every type it sent. To fill a year of history, run a backfill in the app.
+5. **Sync.** Tap **Sync Now**. The phone shows up as a device under **Settings > Devices & services > Life Dashboard**, with a sensor for every type it sent. To fill in your history, run a backfill in the app.
 
 If the sensors stay empty, the phone's [troubleshooting page](https://owen282000.com/life-dashboard/troubleshooting/) goes through it step by step.
 
@@ -97,7 +97,7 @@ Four projects, and you only install the parts you need: the app on each phone, t
 
 ## Ask your own AI
 
-The sensors show today, and the statistics keep a year. To ask an AI about that history, such as how your sleep changed in the weeks you walked more, the [Life Dashboard stack](https://github.com/owen282000/life-dashboard-stack#ask-your-own-ai-mcp) stores every record in Postgres and has an MCP server with eight read-only tools for Claude, a local model in Ollama or any other MCP client. The integration itself contains no AI. The app can send to Home Assistant and the stack at the same time.
+The sensors show today, and the statistics keep the history. To ask an AI about that history, such as how your sleep changed in the weeks you walked more, the [Life Dashboard stack](https://github.com/owen282000/life-dashboard-stack#ask-your-own-ai-mcp) stores every record in Postgres and has an MCP server with eight read-only tools for Claude, a local model in Ollama or any other MCP client. The integration itself contains no AI. The app can send to Home Assistant and the stack at the same time.
 
 ## Privacy and security
 
@@ -114,6 +114,7 @@ The sensors show today, and the statistics keep a year. To ask an AI about that 
 - [Sensors and statistics](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/entities.md): every entity, screen time per app, automations
 - [Sending measurements to the phone](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/sending-to-the-phone.md): scales and blood pressure monitors into Health Connect
 - [Troubleshooting](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/troubleshooting.md): the questions that come up most, diagnostics and debug logging
+- [What 1.x keeps stable](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/compatibility.md): within 1.x an update never breaks your entities, statistics, automations or pairing
 - [Changelog](https://github.com/owen282000/life-dashboard-ha/blob/main/CHANGELOG.md)
 - Prefer MQTT? Both apps can publish with MQTT Discovery instead, for current values only. Or keep a year of history in Postgres and Grafana with the [Life Dashboard stack](https://github.com/owen282000/life-dashboard-stack).
 
