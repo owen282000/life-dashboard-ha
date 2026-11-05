@@ -9,6 +9,7 @@ Pairing gives the phone two things: the webhook URL to post to, and the secret i
 - [Names and more than one phone](#names-and-more-than-one-phone)
 - [Reconfigure](#reconfigure)
 - [Removing a phone](#removing-a-phone)
+  - [Taking over the history of a removed phone](#taking-over-the-history-of-a-removed-phone)
 
 ## Adding a phone
 
@@ -76,3 +77,11 @@ After **Submit** the entry reloads and the dialog shows the new code.
 ## Removing a phone
 
 Deleting the integration entry removes the device and its sensors, deletes the cloudhook if it had one, and deletes the phone's files in `.storage`: the history ledger, the queue of measurements for the phone and the list of apps with a screen time sensor. The long-term statistics stay in the recorder, as they do for any integration you remove.
+
+### Taking over the history of a removed phone
+
+The statistics belong to the phone you paired, so a phone you remove and add again would start a new history. When Home Assistant still has the statistics of a removed phone, adding a phone asks whether to take them over. Pick the old phone, and its statistics move to the new one: the graphs carry on where they stopped, and the running totals of steps, distance and the rest continue from where they were. The number after a name is how many statistics that phone has.
+
+The statistics are copied to the new phone, checked, and only then removed from the old one. That can't be undone, so make a backup first if you want a way back. If the copy doesn't check out, the old statistics stay where they were and the log says so.
+
+The last day the old phone sent stays as it sent it. From the next day on, the new phone adds to the totals. A backfill after taking over counts nothing twice: a day the old phone already sent is left alone, and a day it never sent is added. Pick "Don't take over" to start with an empty history; the old statistics then stay as they are.

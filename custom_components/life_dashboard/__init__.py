@@ -40,6 +40,7 @@ from .const import (
     CONF_MIN_WORKOUT_MINUTES,
     CONF_PLATFORM,
     CONF_SECRET,
+    CONF_TAKE_OVER,
     CONF_WEBHOOK_ID,
     DEFAULT_MIN_WORKOUT_MINUTES,
     DOMAIN,
@@ -183,6 +184,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     entry.runtime_data.version = str(integration.version)
     history = HistoryWriter(hass, entry)
     await history.async_load()
+    if owner := entry.data.get(CONF_TAKE_OVER):
+        # Before the webhook is up, so the copy is in before this phone writes a row.
+        await history.async_take_over(owner)
+        data = {key: value for key, value in entry.data.items() if key != CONF_TAKE_OVER}
+        hass.config_entries.async_update_entry(entry, data=data)
     entry.runtime_data.history = history
     writeback = WritebackManager(hass, entry)
     await writeback.async_load()

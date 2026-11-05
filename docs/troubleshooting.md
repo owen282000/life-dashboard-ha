@@ -126,7 +126,7 @@ Each phone has three files in Home Assistant's `.storage` folder, and unlike the
 | `life_dashboard.<entry>.writeback` | The values of the readings waiting for the phone. |
 | `life_dashboard.<entry>.apps` | The names of the apps that have a sensor and their minutes on the newest day. An app whose sensor you deleted is kept as a hash, not by name. |
 
-They go into Home Assistant backups with the rest of `.storage`. All of a phone's files are deleted when you remove the phone from Home Assistant; its long-term statistics stay in the recorder.
+They go into Home Assistant backups with the rest of `.storage`. All of a phone's files are deleted when you remove the phone from Home Assistant; its long-term statistics stay in the recorder, and a phone you add later [can take them over](pairing.md#taking-over-the-history-of-a-removed-phone).
 
 ### How do I turn on debug logging?
 

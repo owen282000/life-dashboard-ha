@@ -41,6 +41,7 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -54,6 +55,7 @@ from .const import (
     CONF_MIN_WORKOUT_MINUTES,
     CONF_PLATFORM,
     CONF_SECRET,
+    CONF_TAKE_OVER,
     CONF_URL_CHOICE,
     CONF_WEBHOOK_ID,
     DEFAULT_MIN_WORKOUT_MINUTES,
@@ -65,6 +67,7 @@ from .const import (
     URL_CHOICE_URL,
 )
 from .pairing import by_hand_markup, layout_markup, pairing_url, qr_markup
+from .statistics import async_orphaned_histories
 from .writeback import (
     CONF_BODY_POSITION,
     CONF_DIASTOLIC,
@@ -86,6 +89,8 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_REGENERATE_SECRET = "regenerate_secret"
 CONF_USE_CLOUD = "use_cloud"
+# The choice not to take over the history of a removed phone.
+TAKE_OVER_NONE = "none"
 
 # The app generates 32 random bytes as 64 hex characters; matching that keeps the
 # two fields the user pastes recognisably alike.
@@ -252,6 +257,11 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        # The phone being added, held while the history step asks about a removed one.
+        self._pending: tuple[str, dict[str, Any], str, str] | None = None
+        self._orphans: dict[str, tuple[str, int]] = {}
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> WritebackOptionsFlow:
@@ -288,11 +298,11 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
             if not errors:
                 await self.async_set_unique_id(webhook_id)
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME].strip() or DEFAULT_NAME,
-                    data=data,
-                    description_placeholders=_pairing_placeholders(url, secret),
-                )
+                self._pending = (user_input[CONF_NAME].strip() or DEFAULT_NAME, data, url, secret)
+                self._orphans = await async_orphaned_histories(self.hass)
+                if self._orphans:
+                    return await self.async_step_history()
+                return self._create_pending()
 
         return self.async_show_form(
             step_id="user",
@@ -300,6 +310,42 @@ class LifeDashboardConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.hass, base_url=base_url, use_cloud=use_cloud, reconfigure=False
             ),
             errors=errors,
+        )
+
+    async def async_step_history(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Offer the statistics of a removed phone, so the new one continues them (P2-30)."""
+        if user_input is not None:
+            choice = user_input[CONF_TAKE_OVER]
+            if choice in self._orphans and self._pending is not None:
+                self._pending[1][CONF_TAKE_OVER] = choice
+            return self._create_pending()
+
+        options = [SelectOptionDict(value=TAKE_OVER_NONE, label=TAKE_OVER_NONE)] + [
+            SelectOptionDict(value=owner, label=f"{name} ({count})")
+            for owner, (name, count) in sorted(self._orphans.items(), key=lambda o: o[1][0])
+        ]
+        return self.async_show_form(
+            step_id="history",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_TAKE_OVER, default=TAKE_OVER_NONE): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options,
+                            mode=SelectSelectorMode.LIST,
+                            translation_key=CONF_TAKE_OVER,
+                        )
+                    )
+                }
+            ),
+        )
+
+    def _create_pending(self) -> ConfigFlowResult:
+        assert self._pending is not None
+        title, data, url, secret = self._pending
+        return self.async_create_entry(
+            title=title, data=data, description_placeholders=_pairing_placeholders(url, secret)
         )
 
     async def async_step_reconfigure(

@@ -111,6 +111,41 @@ def _name(entry: ConfigEntry, key: str) -> str:
     return f"{entry.title} {key.replace('_', ' ')}"
 
 
+def _split(sid: str) -> tuple[str, str] | None:
+    """An id of ours into the lowercased entry id and the key. A ULID has no underscore."""
+    prefix = f"{DOMAIN}:"
+    if not sid.startswith(prefix) or "_" not in sid[len(prefix) :]:
+        return None
+    owner, key = sid[len(prefix) :].split("_", 1)
+    return owner, key
+
+
+async def async_orphaned_histories(hass: HomeAssistant) -> dict[str, tuple[str, int]]:
+    """The statistics of phones that were removed: lowercased entry id -> (name, count).
+
+    Removing a phone deletes its ledger but leaves its statistics in the recorder, under
+    ids tied to an entry that is gone (P2-30). The name is the phone's name as it was,
+    read back from a statistic's name.
+    """
+    if "recorder" not in hass.config.components:
+        return {}
+    from homeassistant.components.recorder.statistics import async_list_statistic_ids
+
+    current = {entry.entry_id.lower() for entry in hass.config_entries.async_entries(DOMAIN)}
+    found: dict[str, tuple[str, int]] = {}
+    for item in await async_list_statistic_ids(hass):
+        parts = _split(item["statistic_id"])
+        if item.get("source") != DOMAIN or parts is None or parts[0] in current:
+            continue
+        owner, key = parts
+        name, count = found.get(owner, ("", 0))
+        if not name:
+            label = item.get("name") or ""
+            name = label.removesuffix(" " + key.replace("_", " ")) or owner
+        found[owner] = (name, count + 1)
+    return found
+
+
 class HistoryWriter:
     """Keeps the ledger for one entry and imports what a payload changed."""
 
@@ -206,6 +241,111 @@ class HistoryWriter:
                 " the iOS app from 1.4.0)",
                 earliest_day(change),
             )
+
+    async def async_take_over(self, owner: str) -> bool:
+        """Move a removed phone's statistics to this entry, and carry on their sums (P2-30).
+
+        The recorder renames only statistics it compiles itself, so the rows are copied
+        under this entry's ids, checked, and only then is the old copy cleared. A check that
+        fails leaves the old statistics where they were.
+
+        The ledger was deleted with the old entry. It starts again the day after the last
+        copied row, carrying each sum as it stood, so the next day continues the total.
+        Anything older that arrives later is added only where the copy has no row (P2-28),
+        so a backfill counts nothing twice. The cost: the last day stays as the old phone
+        sent it. Tried once: after a failure this entry writes its own rows, and a later
+        copy would land on top of them. Returns whether it was done.
+        """
+        if not self.available:
+            _LOGGER.warning("Recorder not loaded; history of a removed phone not taken over yet")
+            return False
+        from homeassistant.components.recorder import get_instance
+        from homeassistant.components.recorder.models import StatisticMeanType
+        from homeassistant.components.recorder.statistics import (
+            async_add_external_statistics,
+            async_list_statistic_ids,
+            statistics_during_period,
+        )
+
+        recorder = get_instance(self._hass)
+        await recorder.async_db_ready
+        await recorder.async_block_till_done()
+        tz = dt_util.get_default_time_zone()
+        taken: dict[str, int] = {}
+        last_day: date | None = None
+        last_sums: dict[str, float] = {}
+        for item in await async_list_statistic_ids(self._hass):
+            parts = _split(item["statistic_id"])
+            if item.get("source") != DOMAIN or parts is None or parts[0] != owner:
+                continue
+            old_sid, key = item["statistic_id"], parts[1]
+            found = await recorder.async_add_executor_job(
+                statistics_during_period,
+                self._hass,
+                datetime.fromtimestamp(0, UTC),
+                None,
+                {old_sid},
+                "hour",
+                None,
+                {"state", "sum", "mean", "min", "max"},
+            )
+            old_rows = found.get(old_sid, [])
+            if not old_rows:
+                continue
+            has_sum = bool(item.get("has_sum"))
+            fields = ("state", "sum") if has_sum else ("mean", "min", "max")
+            rows = [
+                {"start": datetime.fromtimestamp(row["start"], UTC)}
+                | {name: row[name] for name in fields if row.get(name) is not None}
+                for row in old_rows
+            ]
+            metadata = self._metadata(
+                key,
+                sum_kind=has_sum,
+                mean_type=StatisticMeanType.NONE if has_sum else StatisticMeanType.ARITHMETIC,
+            )
+            # The unit as the old statistic has it, for a key this release no longer knows.
+            metadata["unit_of_measurement"] = item.get("unit_of_measurement")
+            async_add_external_statistics(self._hass, metadata, rows)
+            taken[old_sid] = len(rows)
+            day = rows[-1]["start"].astimezone(tz).date()
+            last_day = day if last_day is None else max(last_day, day)
+            if has_sum and rows[-1].get("sum") is not None:
+                last_sums[key] = rows[-1]["sum"]
+
+        if not taken:
+            return True
+        await recorder.async_block_till_done()
+        for old_sid, count in taken.items():
+            new_sid = statistic_id(self._entry, _split(old_sid)[1])  # type: ignore[index]
+            found = await recorder.async_add_executor_job(
+                statistics_during_period,
+                self._hass,
+                datetime.fromtimestamp(0, UTC),
+                None,
+                {new_sid},
+                "hour",
+                None,
+                {"mean", "sum"},
+            )
+            if len(found.get(new_sid, [])) != count:
+                _LOGGER.warning(
+                    "Copying %s gave %d rows instead of %d; the old statistics are kept",
+                    old_sid,
+                    len(found.get(new_sid, [])),
+                    count,
+                )
+                return False
+
+        recorder.async_clear_statistics(list(taken))
+        if last_day is not None:
+            self.ledger.kept_from = (last_day + timedelta(days=1)).isoformat()
+            self.ledger.carried.update(last_sums)
+        await self.async_flush()
+        _LOGGER.info(
+            "Took over %d statistics of a removed phone for %s", len(taken), self._entry.title
+        )
+        return True
 
     async def _async_import_old(
         self,

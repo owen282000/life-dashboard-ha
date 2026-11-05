@@ -29,6 +29,9 @@ Check these when you update. Anything else keeps working as it did.
 - History older than 400 days that arrives later, such as a longer backfill or a second phone, now
   lands in the statistics instead of being ignored. A day with no row yet is added, and the running
   totals after it move up to match. A day or hour that already has a row is left alone.
+- Adding a phone offers to take over the statistics of a phone you removed, so its graphs and
+  running totals carry on instead of starting again. They're copied and checked before the old ones
+  are removed; make a backup first if you want a way back.
 
 ### Changed
 

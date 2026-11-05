@@ -28,6 +28,13 @@
           "use_cloud": "Erstellt einen Cloudhook, damit das Telefon ohne Portweiterleitung von überall synchronisiert. Die Adresse oben wird dann nicht verwendet.",
           "regenerate_secret": "Das Telefon synchronisiert nicht mehr, bis es das neue Geheimnis hat: scanne den neuen Code oder füge das Geheimnis in der App ein."
         }
+      },
+      "history": {
+        "title": "Verlauf eines entfernten Telefons",
+        "description": "Home Assistant hat noch die Statistiken eines Telefons, das du entfernt hast. Übernimm sie, dann setzen die Statistiken dieses Telefons dort fort, wo das andere aufgehört hat, und die laufenden Summen zählen weiter. Sie werden zu diesem Telefon kopiert und danach beim alten entfernt. Das lässt sich nicht rückgängig machen, also lege vorher ein Backup an, wenn du zurück können willst. Die Zahl gibt an, wie viele Statistiken das Telefon hat.",
+        "data": {
+          "take_over": "Übernehmen"
+        }
       }
     },
     "error": {
@@ -382,6 +389,11 @@
         "bone_mass": "Knochenmasse",
         "body_water_mass": "Körperwasser",
         "blood_pressure": "Blutdruck"
+      }
+    },
+    "take_over": {
+      "options": {
+        "none": "Nicht übernehmen, leer starten"
       }
     }
   },
