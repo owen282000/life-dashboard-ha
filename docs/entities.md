@@ -46,6 +46,8 @@ Each holds the newest record, with the time it describes as `measured_at`, the a
 | `basal_metabolic_rate` | kcal/d | | `vo2_max` | mL/min/kg |
 | `height` | m | | `speed` | m/s |
 
+**Heart rate variability** is the measure each phone's health store keeps: RMSSD from Health Connect on Android, SDNN from Apple Health on an iPhone. Both are in milliseconds, but they are calculated differently, so compare a phone with itself rather than with the other kind. Every phone has its own entry, so the two never mix. Only if you move from Android to an iPhone and keep using the same entry does the line jump at the switch; add the new phone as a new entry to keep them apart.
+
 ### Exercise sensors
 
 [Exercise](#exercise) below explains them.
