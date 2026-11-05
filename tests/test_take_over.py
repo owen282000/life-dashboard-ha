@@ -259,7 +259,7 @@ async def test_a_backfill_replaces_the_stand_in_for_the_last_days_sessions(
     assert await _post(client, {"backfill": False, "sleep": [{**nap, "uuid": "nap"}]}) == 200
     await async_wait_recording_done(hass)
     last = _rows(hass, sid, {"state", "sum"})[-1]
-    assert (last["state"], last["sum"]) == (440.0, 840.0)
+    assert (last["state"] * 60, last["sum"] * 60) == pytest.approx((440.0, 840.0))
 
     # A backfill sends the night and the nap again: they replace the stand-in, once.
     night = {"session_end_time": f"{_day(2).isoformat()}T06:00:00Z", "duration_seconds": 25200}
@@ -267,7 +267,7 @@ async def test_a_backfill_replaces_the_stand_in_for_the_last_days_sessions(
     assert await _post(client, payload) == 200
     await async_wait_recording_done(hass)
     last = _rows(hass, sid, {"state", "sum"})[-1]
-    assert (last["state"], last["sum"]) == (440.0, 840.0)
+    assert (last["state"] * 60, last["sum"] * 60) == pytest.approx((440.0, 840.0))
 
 
 async def test_starting_empty_leaves_the_old_history_alone(hass: HomeAssistant) -> None:

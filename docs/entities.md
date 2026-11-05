@@ -217,7 +217,7 @@ The apps you use also get a sensor each with their minutes today, such as `senso
 - An app gets a sensor once it has 5 minutes over those days, so an app opened once for a moment gets none. A phone gets 50 app sensors at most, disabled ones included, the most used apps first. An app keeps its sensor when you stop using it, so automations built on it keep working.
 - A sensor you delete stays deleted, even after a restart and while the phone keeps sending the app, and it frees its slot. Removing the phone and adding it again is the only way to get it back.
 - An app you leave out of **Apps to send** never reaches Home Assistant and gets no sensor.
-- Like `screen_time_today` they have no state class, so the sensor itself shows only the newest day. Each enabled app also gets a long-term statistic of its own, `life_dashboard:<entry>_app_<package>` (the package with its dots as underscores, such as `app_com_google_android_youtube`), with its minutes per day. Put it in a statistics graph to see the app over weeks or a year. It starts when you enable the sensor, with the days the next sync carries, up to seven back.
+- Like `screen_time_today` they have no state class, so the sensor itself shows only the newest day. Each enabled app also gets a long-term statistic of its own, `life_dashboard:<entry>_app_<package>` (the package with its dots as underscores, such as `app_com_google_android_youtube`), with its time per day in hours. Put it in a statistics graph to see the app over weeks or a year. It starts when you enable the sensor, with the days the next sync carries, up to seven back.
 
 ```yaml
 # Turn the TV off after an hour of a game on a school day.
@@ -258,11 +258,11 @@ A sensor can only hold now, so on its own a year of backfilled readings would al
 
 | Statistic | What it holds |
 |---|---|
-| `steps`, `distance`, `active_calories`, `total_calories` | The day's total, from the app's daily totals. |
-| `sleep_minutes`, `exercise_minutes`, `mindfulness_minutes` | The day's total, from the sessions that ended that day. A workout that crosses midnight counts whole on the day it ended here, where the [exercise sensors](#exercise) split it. |
+| `steps`, `distance` (km), `active_calories`, `total_calories` (kcal) | The day's total, from the app's daily totals. |
+| `sleep_minutes`, `exercise_minutes`, `mindfulness_minutes` | The day's total in hours (the IDs keep their old names), from the sessions that ended that day. A workout that crosses midnight counts whole on the day it ended here, where the [exercise sensors](#exercise) split it. |
 | `hydration_total` | Liters drunk that day. |
-| `screen_time` | Minutes on the phone that day. Every sync carries the last seven days, so a day that was still running when it was sent is corrected by the next one. |
-| `app_<package>` | Minutes in one app that day, for each app whose [sensor](#per-app) you enabled. |
+| `screen_time` | Hours on the phone that day. Every sync carries the last seven days, so a day that was still running when it was sent is corrected by the next one. |
+| `app_<package>` | Hours in one app that day, for each app whose [sensor](#per-app) you enabled. |
 | `heart_rate`, `weight`, `blood_pressure_systolic`, `blood_pressure_diastolic` and every other value in the [latest reading](#latest-reading) table except sleep and the last drink | Mean, minimum and maximum per hour. |
 
 A day without data has no row, rather than a zero. Each statistic's ID is `life_dashboard:<entry>_<statistic>`, where `<entry>` is the phone's config entry ID in lowercase, and its name is the device name followed by the statistic, such as "Owen's Pixel steps".
@@ -281,7 +281,7 @@ entities:
   - life_dashboard:<entry>_steps   # pick "Owen's Pixel steps" from the picker
 ```
 
-Distance, energy, sleep and the other minutes, water and weight are stored in m, kcal, min, L and kg, with the recorder's unit class for each, so the recorder can convert them. The statistics graph card doesn't offer that yet: its `unit` option only switches between units its statistics are already stored in.
+Distance is stored in km, and sleep, workouts, mindfulness and screen time in hours, so a statistics graph reads 42 km and 7.5 h without any setting. Home Assistant can't convert the unit of an external statistic in a graph, which is why they are stored that way. Steps, calories, water and weight keep steps, kcal, L and kg.
 
 <p align="center">
   <img src="screenshots/statistics.png" alt="Two statistics graph cards fed by the integration: steps per week as bars, and heart rate per day as a line with its min and max band" width="520">
