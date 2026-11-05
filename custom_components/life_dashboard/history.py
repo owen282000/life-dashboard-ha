@@ -181,6 +181,9 @@ class Ledger:
     activity: dict[str, Any] = field(default_factory=dict)
     kept_from: str | None = None
     carried: dict[str, float] = field(default_factory=dict)
+    #: The units the statistics were written in: 1 up to 0.12 (m and min), 2 since 1.0.0
+    #: (km and h). A new ledger starts at 2: it has written nothing in the old ones.
+    units: int = 2
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -191,6 +194,7 @@ class Ledger:
                 for key, buckets in self.hours.items()
             },
             "workouts": self.workouts,
+            "units": self.units,
         }
         # Only once there are records: a phone that sends nothing a workout reads, and a
         # test ping, leave the file as it was.
@@ -223,6 +227,8 @@ class Ledger:
             # Absent in a ledger that was never pruned.
             kept_from=data.get("kept_from") or None,
             carried={k: float(v) for k, v in (data.get("carried") or {}).items()},
+            # Absent in a ledger of 0.12 and earlier, whose statistics are in m and min.
+            units=int(data.get("units") or 1),
         )
 
     def day_totals(self, key: str) -> dict[str, float]:

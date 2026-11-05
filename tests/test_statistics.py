@@ -371,12 +371,13 @@ async def test_distance_is_kept_in_km_and_sleep_in_hours(
 
 
 async def test_statistics_from_0_12_in_m_and_min_move_to_km_and_hours(
-    hass: HomeAssistant, hass_client_no_auth
+    hass: HomeAssistant, hass_client_no_auth, hass_storage
 ) -> None:
-    """Rewritten once at setup, before the webhook is up, so the totals carry on."""
+    """Rewritten once after the start, before the webhook is up, so the totals carry on."""
     await async_process_ha_core_config(hass, {"time_zone": "Europe/Amsterdam"})
     entry = MockConfigEntry(
         domain=DOMAIN,
+        entry_id="01JTESTPHONE00000000000000",
         title="Owen's Pixel",
         unique_id=WEBHOOK_ID,
         data={
@@ -387,6 +388,11 @@ async def test_statistics_from_0_12_in_m_and_min_move_to_km_and_hours(
     )
     entry.add_to_hass(hass)
     days = [_today() - timedelta(days=n) for n in (3, 2)]
+    # A ledger of 0.12, which says nothing of units, with the distance it wrote.
+    key = f"{DOMAIN}.{entry.entry_id}.history"
+    distance = {days[0].isoformat(): 3000.0, days[1].isoformat(): 2000.0}
+    data = {"days": {"distance": distance}, "sessions": {}, "hours": {}, "workouts": {}}
+    hass_storage[key] = {"version": 1, "minor_version": 4, "key": key, "data": data}
     starts = [dt_util.start_of_local_day(day) for day in days]
     old = {
         "distance": ("m", [(3000.0, 3000.0), (2000.0, 5000.0)]),
@@ -424,12 +430,18 @@ async def test_statistics_from_0_12_in_m_and_min_move_to_km_and_hours(
     }
     assert units[statistic_id(entry, "distance")] == "km"
     assert units[statistic_id(entry, "sleep_minutes")] == "h"
+    assert entry.runtime_data.history.ledger.units == 2
+    # The webhook opens once that is done.
+    payload = _backfill(daily_totals=[{"date": _today().isoformat(), "distance_meters": 1500}])
+    assert await _post(await hass_client_no_auth(), payload) == 200
+    await async_wait_recording_done(hass)
+    assert _rows(hass, entry, "distance", "day", {"sum"})[-1]["sum"] == 6.5
 
     # A second start leaves them as they are.
     assert await hass.config_entries.async_reload(entry.entry_id)
     await async_wait_recording_done(hass)
     distance = _rows(hass, entry, "distance", "day", {"sum"})
-    assert [r["sum"] for r in distance] == [3.0, 5.0]
+    assert [r["sum"] for r in distance] == [3.0, 5.0, 6.5], "not divided a second time"
 
 
 async def test_days_from_before_the_ledger_are_added_and_later_sums_move_up(

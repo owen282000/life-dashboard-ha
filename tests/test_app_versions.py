@@ -440,6 +440,8 @@ def _existing_sensors(
     del ledger["workouts"]
     # So did the records of the workouts' details.
     ledger.pop("activity", None)
+    # And the units the statistics are written in (1.0.0).
+    ledger.pop("units", None)
     # Through JSON, so a tuple and a list compare alike, as they do in the fixture file.
     return json.loads(json.dumps({"sensors": sensors, "ledger": ledger}, default=str))
 
