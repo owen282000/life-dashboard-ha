@@ -317,7 +317,7 @@ async def test_an_iphone_payload_is_taken_and_answered(
     assert by_key["distance_today"].value == 3150.25
     assert by_key["blood_pressure_systolic"].value == 124.0
     assert "blood_pressure_diastolic" not in by_key
-    assert by_key["sleep_duration"].value == 450
+    assert by_key["sleep_duration"].value == 7.5
     assert by_key[KEY_LAST_HEALTH_SYNC].attributes["source"] == "healthkit_ios"
     assert loaded.runtime_data.app_version == "1.4.0"
 

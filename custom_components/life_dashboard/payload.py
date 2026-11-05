@@ -308,7 +308,8 @@ class _Latest:
 
 
 # The latest-value sensors, in the order they appear in the README table. Keys and
-# units match the app's MQTT sensors so a user moving over sees the same names.
+# units match the app's MQTT sensors so a user moving over sees the same names; only the
+# last sleep differs, in hours here so a tile reads 7h 30m, and in minutes over MQTT.
 _LATEST: Final[tuple[_Latest, ...]] = (
     _Latest("heart_rate", "heart_rate", "bpm", to_int=True),
     _Latest("resting_heart_rate", "resting_heart_rate", "bpm", to_int=True),
@@ -363,7 +364,9 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec("heart_rate_variability", "ms", precision=1),
         # Running, cycling and treadmill apps write speed during a workout (app 1.29.0).
         SensorSpec("speed", "m/s", "speed", precision=2),
-        SensorSpec("sleep_duration", "min", "duration", precision=0),
+        # Hours, so a tile reads 6h 47m: the frontend only splits a duration from the unit up.
+        # Three decimals because it rounds to the display precision and then down to the minute.
+        SensorSpec("sleep_duration", "h", "duration", precision=3),
         SensorSpec("weight", "kg", "weight", precision=1),
         SensorSpec("blood_pressure_systolic", "mmHg", precision=0),
         SensorSpec("blood_pressure_diastolic", "mmHg", precision=0),
@@ -565,7 +568,7 @@ def _parse_health(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
             continue
         record, measured_at, value = found
         if spec.key == "sleep_duration":
-            value = value / 60
+            value = value / 3600
         updates.append(
             SensorUpdate(
                 key=spec.key,
