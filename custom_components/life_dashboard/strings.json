@@ -139,6 +139,16 @@
             }
           }
         }
+      },
+      "iphone": {
+        "title": "Options",
+        "description": "This phone is an iPhone. Sending measurements to the phone, Receive, is only in the Android app, so there is nothing to map here. A mapping made for an Android phone before is kept, for if this phone goes back to Android.",
+        "data": {
+          "min_workout_minutes": "Shortest workout (minutes)"
+        },
+        "data_description": {
+          "min_workout_minutes": "Workouts shorter than this are left out of Last workout, Exercise today and Exercise yesterday, such as a short walk the phone noticed by itself. 0 counts every workout. The exercise statistic is not affected."
+        }
       }
     },
     "error": {
@@ -400,6 +410,9 @@
     },
     "recorder_missing": {
       "message": "The recorder is not loaded, so there is no history to read."
+    },
+    "iphone_receives_nothing": {
+      "message": "{phone} is an iPhone, and only the Android app receives measurements, so there is no history to send to it."
     }
   }
 }

@@ -12,6 +12,10 @@ CONF_SECRET: Final = "secret"
 CONF_URL_CHOICE: Final = "url_choice"
 CONF_BASE_URL: Final = "base_url"
 CONF_CLOUDHOOK_URL: Final = "cloudhook_url"
+# The phone's platform, from the source of its health payloads: an iPhone has no Receive.
+CONF_PLATFORM: Final = "platform"
+PLATFORM_ANDROID: Final = "android"
+PLATFORM_IPHONE: Final = "iphone"
 
 # Values for CONF_URL_CHOICE. "url" is an address the user typed or accepted, kept in
 # CONF_BASE_URL; "cloud" is a cloudhook. Internal and external are what entries from

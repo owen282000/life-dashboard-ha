@@ -22,6 +22,10 @@ Check these when you update. Anything else keeps working as it did.
 
 ### Changed
 
+- An iPhone has no Receive, so for a phone the integration knows is an iPhone, from the source of
+  its health payloads, the options show only the shortest workout, the **Send history to phone**
+  button is removed, nothing is queued and the `queue_history` action says why. A mapping made for an
+  Android phone stays in the options and works again if the phone goes back to Android.
 - The install steps name **Settings > Marketplace**, part of Home Assistant from 2026.11, with HACS
   for older versions. A new install from the Marketplace needs no restart.
 

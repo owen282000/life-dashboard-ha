@@ -69,7 +69,7 @@ from homeassistant.util.unit_conversion import (
     PressureConverter,
 )
 
-from .const import DOMAIN
+from .const import CONF_PLATFORM, DOMAIN, PLATFORM_IPHONE
 from .payload import parse_instant, response_body
 from .writeback_queue import (
     CODE_TOO_OLD,
@@ -266,7 +266,10 @@ class WritebackManager:
         self._entry = entry
         self._store = _store(hass, entry.entry_id)
         self.queue = WritebackQueue()
-        self.mappings = parse_mapping(entry.options)
+        #: False for an iPhone: the iOS app has no Receive, so nothing is queued for it
+        #: and the mapping, kept in the options, is left alone.
+        self.receives = entry.data.get(CONF_PLATFORM) != PLATFORM_IPHONE
+        self.mappings = parse_mapping(entry.options) if self.receives else {}
         self._pairers: dict[str, BloodPressurePairer] = {}
         self._warned_units: set[str] = set()
         #: entity_id -> (kind, role) for the value entities.
@@ -305,10 +308,11 @@ class WritebackManager:
         for kind in {reading.type for reading in self.queue.pending.values()}:
             if kind not in self.mappings and (gone := self.queue.clear_type(kind)):
                 _LOGGER.info(
-                    "Dropped %s pending %s readings for %s: the type is no longer mapped",
+                    "Dropped %s pending %s readings for %s: %s",
                     gone,
                     kind,
                     self._entry.title,
+                    "the type is no longer mapped" if self.receives else "an iPhone has no Receive",
                 )
                 self._save()
         self._seed()

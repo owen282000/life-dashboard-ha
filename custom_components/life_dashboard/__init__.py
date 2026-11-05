@@ -38,16 +38,21 @@ from .apps import async_remove_store as async_remove_apps
 from .const import (
     CONF_CLOUDHOOK_URL,
     CONF_MIN_WORKOUT_MINUTES,
+    CONF_PLATFORM,
     CONF_SECRET,
     CONF_WEBHOOK_ID,
     DEFAULT_MIN_WORKOUT_MINUTES,
     DOMAIN,
+    PLATFORM_ANDROID,
+    PLATFORM_IPHONE,
 )
 from .payload import (
+    HEALTH_SOURCES,
     KEY_EXERCISE_TODAY,
     KEY_LAST_WORKOUT,
     KEY_SCREEN_TIME_APPS,
     SIGNATURE_HEADER,
+    SOURCE_HEALTHKIT_IOS,
     SensorUpdate,
     frame_answer,
     parse_payload,
@@ -66,7 +71,7 @@ from .workouts import (
     stored_workouts,
     workout_update,
 )
-from .writeback import BACKFILL_DEFAULT_DAYS, BACKFILL_MAX_DAYS, WritebackManager
+from .writeback import BACKFILL_DEFAULT_DAYS, BACKFILL_MAX_DAYS, WritebackManager, parse_mapping
 from .writeback import async_remove_store as async_remove_writeback
 from .writeback_queue import WRITEBACK_TYPES
 
@@ -136,6 +141,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     async def _queue_history(call: ServiceCall) -> None:
         entry = _entry_for_service(hass, call.data.get(ATTR_CONFIG_ENTRY))
+        if not entry.runtime_data.writeback.receives:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="iphone_receives_nothing",
+                translation_placeholders={"phone": entry.title},
+            )
         await entry.runtime_data.writeback.async_queue_history(
             days=call.data[ATTR_DAYS], types=call.data.get(ATTR_TYPES)
         )
@@ -349,6 +360,8 @@ def _make_handler(entry: LifeDashboardConfigEntry):
                 updates.append(workout_update(newest, tz=tz, pool=pool))
             accepted = [update for update in updates if runtime.apply(update)]
 
+            _note_platform(hass, entry, data)
+
             if (version := data.get("app_version")) and version != runtime.app_version:
                 runtime.app_version = version
                 _update_sw_version(hass, entry, version)
@@ -392,6 +405,30 @@ def _make_handler(entry: LifeDashboardConfigEntry):
         )
 
     return handle
+
+
+def _note_platform(hass: HomeAssistant, entry: LifeDashboardConfigEntry, data: dict) -> None:
+    """Remember whether the phone is an iPhone, from the source of a health payload.
+
+    An iPhone has no Receive, so for one the write-back options, the button and the
+    queue go away. A change reloads the entry when something is mapped, so the
+    button and the listeners follow; the mapping itself stays in the options, for
+    a phone that moves back to Android.
+    """
+    source = data.get("source")
+    if source not in HEALTH_SOURCES:
+        return
+    platform = PLATFORM_IPHONE if source == SOURCE_HEALTHKIT_IOS else PLATFORM_ANDROID
+    before = entry.data.get(CONF_PLATFORM)
+    if before == platform:
+        return
+    hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_PLATFORM: platform})
+    # Only a change into or out of iPhone changes what is offered; the first Android
+    # payload of an entry that already receives needs no reload.
+    if (before == PLATFORM_IPHONE) != (platform == PLATFORM_IPHONE) and parse_mapping(
+        entry.options
+    ):
+        hass.config_entries.async_schedule_reload(entry.entry_id)
 
 
 def _update_sw_version(hass: HomeAssistant, entry: LifeDashboardConfigEntry, version: str) -> None:

@@ -139,6 +139,16 @@
             }
           }
         }
+      },
+      "iphone": {
+        "title": "Optionen",
+        "description": "Dieses Telefon ist ein iPhone. Messwerte an das Telefon senden, „Empfangen“, gibt es nur in der Android-App, daher gibt es hier nichts zuzuordnen. Eine früher für ein Android-Telefon angelegte Zuordnung bleibt erhalten, falls dieses Telefon wieder zu Android wechselt.",
+        "data": {
+          "min_workout_minutes": "Kürzestes Training (Minuten)"
+        },
+        "data_description": {
+          "min_workout_minutes": "Kürzere Trainings fehlen in „Letztes Training“, „Training heute“ und „Training gestern“, zum Beispiel ein kurzer Spaziergang, den das Telefon selbst erkannt hat. 0 zählt jedes Training. Die Statistik für Training bleibt unverändert."
+        }
       }
     },
     "error": {
@@ -400,6 +410,9 @@
     },
     "recorder_missing": {
       "message": "Der Recorder ist nicht geladen, deshalb gibt es keinen Verlauf zum Lesen."
+    },
+    "iphone_receives_nothing": {
+      "message": "{phone} ist ein iPhone, und nur die Android-App empfängt Messwerte, daher gibt es keinen Verlauf, der an das Telefon gesendet werden kann."
     }
   }
 }
