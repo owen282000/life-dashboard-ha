@@ -458,7 +458,8 @@ def _app_sensors(
 
 
 def _on_main() -> dict[str, Any]:
-    """The readings on main, with the screen time days in hours, as they are since 1.0.0."""
+    """The readings on main, with the screen time days in hours and the distance in km,
+    as they are since 1.0.0."""
     readings = json.loads(ON_MAIN.read_text())
     for scenario in readings.values():
         for key in ("screen_time_today", "screen_time_yesterday"):
@@ -466,6 +467,10 @@ def _on_main() -> dict[str, Any]:
             if sensor and sensor["state"] not in (None, "unknown", "unavailable"):
                 # Rounded as Home Assistant rounds a state with a display precision of 3.
                 sensor["state"] = str(round(int(sensor["state"]) / 60, 5))
+        distance = scenario["sensors"].get("distance_today")
+        if distance and distance["state"] not in (None, "unknown", "unavailable"):
+            # In km since 1.0.0, rounded as Home Assistant rounds it.
+            distance["state"] = str(round(float(distance["state"]) / 1000, 4))
     return readings
 
 

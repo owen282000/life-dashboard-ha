@@ -314,7 +314,7 @@ async def test_an_iphone_payload_is_taken_and_answered(
 
     by_key = {u.key: u for u in updates}
     assert by_key["steps_today"].value == 4212
-    assert by_key["distance_today"].value == 3150.25
+    assert by_key["distance_today"].value == 3150.25 / 1000
     assert by_key["blood_pressure_systolic"].value == 124.0
     assert "blood_pressure_diastolic" not in by_key
     assert by_key["sleep_duration"].value == 7.5

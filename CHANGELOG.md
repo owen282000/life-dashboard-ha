@@ -32,6 +32,11 @@ Check these when you update. Anything else keeps working as it did.
     way: multiply by 60, or change a trigger such as "above 120" to "above 2".
   - **What stays the same:** the entity IDs, the attributes in minutes (`top_apps`, `minutes`,
     `week_minutes`, `all_apps_minutes`).
+- **Distance today** is now in km, as its statistic and the graphs are, so a tile reads 6.45 km
+  instead of 6450 m. The state changes from `6450` to `6.45`.
+  - **What to do:** an automation or template that reads it in metres needs an update: multiply by
+    1000, or change a trigger such as "above 5000" to "above 5".
+  - **What stays the same:** the entity ID.
 - **The long-term statistics of distance, sleep, workouts, mindfulness and screen time** are now in
   km and hours instead of m and minutes, so a statistics graph reads 42 km and 7.5 h. Home Assistant
   can't convert an external statistic in a graph, so they are stored that way.
@@ -71,6 +76,10 @@ Check these when you update. Anything else keeps working as it did.
 
 ### Fixed
 
+- A statistic card for a period, such as steps this week or this month, left out the first day of
+  the period when that day had an amount. Home Assistant reads a period's start from the hour before
+  it, where there was no row; now each day has a row on the evening before it. The first start after
+  the update adds those rows to the history you have.
 - The repairs for a refused reading told you to use **Send history to phone**, which doesn't offer those
   readings again. They now say that new readings go through once you've fixed the cause, and that the
   refused ones stay out of Health Connect.
