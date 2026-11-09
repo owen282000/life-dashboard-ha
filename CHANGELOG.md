@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-09
+
 ### Added
 
 - Sleep stages. Per phone, the statistics `sleep_deep`, `sleep_light`, `sleep_rem`, `sleep_awake`
