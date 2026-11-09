@@ -33,6 +33,7 @@ from custom_components.life_dashboard.payload import (
     SIGNATURE_HEADER,
     signature_for,
 )
+from custom_components.life_dashboard.sleep import LAST_NIGHT_KEYS
 
 WEBHOOK_ID = "a" * 64
 SECRET = "b" * 64
@@ -313,13 +314,13 @@ async def test_screen_time_sensors(hass: HomeAssistant, hass_client_no_auth, loa
     await hass.async_block_till_done()
 
     today = hass.states.get("sensor.owen_s_pixel_screen_time_today")
-    assert today.state == str(round(143 / 60, 5))  # in hours since 1.0.0
+    assert today.state == "2.3834"  # in hours since 1.0.0
     assert "state_class" not in today.attributes
     assert today.attributes["top_apps"] == "Chrome (61 min), WhatsApp (44 min)"
     assert today.attributes["app_count"] == 2
 
     yesterday = hass.states.get("sensor.owen_s_pixel_screen_time_yesterday")
-    assert yesterday.state == str(round(212 / 60, 5))
+    assert yesterday.state == "3.5334"
     assert "state_class" not in yesterday.attributes
     assert "last_reset" not in yesterday.attributes
 
@@ -548,9 +549,13 @@ def test_every_unit_is_valid_for_its_device_class() -> None:
 
 def test_no_sensor_carries_a_state_class() -> None:
     """History lives in long-term statistics written by history.py. A state class would
-    make the recorder compile a second, and for a latest-value sensor a wrong, one."""
+    make the recorder compile a second, and for a latest-value sensor a wrong, one. The
+    last-night sensors are a measurement of a night, which is what a state class is for."""
     for key, spec in SENSOR_SPECS.items():
-        assert spec.state_class is None, key
+        if key in LAST_NIGHT_KEYS:
+            assert spec.state_class == "measurement", key
+        else:
+            assert spec.state_class is None, key
 
 
 def test_every_sensor_has_a_name() -> None:

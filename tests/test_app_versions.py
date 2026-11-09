@@ -50,7 +50,8 @@ from custom_components.life_dashboard.const import (
     DOMAIN,
     URL_CHOICE_INTERNAL,
 )
-from custom_components.life_dashboard.payload import SIGNATURE_HEADER, signature_for
+from custom_components.life_dashboard.payload import SIGNATURE_HEADER, signature_for, tile_hours
+from custom_components.life_dashboard.sleep import LAST_NIGHT_KEYS
 
 WEBHOOK_ID = "a" * 64
 SECRET = "b" * 64
@@ -442,6 +443,9 @@ def _existing_sensors(
     ledger.pop("activity", None)
     # And the units the statistics are written in (1.0.0).
     ledger.pop("units", None)
+    # And the sleep stages, with the sensors read from them.
+    ledger.pop("sleep", None)
+    sensors = {key: sensor for key, sensor in sensors.items() if key not in LAST_NIGHT_KEYS}
     # Through JSON, so a tuple and a list compare alike, as they do in the fixture file.
     return json.loads(json.dumps({"sensors": sensors, "ledger": ledger}, default=str))
 
@@ -465,8 +469,8 @@ def _on_main() -> dict[str, Any]:
         for key in ("screen_time_today", "screen_time_yesterday"):
             sensor = scenario["sensors"].get(key)
             if sensor and sensor["state"] not in (None, "unknown", "unavailable"):
-                # Rounded as Home Assistant rounds a state with a display precision of 3.
-                sensor["state"] = str(round(int(sensor["state"]) / 60, 5))
+                # Rounded up at the fourth decimal, so a tile reads the whole minute.
+                sensor["state"] = str(tile_hours(int(sensor["state"])))
         distance = scenario["sensors"].get("distance_today")
         if distance and distance["state"] not in (None, "unknown", "unavailable"):
             # In km since 1.0.0, rounded as Home Assistant rounds it.

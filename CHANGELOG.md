@@ -6,6 +6,30 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Sleep stages. Per phone, the statistics `sleep_deep`, `sleep_light`, `sleep_rem`, `sleep_awake`
+  and `sleep_asleep`: hours of the main night of every wake date, one row each, for a bar chart
+  per night, week or month. Naps and a second app that wrote the same night don't add up with
+  it. [docs/entities.md](docs/entities.md#sleep-stages) says what counts. Asked for by @Av4K100
+  in [#59](https://github.com/owen282000/life-dashboard-ha/issues/59).
+- The sensor `last_sleep_asleep`, the hours asleep in the newest main night, with the night's
+  stages as an attribute, and `last_sleep_deep`, `last_sleep_light`, `last_sleep_rem` and
+  `last_sleep_awake`, which start disabled.
+- Send history from the app also fills the stage statistics for old nights.
+- The [Life Dashboard Sleep Card](https://github.com/owen282000/life-dashboard-sleep-card), a separate dashboard card, draws the same night from the sensor's `stages` attribute.
+
+### Fixed
+
+- A sleep record deleted on the phone stays out of `sleep_minutes` and the stage statistics. A
+  deleted night used to stay in the running sum for good.
+- A delete or a move that empties a day no longer leaves its old row standing above every later
+  one; the day stays at 0 and moves with the sum.
+- A workout, mindfulness session or drink deleted on the phone leaves `exercise_minutes`,
+  `mindfulness_minutes` and `hydration_total`.
+- A tile on `last_sleep_duration` or the screen time sensors reads the right minute: 386 minutes
+  used to show as 6h 25m.
+
 ## [1.0.0] - 2026-11-06
 
 The first stable version. Within 1.x an update keeps your entities, statistics, automations and

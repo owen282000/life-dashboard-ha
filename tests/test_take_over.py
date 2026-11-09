@@ -313,3 +313,62 @@ async def test_a_phone_that_is_still_there_is_not_offered(hass: HomeAssistant) -
             result["flow_id"], {CONF_NAME: "Second", CONF_BASE_URL: "http://ha.local:8123"}
         )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_the_stage_statistics_are_copied_and_a_new_night_continues(
+    hass: HomeAssistant, hass_client_no_auth
+) -> None:
+    """A wake date's mean is copied whole; the ledger's own nights start empty, and a new
+    payload for a copied date rewrites just that row."""
+    await async_process_ha_core_config(hass, {"time_zone": "Europe/Amsterdam"})
+    deep = {
+        "statistic_id": f"{DOMAIN}:{OLD}_sleep_deep",
+        "source": DOMAIN,
+        "name": "Old Pixel sleep deep",
+        "unit_of_measurement": "h",
+        "unit_class": "duration",
+        "has_sum": False,
+        "mean_type": StatisticMeanType.ARITHMETIC,
+    }
+    noon = _start(2) + timedelta(hours=12)
+    earlier = _start(3) + timedelta(hours=12)
+    # The row of a night that was deleted: the recorder holds it with no value.
+    empty = _start(4) + timedelta(hours=12)
+    async_add_external_statistics(
+        hass,
+        deep,
+        [
+            {"start": empty.astimezone(UTC), "mean": None, "min": None, "max": None},
+            {"start": earlier.astimezone(UTC), "mean": 1.0, "min": 1.0, "max": 1.0},
+            {"start": noon.astimezone(UTC), "mean": 1.5, "min": 1.5, "max": 1.5},
+        ],
+    )
+    await async_wait_recording_done(hass)
+
+    entry = await _pair(hass, OLD)
+    sid = statistic_id(entry, "sleep_deep")
+    assert [r["mean"] for r in _rows(hass, sid, {"mean"})] == [1.0, 1.5], "the empty row stays out"
+    items = {item["statistic_id"]: item for item in await async_list_statistic_ids(hass)}
+    assert items[sid]["unit_class"] == "duration"
+    assert items[sid]["has_sum"] is False
+
+    # The ledger holds no hours for it: nothing would write them back.
+    ledger = entry.runtime_data.history.ledger
+    assert "sleep_deep" not in ledger.hours
+    assert not ledger.sleep.get("nights")
+
+    # A new phone's night for that same date writes its own row, once.
+    day = _day(2).isoformat()
+    previous = _day(3).isoformat()
+    night = {
+        "session_end_time": f"{day}T05:00:00Z",
+        "duration_seconds": 21600,
+        "uuid": "night",
+        "stages": [
+            {"stage": "deep", "start_time": f"{previous}T23:00:00Z", "end_time": f"{day}T05:00:00Z"}
+        ],
+    }
+    client = await hass_client_no_auth()
+    assert await _post(client, {"backfill": False, "sleep": [night]}) == 200
+    await async_wait_recording_done(hass)
+    assert [r["mean"] for r in _rows(hass, sid, {"mean"})] == [1.0, 6.0]

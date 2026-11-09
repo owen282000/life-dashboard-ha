@@ -62,6 +62,7 @@ from .payload import (
     verify_signature,
     writeback_request,
 )
+from .sleep import LAST_NIGHT_KEYS, sleep_updates
 from .statistics import HistoryWriter
 from .statistics import async_remove_store as async_remove_history
 from .workouts import (
@@ -223,6 +224,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     # after a restart and with the option just changed, and they move on to the new day at
     # midnight rather than at the next sync.
     async_publish_exercise(hass, entry)
+    async_publish_sleep(hass, entry)
 
     @callback
     def _new_day(_now: datetime) -> None:
@@ -267,6 +269,37 @@ def async_publish_exercise(hass: HomeAssistant, entry: LifeDashboardConfigEntry)
         updates.append(refreshed)
     for update in updates:
         if runtime.apply(update):
+            async_dispatcher_send(hass, signal_update(entry.entry_id), update)
+
+
+@callback
+def async_publish_sleep(
+    hass: HomeAssistant, entry: LifeDashboardConfigEntry, *, clear: bool = False
+) -> None:
+    """Send the last-night sensors as the kept nights say, when that changed.
+
+    Not through the ordering rule: a correction or a deletion can make an older night the
+    newest again, and the ledger is what is right about that. `clear` empties the sensors
+    when no night is left, for a payload that deleted the last one; at startup a ledger
+    without nights says nothing about the sensors' restored values.
+    """
+    runtime = entry.runtime_data
+    if runtime.history is None:
+        return
+    tz = dt_util.get_default_time_zone()
+    updates = sleep_updates(
+        runtime.history.ledger.sleep, tz=tz, today=dt_util.utcnow().astimezone(tz).date()
+    )
+    if not updates and clear:
+        now = dt_util.utcnow()
+        updates = [
+            SensorUpdate(key=key, value=None, measured_at=now)
+            for key in LAST_NIGHT_KEYS
+            if key in runtime.latest and runtime.latest[key].value is not None
+        ]
+    for update in updates:
+        if runtime.latest.get(update.key) != update:
+            runtime.latest[update.key] = update
             async_dispatcher_send(hass, signal_update(entry.entry_id), update)
 
 
@@ -416,6 +449,8 @@ def _make_handler(entry: LifeDashboardConfigEntry):
             # The day sums, and Last workout when records for it came later.
             if change is not None and change.workouts:
                 async_publish_exercise(hass, entry)
+            if change is not None and change.nights:
+                async_publish_sleep(hass, entry, clear=True)
 
             # What the phone confirmed and refused, then what waits for it. Its own
             # try inside this one: a bug in the direction to the phone must not turn

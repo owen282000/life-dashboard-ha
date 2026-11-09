@@ -44,6 +44,7 @@ from .payload import (
     is_fallback_label,
     parse_instant,
     state_value,
+    tile_hours,
 )
 from .workout_details import DETAIL_KEYS
 
@@ -76,6 +77,14 @@ _PAYLOAD_ATTRIBUTES = frozenset(
         "duration_minutes",
         "type_code",
         "sessions",
+        # The last-night sensors (sleep.py).
+        "night",
+        "stages",
+        "asleep_minutes",
+        "deep_minutes",
+        "light_minutes",
+        "rem_minutes",
+        "awake_minutes",
         # The details of Last workout (workout_details.DETAIL_KEYS).
         *DETAIL_KEYS,
     }
@@ -157,6 +166,8 @@ class LifeDashboardSensor(RestoreSensor):
 
     _attr_has_entity_name = True
     _attr_should_poll = False
+    # A night's stages can be over the size the recorder keeps of a state's attributes.
+    _unrecorded_attributes = frozenset({"stages"})
 
     def __init__(self, entry: LifeDashboardConfigEntry, key: str) -> None:
         """Set up the sensor from its spec."""
@@ -174,6 +185,7 @@ class LifeDashboardSensor(RestoreSensor):
         self._attr_options = list(spec.options) if spec.options else None
         self._attr_suggested_display_precision = spec.precision
         self._attr_entity_category = EntityCategory.DIAGNOSTIC if spec.diagnostic else None
+        self._attr_entity_registry_enabled_default = spec.enabled
         self._attr_device_info = _device_info(entry)
 
     async def async_added_to_hass(self) -> None:
@@ -317,7 +329,7 @@ class AppScreenTimeSensor(SensorEntity):
         """Hold this app's row of a table, or 0 when the day does not have it."""
         row = update.attributes.get("apps", {}).get(self._package)
         # In hours, so a tile reads 1h 25m; the attributes keep minutes.
-        self._attr_native_value = row["minutes"] / 60 if row and row["minutes"] else 0
+        self._attr_native_value = tile_hours(row["minutes"]) if row and row["minutes"] else 0
         self._attr_extra_state_attributes = {
             # The current label: the entity name takes a new one when it is rebuilt.
             "app": self._label(row),

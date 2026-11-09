@@ -14,7 +14,7 @@ The Health view, in [examples/dashboard.yaml](../examples/dashboard.yaml):
 
 - **Today**: steps, distance, active and total calories, workout time and heart rate as tiles, and the last workout with what was recorded during it: pace, heart rate, calories, steps and laps.
 - **Recovery**: heart rate variability over the last 7 days against your 60-day baseline, resting heart rate over the last 7 days against the 7 before, heart rate variability per week over a year, and VO2 max.
-- **Sleep**: last night on a gauge, the night's breathing and oxygen, the skin temperature against your normal, and sleep per night.
+- **Sleep**: last night on a gauge, the night's breathing and oxygen, the skin temperature against your normal, sleep per night, and the sleep stages per night.
 - **Training**: workout time this week, last week, this month and the last 4 weeks, today's workouts, workout time per week, and VO2 max per month.
 - **Heart**: resting heart rate on average and per day, and heart rate over the last 48 hours.
 - **Activity**: steps this week and this month, steps per day, distance per week from every activity, and active calories per day.
@@ -60,6 +60,65 @@ Do this on a computer: the raw configuration editor is much easier with a real k
    - **An iPhone** sends no skin temperature and no screen time. Its heart rate variability is SDNN where Android's is RMSSD, so it compares well with its own baseline but not with an Android phone's numbers ([entities.md](entities.md)).
 
 The graphs start with what the phone has sent so far. To fill them with your history, tap **Send history** under **What to send** on the **Health** tab of the Life Dashboard app and pick how far back. The days land on their own dates, as far back as the phone has data.
+
+## Drawing the night
+
+For a chart that follows your theme and shows each stage on hover, there's the [Life Dashboard Sleep Card](https://github.com/owen282000/life-dashboard-sleep-card), a separate install from the Marketplace:
+
+```yaml
+type: custom:life-dashboard-sleep-card
+entity: sensor.your_phone_last_sleep_asleep
+```
+
+The `stages` attribute of `sensor.your_phone_last_sleep_asleep` holds the timeline for a card of your own. Two recipes for custom cards, neither of which this project installs. Neither has been run in a browser by this project, so treat them as a starting point.
+
+[ApexCharts card](https://github.com/RomRider/apexcharts-card) has no range bars, so it draws the night as a stepped line:
+
+```yaml
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Last night
+graph_span: 24h
+yaxis:
+  - min: 0
+    max: 3
+    apex_config:
+      tickAmount: 3
+series:
+  - entity: sensor.your_phone_last_sleep_asleep
+    name: Stage
+    curve: stepline
+    data_generator: |
+      const lanes = { deep: 0, light: 1, sleeping: 1, unknown: 1, rem: 2, awake: 3, out_of_bed: 3 };
+      const points = [];
+      for (const part of entity.attributes.stages || []) {
+        points.push([new Date(part.start).getTime(), lanes[part.stage]]);
+        points.push([new Date(part.end).getTime(), lanes[part.stage]]);
+      }
+      return points;
+```
+
+[Plotly graph card](https://github.com/dbuezas/lovelace-plotly-graph-card) can draw colored lanes, one trace per stage, separated by `null`:
+
+```yaml
+type: custom:plotly-graph
+hours_to_show: 24h
+layout:
+  showlegend: false
+  yaxis:
+    range: [-0.5, 3.5]
+    fixedrange: true
+    tickvals: [0, 1, 2, 3]
+    ticktext: [Deep, Light, REM, Awake]
+entities:
+  - entity: ""
+    mode: lines
+    line: { width: 16, color: "#5157cf" }
+    x: $fn ({ hass }) => (hass.states["sensor.your_phone_last_sleep_asleep"].attributes.stages || []).filter((p) => p.stage === "deep").flatMap((p) => [p.start, p.end, null])
+    y: $fn ({ hass }) => (hass.states["sensor.your_phone_last_sleep_asleep"].attributes.stages || []).filter((p) => p.stage === "deep").flatMap(() => [0, 0, null])
+  # And again for "light" at 1, "rem" at 2 and "awake" at 3, each with its own color.
+```
 
 ## Screen time
 

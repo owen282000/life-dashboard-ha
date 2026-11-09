@@ -186,6 +186,21 @@
       "sleep_duration": {
         "name": "Dauer des letzten Schlafs"
       },
+      "last_sleep_asleep": {
+        "name": "Letzter Schlaf: geschlafen"
+      },
+      "last_sleep_deep": {
+        "name": "Letzter Schlaf: Tiefschlaf"
+      },
+      "last_sleep_light": {
+        "name": "Letzter Schlaf: Leichtschlaf"
+      },
+      "last_sleep_rem": {
+        "name": "Letzter Schlaf: REM"
+      },
+      "last_sleep_awake": {
+        "name": "Letzter Schlaf: wach"
+      },
       "weight": {
         "name": "Gewicht"
       },

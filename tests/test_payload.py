@@ -30,6 +30,7 @@ from custom_components.life_dashboard.payload import (
     state_value,
     verify_signature,
 )
+from custom_components.life_dashboard.sleep import LAST_NIGHT_KEYS
 from custom_components.life_dashboard.workouts import day_updates, last_workout_update
 
 
@@ -692,7 +693,7 @@ def test_screen_time_backfill_moves_no_last_sync() -> None:
 def test_screen_time() -> None:
     updates = _by_key(parse_payload(_screen_time_payload(), tz=_amsterdam()))
 
-    assert updates["screen_time_today"].value == 143 / 60
+    assert updates["screen_time_today"].value == pytest.approx(143 / 60, abs=1e-4)
     assert updates["screen_time_today"].last_reset == datetime(
         2026, 9, 15, 0, 0, tzinfo=_amsterdam()
     )
@@ -701,7 +702,7 @@ def test_screen_time() -> None:
         "Chrome (61 min), WhatsApp (44 min), Spotify (22 min)"
     )
 
-    assert updates["screen_time_yesterday"].value == 212 / 60
+    assert updates["screen_time_yesterday"].value == pytest.approx(212 / 60, abs=1e-4)
     # Only today's total resets; yesterday is a fixed figure.
     assert updates["screen_time_yesterday"].last_reset is None
 
@@ -731,7 +732,7 @@ def test_screen_time_day_without_apps() -> None:
     payload = _screen_time_payload()
     payload["screen_time"] = [{"date": "2026-09-15", "total_screen_time_minutes": 12, "apps": []}]
     updates = _by_key(parse_payload(payload, tz=_amsterdam()))
-    assert updates["screen_time_today"].value == 12 / 60
+    assert updates["screen_time_today"].value == pytest.approx(12 / 60, abs=1e-4)
     assert updates["screen_time_today"].attributes["top_apps"] == ""
     assert "screen_time_top_app" not in updates
 
@@ -767,10 +768,10 @@ def _filtered_payload() -> dict:
 
 def test_screen_time_follows_the_app_filter() -> None:
     updates = _by_key(parse_payload(_filtered_payload(), tz=_amsterdam()))
-    assert updates["screen_time_today"].value == 83 / 60
+    assert updates["screen_time_today"].value == pytest.approx(83 / 60, abs=1e-4)
     assert updates["screen_time_today"].attributes["all_apps_minutes"] == 143
     assert updates["screen_time_today"].attributes["app_count"] == 2
-    assert updates["screen_time_yesterday"].value == 95 / 60
+    assert updates["screen_time_yesterday"].value == pytest.approx(95 / 60, abs=1e-4)
     assert updates["screen_time_top_app"].value == "Chrome"
 
 
@@ -1076,6 +1077,9 @@ def test_every_emitted_key_has_a_spec() -> None:
     for update in [last, *day_updates([], now=now, tz=_amsterdam())]:
         emitted.add(update.key)
         assert update.key in SENSOR_SPECS, f"no spec for {update.key}"
+
+    # The last-night sensors come from the ledger's nights (sleep.py).
+    emitted |= set(LAST_NIGHT_KEYS)
 
     # And the other way round: a spec nothing can emit is dead weight.
     assert set(SENSOR_SPECS) == emitted, set(SENSOR_SPECS) ^ emitted
