@@ -294,6 +294,26 @@ views:
               - entity: life_dashboard:<entry>_sleep_minutes
                 name: Sleep
                 color: purple
+          - type: statistics-graph
+            title: Sleep stages per night
+            chart_type: bar-stack
+            period: day
+            days_to_show: 30
+            stat_types:
+              - mean
+            entities:
+              - entity: life_dashboard:<entry>_sleep_deep
+                name: Deep
+                color: indigo
+              - entity: life_dashboard:<entry>_sleep_light
+                name: Light
+                color: blue
+              - entity: life_dashboard:<entry>_sleep_rem
+                name: REM
+                color: pink
+              - entity: life_dashboard:<entry>_sleep_awake
+                name: Awake
+                color: amber
 
       # Training: workout time per week, and today's sessions.
       - type: grid

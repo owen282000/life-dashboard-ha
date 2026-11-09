@@ -227,6 +227,50 @@ views:
               - entity: life_dashboard:<second_entry>_sleep_minutes
                 name: Second phone
                 color: blue
+          - type: statistics-graph
+            title: First phone sleep stages
+            chart_type: bar-stack
+            period: day
+            days_to_show: 14
+            stat_types:
+              - mean
+            grid_options:
+              columns: 6
+            entities:
+              - entity: life_dashboard:<first_entry>_sleep_deep
+                name: Deep
+                color: indigo
+              - entity: life_dashboard:<first_entry>_sleep_light
+                name: Light
+                color: blue
+              - entity: life_dashboard:<first_entry>_sleep_rem
+                name: REM
+                color: pink
+              - entity: life_dashboard:<first_entry>_sleep_awake
+                name: Awake
+                color: amber
+          - type: statistics-graph
+            title: Second phone sleep stages
+            chart_type: bar-stack
+            period: day
+            days_to_show: 14
+            stat_types:
+              - mean
+            grid_options:
+              columns: 6
+            entities:
+              - entity: life_dashboard:<second_entry>_sleep_deep
+                name: Deep
+                color: indigo
+              - entity: life_dashboard:<second_entry>_sleep_light
+                name: Light
+                color: blue
+              - entity: life_dashboard:<second_entry>_sleep_rem
+                name: REM
+                color: pink
+              - entity: life_dashboard:<second_entry>_sleep_awake
+                name: Awake
+                color: amber
 
       - type: grid
         cards:

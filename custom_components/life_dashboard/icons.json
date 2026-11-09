@@ -12,6 +12,21 @@
       },
       "app_screen_time": {
         "default": "mdi:application"
+      },
+      "last_sleep_asleep": {
+        "default": "mdi:sleep"
+      },
+      "last_sleep_deep": {
+        "default": "mdi:waves"
+      },
+      "last_sleep_light": {
+        "default": "mdi:weather-night"
+      },
+      "last_sleep_rem": {
+        "default": "mdi:eye-outline"
+      },
+      "last_sleep_awake": {
+        "default": "mdi:eye"
       }
     },
     "button": {

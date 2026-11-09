@@ -13,6 +13,7 @@ history.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any
@@ -40,19 +41,21 @@ from .history import (
     seed_taken_over,
 )
 from .payload import SENSOR_SPECS
+from .sleep import NIGHT_STATISTICS, night_rows
 
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 # 1.2 added the workouts, 1.3 what a prune carries (kept_from and carried, written only
 # once something was pruned), 1.4 the records of the workouts' details (activity, and
-# source, laps and sets in a workout). Minor versions, because each change only adds keys:
-# an older ledger reads as it is, and a downgrade to an earlier release still reads a
-# newer one.
-STORAGE_MINOR_VERSION = 4
+# source, laps and sets in a workout), 1.5 the sleep stages (sleep, written once there are
+# nights). Minor versions, because each change only adds keys: an older ledger reads as it
+# is, and a downgrade to an earlier release still reads a newer one.
+STORAGE_MINOR_VERSION = 5
 SAVE_DELAY_SECONDS = 5
 
 # Units and names for the day sums, which have no sensor to borrow from.
+# The sleep stages are means rather than sums: one row per wake date (sleep.py).
 # One app's screen time per day, for the apps whose sensor is on (`history.app_key`).
 APP_PREFIX = "app_"
 
@@ -66,6 +69,11 @@ _DAY_UNITS: dict[str, str] = {
     "mindfulness_minutes": "h",
     "hydration_total": "L",
     "screen_time": "h",
+    "sleep_deep": "h",
+    "sleep_light": "h",
+    "sleep_rem": "h",
+    "sleep_awake": "h",
+    "sleep_asleep": "h",
 }
 
 # The day sums kept in a larger unit than the ledger's, which holds what the phone sends:
@@ -118,11 +126,13 @@ class _LedgerStore(Store[dict[str, Any]]):
             # because the sessions kept for the statistics hold no type and no start. A
             # ledger that was never pruned has nothing carried, which is what 1.3 says too.
             # The records for the details start empty as well: the workouts kept so far
-            # read without details until their records come again.
+            # read without details until their records come again. So do the nights: the
+            # sessions kept so far hold no stages, and Send history brings them in.
             return {
                 **old_data,
                 "workouts": old_data.get("workouts") or {},
                 "activity": old_data.get("activity") or {},
+                "sleep": old_data.get("sleep") or {},
             }
         raise NotImplementedError
 
@@ -251,7 +261,7 @@ class HistoryWriter:
 
         pruned = self._prune(tz)
 
-        if pruned or not change.is_empty or change.workouts:
+        if pruned or not change.is_empty or change.workouts or change.nights:
             self._store.async_delay_save(self.ledger.to_dict, SAVE_DELAY_SECONDS)
         return change
 
@@ -305,6 +315,15 @@ class HistoryWriter:
                     rows,
                 )
 
+        for key, rows in night_rows(change.night_rows, tz=tz).items():
+            rows = self._take_away_rows(key, rows)
+            if rows:
+                async_add_external_statistics(
+                    self._hass,
+                    self._metadata(key, sum_kind=False, mean_type=StatisticMeanType.ARITHMETIC),
+                    rows,
+                )
+
         if data.get("backfill") is True and not data.get("daily_totals"):
             _LOGGER.warning(
                 "Backfill window from %s carries no daily_totals; its step, distance and"
@@ -312,6 +331,28 @@ class HistoryWriter:
                 " the iOS app from 1.4.0)",
                 earliest_day(change),
             )
+
+    def _take_away_rows(self, key: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Remove the rows of dates that lost a value, and return the rows left to write.
+
+        Home Assistant can delete part of a statistic from 2026.11 on, and the signature of
+        the recorder's method is what says so. Before that a row cannot be deleted, so it is
+        left in the list and written with a mean of nothing, which a graph leaves out.
+        """
+        from homeassistant.components.recorder import get_instance
+
+        if all(row["mean"] is not None for row in rows):
+            return rows
+        recorder = get_instance(self._hass)
+        if "start_time" not in inspect.signature(recorder.async_clear_statistics).parameters:
+            return rows
+        sid = statistic_id(self._entry, key)
+        for row in rows:
+            if row["mean"] is None:
+                recorder.async_clear_statistics(
+                    [sid], start_time=row["start"], end_time=row["start"] + timedelta(hours=1)
+                )
+        return [row for row in rows if row["mean"] is not None]
 
     @property
     def needs_unit_migration(self) -> bool:
@@ -448,6 +489,9 @@ class HistoryWriter:
                 | {name: row[name] for name in fields if row.get(name) is not None}
                 for row in old_rows
             ]
+            if key in NIGHT_STATISTICS:
+                # A row whose mean was taken away (`_take_away_rows`) is no row to copy.
+                rows = [row for row in rows if row.get("mean") is not None]
             metadata = self._metadata(
                 key,
                 sum_kind=has_sum,
@@ -472,7 +516,8 @@ class HistoryWriter:
                     for row in rows
                     if row.get("sum") is not None
                 ]
-            else:
+            elif key not in NIGHT_STATISTICS:
+                # The nights stand on their own rows; only measured hours are carried on.
                 hours[key] = [
                     (
                         row["start"],

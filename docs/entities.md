@@ -4,6 +4,7 @@ Each phone is one device, with a sensor for every value it sends and long-term s
 
 - [What you get](#what-you-get)
 - [Exercise](#exercise)
+- [Sleep stages](#sleep-stages)
 - [Screen time](#screen-time)
 - [A dashboard to start from](#a-dashboard-to-start-from)
 - [History](#history)
@@ -57,6 +58,17 @@ Each holds the newest record, with the time it describes as `measured_at`, the a
 | `last_workout` | the kind of the newest workout, such as `running` | `start`, `end`, `duration_minutes`, `type_code`, `source`, `uuid`, `measured_at`, and its [details](#workout-details) |
 | `exercise_today` | min | `date`, `sessions` |
 | `exercise_yesterday` | min | `date`, `sessions` |
+
+### Last sleep
+
+The newest night with stages, so not always the newest session: `last_sleep_duration` is the latest session of any kind, including a nap, while these are the newest main night ([what that means](#sleep-stages)).
+
+| Sensor | State | Attributes |
+|---|---|---|
+| `last_sleep_asleep` | Hours actually asleep | `night` (wake date), `start`, `end`, `source`, the minutes of the night as `asleep_minutes`, `deep_minutes`, `light_minutes`, `rem_minutes`, `awake_minutes`, `stages` and `measured_at` |
+| `last_sleep_deep`, `last_sleep_light`, `last_sleep_rem`, `last_sleep_awake` | Hours of that stage, `unknown` when the night has none to report | `night`, `measured_at` |
+
+The `last_sleep_` sensors other than `last_sleep_asleep` start disabled. A sensor in this table appears with the first night that has stages, and the chart as well; before that there is nothing to draw and no entity.
 
 ### Screen time sensors
 
@@ -169,6 +181,24 @@ actions:
       message: "No workout today."
 ```
 
+## Sleep stages
+
+A night's stages become sensors and statistics by the rules of the wake date, the date the session ended on in Home Assistant's time zone.
+
+**The main night.** A date gets one main night: the session with the most time asleep, then the longest, and a stable tie-break on the record ID. Naps and a second app that wrote the same night don't add up with it; they stay in the statistic `sleep_minutes`, which counts every session whole on the day it ended. That is why `sleep_minutes` and the stage statistics differ: `sleep_minutes` is the record's duration including time in bed and awake, and the stages are the stages.
+
+**Counting.** A stage counts only when its source is the session's source, or it has no source of its own; an older iOS app that doesn't send a session source has no filter, and every stage is taken. `in_bed` never counts, and where stages overlap each moment goes to the most specific one, in the order deep, REM, light, sleeping, awake, unknown, so nothing counts twice. `sleeping` is time asleep with no detail; `awake`, `awake_in_bed` and `out_of_bed` are awake; `unknown` is in no sum, but is drawn. A night with at least one of deep, light and REM counts the others, and awake, as 0. A night with only `sleeping` has time asleep and awake but no deep, light or REM. A night that only has `in_bed`, `unknown` or `awake` has nothing to report: no main night, no row and no sensor update.
+
+**`stages`.** The `stages` attribute of `last_sleep_asleep` is the night's timeline, a list of objects with `stage`, `start` and `end` (ISO 8601 in the local time zone), sorted, not overlapping, and adjacent equal stages merged. `stage` is one of `awake`, `light`, `deep`, `rem`, `sleeping`, `out_of_bed` and `unknown`; `awake_in_bed` is listed as `awake` and `in_bed` is left out. It can be long, so the recorder doesn't keep it, but it is on the state and it comes back after a restart. The [dashboard page](dashboard.md#drawing-the-night-yourself) shows how to draw it in other cards.
+
+**Corrections.** A record that arrives again changes nothing; an edit replaces the night by its record ID, and an older copy of a night that was edited or deleted since doesn't undo that. A deleted night leaves the statistics of its date and the running sum, and the sensors fall back to the night before. A day that ends up with no sleep keeps a row at 0 in `sleep_minutes`, because that row already exists and has to move with the running sum. An iPhone deletes a stage rather than a night: the integration takes it out, and a night with no stages left goes away. Older than the last 14 nights the stages are no longer kept, so a stage deleted there changes nothing.
+
+**A night under a new record ID.** An iPhone's session ID follows its earliest sample, so a night that gains an earlier sample, or two sessions that merge, can arrive under a new ID with no deletion of the old one. The integration notices when the two share a stage and drops the old one. Without a stage in common, as for a night older than the last 14, the two stand next to each other: the stage statistics still count only the main session, but `sleep_minutes` counts both.
+
+**Old nights.** Nights from before the update don't have their stages kept. To fill the stage statistics, use **Send history** in the app, on the **Health** tab under **What to send**: every sent night lands on its own date, and sending the same window again changes nothing. A new phone that [took over](pairing.md#taking-over-the-history-of-a-removed-phone) a removed phone's statistics can do the same. A night more than 400 days older than the newest one the integration keeps is no longer taken in; its row stays as it was.
+
+**MQTT.** Over MQTT the apps publish one sleep sensor, the session's duration. The stage sensors and the stage statistics are this integration's.
+
 ## Screen time
 
 The Android app reads Android's usage statistics, the same numbers as the Digital Wellbeing screen, and sends them on their own schedule, separate from the health sync. Three sensors come out of it:
@@ -240,7 +270,7 @@ The [Health dashboard](dashboard.md) puts these sensors and statistics on one pa
 
 ## History
 
-A sensor can only hold now, so on its own a year of backfilled readings would all land on today. Instead every payload also feeds long-term statistics, which carry their own dates. The sensors themselves have no state class, so the recorder doesn't compile a second set of statistics from them. A sensor's own history shows when each value arrived, so after a backfill [it puts everything on today](troubleshooting.md#why-does-a-sensors-history-put-a-whole-backfill-on-today); chart the statistic instead.
+A sensor can only hold now, so on its own a year of backfilled readings would all land on today. Instead every payload also feeds long-term statistics, which carry their own dates. The sensors themselves have no state class, so the recorder doesn't compile a second set of statistics from them, except for the [last sleep](#last-sleep) sensors: the measurement of a night, which the recorder may keep as such. A sensor's own history shows when each value arrived, so after a backfill [it puts everything on today](troubleshooting.md#why-does-a-sensors-history-put-a-whole-backfill-on-today); chart the statistic instead.
 
 | Statistic | What it holds |
 |---|---|
@@ -249,6 +279,7 @@ A sensor can only hold now, so on its own a year of backfilled readings would al
 | `hydration_total` | Liters drunk that day. |
 | `screen_time` | Hours on the phone that day. Every sync carries the last seven days, so a day that was still running when it was sent is corrected by the next one. |
 | `app_<package>` | Hours in one app that day, for each app whose [sensor](#per-app) you enabled. |
+| `sleep_deep`, `sleep_light`, `sleep_rem`, `sleep_awake`, `sleep_asleep` | Hours of the [main night](#sleep-stages) of a wake date, one row per date as a mean: chart them with `stat_types: mean`, per day, week or month. A date with no main night, or a stage its source doesn't report, has no row. |
 | `heart_rate`, `weight`, `blood_pressure_systolic`, `blood_pressure_diastolic` and every other value in the [latest reading](#latest-reading) table except sleep and the last drink | Mean, minimum and maximum per hour. |
 
 A day without data has no row, rather than a zero. Each statistic's ID is `life_dashboard:<entry>_<statistic>`, where `<entry>` is the phone's config entry ID in lowercase, and its name is the device name followed by the statistic, such as "Owen's Pixel steps".

@@ -8,6 +8,8 @@ landing entirely on today, so most of them are about a payload describing the pa
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from custom_components.life_dashboard.history import (
     DAY_KEYS,
     HOUR_KEYS,
@@ -213,7 +215,8 @@ def test_a_session_that_moves_to_another_day_changes_both() -> None:
 
     # The earlier of the two days, because every later row has to be rewritten.
     assert change.day_keys["sleep_minutes"] == date(2026, 9, 12)
-    assert ledger.day_totals("sleep_minutes") == {"2026-09-12": 455.0}
+    # The day it left stays at 0: it has rows in the recorder that must move with the sum.
+    assert ledger.day_totals("sleep_minutes") == {"2026-09-12": 455.0, "2026-09-15": 0.0}
 
 
 def test_two_sessions_on_one_day_add_up() -> None:
@@ -1024,3 +1027,33 @@ def test_own_records_stay_out_of_the_ledger() -> None:
     assert "2026-09-27T06:00:00+00:00" not in ledger.hours["weight"]
     assert "hydration_total" not in ledger.sessions
     assert set(change.hour_keys) == {"weight"}
+
+
+NOW = datetime(2026, 9, 15, 18, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("key", "array", "field", "time_field", "amount", "stored"),
+    [
+        ("exercise_minutes", "exercise", "duration_seconds", "end_time", 1800, 30.0),
+        ("mindfulness_minutes", "mindfulness", "duration_seconds", "end_time", 600, 10.0),
+        ("hydration_total", "hydration", "liters", "end_time", 0.5, 0.5),
+    ],
+)
+def test_a_deleted_session_leaves_its_day(key, array, field, time_field, amount, stored) -> None:
+    ledger = Ledger()
+    first = {field: amount, time_field: "2026-09-10T08:00:00Z", "uuid": "a"}
+    second = {field: amount, time_field: "2026-09-11T08:00:00Z", "uuid": "b"}
+    apply_payload(ledger, _payload(**{array: [first, second]}), tz=UTC, now=NOW)
+    assert ledger.sessions[key] == {"a": ["2026-09-10", stored], "b": ["2026-09-11", stored]}
+
+    change = apply_payload(
+        ledger,
+        _payload(deleted_records=[{"type": array, "uuid": "a"}, {"type": "other", "uuid": "b"}]),
+        tz=UTC,
+        now=NOW,
+    )
+
+    assert ledger.sessions[key] == {"b": ["2026-09-11", stored]}
+    assert change.day_keys[key] == date(2026, 9, 10)
+    assert ledger.days[key]["2026-09-10"] == 0.0, "the emptied day stays so later rows do not jump"

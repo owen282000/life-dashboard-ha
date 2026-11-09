@@ -8,11 +8,11 @@ A minor version adds things: a sensor, an attribute, a statistic, a setting with
 
 - One device per paired phone, and on it the sensors in [entities.md](entities.md), each with its key, unit and device class as listed there. A sensor keeps its unique ID (`<entry ID>_<key>`, and `<entry ID>_screen_time_app_<package>` for an app's screen time), so the entity ID you have, also one you renamed, stays.
 - A state keeps its meaning: steps stay steps of the phone's day, a duration stays in hours, and a sensor that reads a day keeps that day in its `date` attribute.
-- Attributes may be added; none are renamed, removed or given another unit. Sensors may be added; a sensor that would crowd the device page comes disabled.
+- Attributes may be added; none are renamed, removed or given another unit. Sensors may be added; a sensor that would crowd the device page comes disabled. The stage names in the `stages` attribute of `last_sleep_asleep`, listed in [entities.md](entities.md#sleep-stages), stay as they are.
 
 ## The long-term statistics
 
-- One external statistic per type per phone, `life_dashboard:<entry ID in lowercase>_<key>`, with the keys and units in [entities.md](entities.md#history): day sums for steps, distance (km), energy (kcal), sleep, workouts, mindfulness and screen time (h), water (L) and each enabled app's screen time (h), and hourly mean, minimum and maximum for the measured types.
+- One external statistic per type per phone, `life_dashboard:<entry ID in lowercase>_<key>`, with the keys and units in [entities.md](entities.md#history): day sums for steps, distance (km), energy (kcal), sleep, workouts, mindfulness and screen time (h), water (L) and each enabled app's screen time (h), and hourly mean, minimum and maximum for the measured types, and a mean per wake date for the sleep stages (h), one row each, at local noon.
 - A statistic keeps its ID, its unit and whether it is a sum or a mean. A day is a local day in Home Assistant's time zone. Its running sum carries on: an update, a backfill sent again or a correction never makes it jump.
 - Removing a phone leaves its statistics in the recorder, and a phone you add later can take them over ([pairing.md](pairing.md#taking-over-the-history-of-a-removed-phone)).
 - Statistics may be added.

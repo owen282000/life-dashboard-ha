@@ -25,6 +25,14 @@ from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Final
 
 from .payload import is_own_record, parse_instant
+from .sleep import (
+    SLEEP_SESSIONS,
+    NightFold,
+    clean_store,
+    payload_moment,
+    prune_nights,
+    session_identity,
+)
 from .workout_details import apply_records, clean_pool, prune_pool, windows_of
 from .workouts import cutoff, keep_sessions, stored_workouts
 
@@ -169,6 +177,8 @@ class Ledger:
     is built from `sessions`, which keeps no type and no start.
     activity: the records a workout's details are read from (workout_details.py): those
     that overlap a kept workout, and those of the last hours that may still get one.
+    sleep: the stages of the sleep sessions (sleep.py). `sessions` holds a night's total,
+    in the shape the running sums are built from; this holds what it was made of.
     kept_from: the cutoff of the last prune that dropped something ("YYYY-MM-DD"), None
     before that. Nothing older is taken in again, because its amount is already carried.
     carried: key -> the sum of the day amounts pruned, which the running sums start from.
@@ -179,6 +189,7 @@ class Ledger:
     hours: dict[str, dict[str, HourBucket]] = field(default_factory=dict)
     workouts: dict[str, dict[str, Any]] = field(default_factory=dict)
     activity: dict[str, Any] = field(default_factory=dict)
+    sleep: dict[str, Any] = field(default_factory=dict)
     kept_from: str | None = None
     carried: dict[str, float] = field(default_factory=dict)
     #: How the statistics were written: 1 up to 0.12 (m and min, a row at midnight only),
@@ -201,6 +212,9 @@ class Ledger:
         # test ping, leave the file as it was.
         if any(self.activity.values()):
             data["activity"] = self.activity
+        # Likewise: a phone that sends no sleep leaves the file as it was.
+        if any(self.sleep.values()):
+            data["sleep"] = self.sleep
         # Only once something was pruned: until then the file is what it always was.
         if self.kept_from is not None:
             data["kept_from"] = self.kept_from
@@ -225,6 +239,8 @@ class Ledger:
             workouts={u: dict(row) for u, row in (data.get("workouts") or {}).items()},
             # Absent in a ledger written before the workout details.
             activity=clean_pool(data.get("activity")),
+            # Absent in a ledger written before the sleep stages.
+            sleep=clean_store(data.get("sleep")),
             # Absent in a ledger that was never pruned.
             kept_from=data.get("kept_from") or None,
             carried={k: float(v) for k, v in (data.get("carried") or {}).items()},
@@ -257,11 +273,16 @@ class HistoryChange:
     old_days: dict[str, dict[str, float]] = field(default_factory=dict)
     #: Hours from before what the ledger keeps: key -> ISO hour -> bucket, likewise.
     old_hours: dict[str, dict[str, HourBucket]] = field(default_factory=dict)
+    #: The stage statistics that changed: wake date -> key -> hours, None for a value the
+    #: date no longer has.
+    night_rows: dict[str, dict[str, float | None]] = field(default_factory=dict)
+    #: Whether the kept nights changed, which is what the last-night sensors are read from.
+    nights: bool = False
 
     @property
     def is_empty(self) -> bool:
         """Whether the statistics have nothing to rewrite."""
-        return not self.day_keys and not self.hour_keys
+        return not self.day_keys and not self.hour_keys and not self.night_rows
 
 
 def _number(value: Any) -> float | None:
@@ -323,7 +344,17 @@ def apply_payload(
 
     _apply_daily_totals(ledger, data, day_changes, old_days)
     _apply_screen_time(ledger, data, day_changes, old_days, apps)
-    _apply_sessions(ledger, data, tz, day_changes, old_days)
+    nights = NightFold(
+        ledger.sleep, ledger.sessions, data.get("sleep"), tz=tz, at=payload_moment(data)
+    )
+    nights.delete(data.get("deleted_records"))
+    _apply_session_deletions(ledger, data, day_changes)
+    stale = nights.stale()
+    _apply_sessions(ledger, data, tz, day_changes, old_days, stale)
+    nights.take(stale)
+    for iso in nights.sum_days:
+        _note_day(day_changes, SLEEP_SESSIONS, date.fromisoformat(iso))
+        _hold_emptied_day(ledger, SLEEP_SESSIONS, iso)
     _apply_measured(ledger, data, _first_hour(ledger, tz), hour_changes, old_hours)
     now = now or datetime.now(UTC)
     workouts = keep_sessions(ledger.workouts, data, now=now, tz=tz)
@@ -338,6 +369,8 @@ def apply_payload(
         workouts=workouts,
         old_days=old_days,
         old_hours=old_hours,
+        night_rows=nights.rows(),
+        nights=nights.changed,
     )
 
 
@@ -434,17 +467,43 @@ def _app_minutes(entry: dict[str, Any]) -> dict[str, float]:
     return minutes
 
 
+def _apply_session_deletions(
+    ledger: Ledger, data: dict[str, Any], changes: dict[str, date]
+) -> None:
+    """A deleted workout, mindfulness session or drink leaves the sum of its day. Sleep has
+    its own rules in sleep.py. Before the records, as an older app can send one uuid as both."""
+    entries = data.get("deleted_records")
+    if not isinstance(entries, list):
+        return
+    arrays = {series.array: series.key for series in SESSION_SERIES if series.key != SLEEP_SESSIONS}
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("type") not in arrays:
+            continue
+        key = arrays[entry["type"]]
+        previous = ledger.sessions.get(key, {}).pop(entry.get("uuid"), None)
+        if previous is None:
+            continue
+        _note_day(changes, key, date.fromisoformat(previous[0]))
+        _hold_emptied_day(ledger, key, previous[0])
+
+
 def _apply_sessions(
     ledger: Ledger,
     data: dict[str, Any],
     tz: tzinfo,
     changes: dict[str, date],
     old: dict[str, dict[str, float]],
+    stale: Collection[str] = (),
 ) -> None:
-    """Sessions are summed per day and keyed by uuid, so a re-delivery replaces itself."""
+    """Sessions are summed per day and keyed by uuid, so a re-delivery replaces itself.
+
+    `stale` holds the sleep records that are older than what is known of them (sleep.py).
+    """
     for series in SESSION_SERIES:
         # A record that appears twice in one payload counts once on an old day too.
         old_seen: set[str] = set()
+        # The days a record moved away from, which that may leave with nothing.
+        left: set[str] = set()
         records = data.get(series.array)
         if not isinstance(records, list):
             continue
@@ -462,11 +521,9 @@ def _apply_sessions(
 
             amount = raw / series.divisor
             day = _local_day(moment, tz)
-            # A record without a uuid still cannot be counted twice: its moment and value
-            # identify it well enough for the only case that matters, the same batch
-            # arriving again.
-            uuid = record.get("uuid")
-            identity = uuid if isinstance(uuid, str) and uuid else f"{moment.isoformat()}:{raw}"
+            identity = session_identity(record.get("uuid"), moment, raw)
+            if series.key == SLEEP_SESSIONS and identity in stale:
+                continue
             if _pruned(ledger, day):
                 if identity not in old_seen:
                     old_seen.add(identity)
@@ -486,8 +543,23 @@ def _apply_sessions(
             if previous is not None:
                 # An edited record can move to another day; both days change.
                 _note_day(changes, series.key, date.fromisoformat(previous[0]))
+                left.add(previous[0])
             known[identity] = [day.isoformat(), amount]
             _note_day(changes, series.key, day)
+
+        for iso in left:
+            _hold_emptied_day(ledger, series.key, iso)
+
+
+def _hold_emptied_day(ledger: Ledger, key: str, iso: str) -> None:
+    """Keep a day a session left, at 0, when nothing else is on it.
+
+    Its rows are still in the recorder, and without a day to write them from they would
+    keep the old total above every later row, which reads as a jump. So the day stays
+    with an amount of 0, and every rewrite carries it along.
+    """
+    if not any(day == iso for day, _ in ledger.sessions.get(key, {}).values()):
+        ledger.days.setdefault(key, {}).setdefault(iso, 0.0)
 
 
 def _pruned(ledger: Ledger, day: date) -> bool:
@@ -612,7 +684,8 @@ def day_rows(ledger: Ledger, key: str, since: date, *, tz: tzinfo) -> list[dict[
     Sums are cumulative in Home Assistant, so the running total starts at everything
     before `since`, the pruned days included, and every later row carries it forward. Days
     with no amount produce no row: Home Assistant interpolates nothing, and a missing day is
-    more honest than a zero.
+    more honest than a zero. A day a correction emptied is another matter: it holds an
+    amount of 0 (`_hold_emptied_day`), because its rows exist and must move with the sum.
     """
     totals = ledger.day_totals(key)
     if not totals:
@@ -789,13 +862,16 @@ def prune(ledger: Ledger, *, before: date, tz: tzinfo) -> bool:
     sum it had, and nothing before `before` is taken in again: a repeat of a pruned day
     would otherwise count once in the carried sum and once more as a day of its own.
 
-    The kept workouts are left alone; they hold yesterday and today only. Returns whether
+    The kept workouts are left alone; they hold yesterday and today only. The nights are
+    pruned on their own: a phone that took over a history has a kept_from that says
+    nothing about them, and being no sum they have nothing to carry. Returns whether
     anything was dropped, so the ledger is written only then.
     """
     cutoff = before.isoformat()
+    nights_dropped = prune_nights(ledger.sleep, before=before)
     if ledger.kept_from is not None and cutoff <= ledger.kept_from:
         # Nothing older than kept_from is taken in, so there is nothing to drop.
-        return False
+        return nights_dropped
 
     dropped = False
     for key, days in ledger.days.items():
@@ -816,14 +892,15 @@ def prune(ledger: Ledger, *, before: date, tz: tzinfo) -> bool:
     # never kept, so taking it in later counts it once.
     if dropped:
         ledger.kept_from = cutoff
-    return dropped
+    return dropped or nights_dropped
 
 
 def earliest_day(change: HistoryChange) -> date | None:
     """The oldest day any key changed, for logging a backfill window."""
     days = list(change.day_keys.values())
     hours = [moment.date() for moment in change.hour_keys.values()]
-    both = days + hours
+    nights = [date.fromisoformat(iso) for iso in change.night_rows]
+    both = days + hours + nights
     return min(both) if both else None
 
 

@@ -119,6 +119,13 @@ KEY_LAST_WORKOUT: Final = "last_workout"
 KEY_EXERCISE_TODAY: Final = "exercise_today"
 KEY_EXERCISE_YESTERDAY: Final = "exercise_yesterday"
 
+# The newest main night, read from the nights the ledger keeps (sleep.py).
+KEY_LAST_SLEEP_ASLEEP: Final = "last_sleep_asleep"
+KEY_LAST_SLEEP_DEEP: Final = "last_sleep_deep"
+KEY_LAST_SLEEP_LIGHT: Final = "last_sleep_light"
+KEY_LAST_SLEEP_REM: Final = "last_sleep_rem"
+KEY_LAST_SLEEP_AWAKE: Final = "last_sleep_awake"
+
 # State classes, as the string values Home Assistant's SensorStateClass uses.
 STATE_CLASS_MEASUREMENT: Final = "measurement"
 STATE_CLASS_TOTAL: Final = "total"
@@ -139,6 +146,12 @@ def verify_signature(secret: str, body: bytes, header_value: str | None) -> bool
     if not header_value:
         return False
     return hmac.compare_digest(signature_for(secret, body), header_value)
+
+
+def tile_hours(minutes: float) -> float:
+    """Minutes as hours, rounded up at the fourth decimal: a tile cuts off the seconds, so
+    386 minutes, stored as 6.43333 hours, would read 6h 25m."""
+    return math.ceil(round(minutes / 60 * 10_000, 6)) / 10_000
 
 
 def response_key(secret: str) -> bytes:
@@ -270,7 +283,8 @@ class SensorUpdate:
     """
 
     key: str
-    value: float | int | str | datetime
+    #: None only for a sensor that has no value for what it describes.
+    value: float | int | str | datetime | None
     measured_at: datetime
     attributes: dict[str, Any] = field(default_factory=dict)
     last_reset: datetime | None = None
@@ -287,11 +301,13 @@ class SensorSpec:
     key: str
     unit: str | None = None
     device_class: str | None = None
-    #: None on every sensor: the recorder's own statistic would sit next to the
-    #: correct one from history.py and, for a latest-value sensor, be wrong.
+    #: None on the sensors history.py writes a statistic for: the recorder's own would
+    #: sit next to the correct one and, for a latest-value sensor, be wrong.
     state_class: str | None = None
     precision: int | None = None
     diagnostic: bool = False
+    #: False for a sensor that would crowd the device page; the user can turn it on.
+    enabled: bool = True
     #: The states of an enum sensor.
     options: tuple[str, ...] | None = None
 
@@ -399,6 +415,35 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec(KEY_LAST_WORKOUT, None, "enum", options=WORKOUT_TYPES),
         SensorSpec(KEY_EXERCISE_TODAY, "min", "duration", precision=0),
         SensorSpec(KEY_EXERCISE_YESTERDAY, "min", "duration", precision=0),
+        # The newest main night (sleep.py), which the night sensors show.
+        SensorSpec(KEY_LAST_SLEEP_ASLEEP, "h", "duration", STATE_CLASS_MEASUREMENT, precision=3),
+        SensorSpec(
+            KEY_LAST_SLEEP_DEEP,
+            "h",
+            "duration",
+            STATE_CLASS_MEASUREMENT,
+            precision=3,
+            enabled=False,
+        ),
+        SensorSpec(
+            KEY_LAST_SLEEP_LIGHT,
+            "h",
+            "duration",
+            STATE_CLASS_MEASUREMENT,
+            precision=3,
+            enabled=False,
+        ),
+        SensorSpec(
+            KEY_LAST_SLEEP_REM, "h", "duration", STATE_CLASS_MEASUREMENT, precision=3, enabled=False
+        ),
+        SensorSpec(
+            KEY_LAST_SLEEP_AWAKE,
+            "h",
+            "duration",
+            STATE_CLASS_MEASUREMENT,
+            precision=3,
+            enabled=False,
+        ),
         # Screen time.
         SensorSpec("screen_time_today", "h", "duration", precision=3),
         SensorSpec("screen_time_yesterday", "h", "duration", precision=3),
@@ -573,7 +618,7 @@ def _parse_health(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
             continue
         record, measured_at, value = found
         if spec.key == "sleep_duration":
-            value = value / 3600
+            value = tile_hours(value / 60)
         updates.append(
             SensorUpdate(
                 key=spec.key,
@@ -628,7 +673,7 @@ def _parse_screen_time(data: dict[str, Any], tz: tzinfo) -> list[SensorUpdate]:
                 SensorUpdate(
                     key=key,
                     # In hours, so a tile reads 2h 51m, as the last sleep does.
-                    value=minutes / 60,
+                    value=tile_hours(minutes),
                     measured_at=midnight,
                     attributes=_screen_time_attributes(entry, day),
                     last_reset=midnight if key == "screen_time_today" else None,
