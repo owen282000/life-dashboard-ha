@@ -70,6 +70,19 @@ type: custom:life-dashboard-sleep-card
 entity: sensor.your_phone_last_sleep_asleep
 ```
 
+[Lavve's Hypnogram card](https://github.com/Lavve/lovelace-hypnogram-card), also in the Marketplace, reads the same list from version 0.1.9:
+
+```yaml
+type: custom:hypnogram-card
+entity: sensor.your_phone_last_sleep_asleep
+stages_attribute: stages
+state_mapping:
+  deep_sleep: deep
+  light_sleep: light
+  rem: rem
+  awake: awake
+```
+
 The `stages` attribute of `sensor.your_phone_last_sleep_asleep` holds the timeline for a card of your own. Two recipes for custom cards, neither of which this project installs. Neither has been run in a browser by this project, so treat them as a starting point.
 
 [ApexCharts card](https://github.com/RomRider/apexcharts-card) has no range bars, so it draws the night as a stepped line:
