@@ -33,6 +33,7 @@ from custom_components.life_dashboard.payload import (
     SIGNATURE_HEADER,
     signature_for,
 )
+from custom_components.life_dashboard.sensor import LifeDashboardSensor
 from custom_components.life_dashboard.sleep import LAST_NIGHT_KEYS
 
 WEBHOOK_ID = "a" * 64
@@ -318,9 +319,16 @@ async def test_screen_time_sensors(hass: HomeAssistant, hass_client_no_auth, loa
     assert "state_class" not in today.attributes
     assert today.attributes["top_apps"] == "Chrome (61 min), WhatsApp (44 min)"
     assert today.attributes["app_count"] == 2
+    assert today.attributes["apps"] == [
+        {"package": "com.android.chrome", "name": "Chrome", "minutes": 61},
+        {"package": "com.whatsapp", "name": "WhatsApp", "minutes": 44},
+    ]
 
     yesterday = hass.states.get("sensor.owen_s_pixel_screen_time_yesterday")
     assert yesterday.state == "3.5334"
+    assert yesterday.attributes["apps"] == [
+        {"package": "com.spotify.music", "name": "Spotify", "minutes": 95}
+    ]
     assert "state_class" not in yesterday.attributes
     assert "last_reset" not in yesterday.attributes
 
@@ -587,3 +595,9 @@ def test_strings_and_translations_match() -> None:
     with open("custom_components/life_dashboard/translations/en.json") as handle:
         translations = json.load(handle)
     assert strings == translations
+
+
+def test_the_app_list_stays_out_of_the_recorder() -> None:
+    """A day can have a hundred apps: too big for the recorder's attributes, and the
+    long-term statistics already hold their history."""
+    assert {"stages", "apps"} <= LifeDashboardSensor._unrecorded_attributes

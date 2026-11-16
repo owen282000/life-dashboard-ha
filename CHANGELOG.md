@@ -6,6 +6,14 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Every app of the day on `screen_time_today` and `screen_time_yesterday`, as the attribute
+  `apps`: a list of `package`, `name` and whole `minutes`, most used first. `top_apps` keeps the
+  top five as text. The [Life Dashboard Screen Time cards](https://github.com/owen282000/life-dashboard-screen-time-card)
+  draw it, so they show every app without switching on an app sensor for each. The list stays
+  out of the recorder.
+
 ## [1.1.0] - 2026-11-09
 
 ### Added
