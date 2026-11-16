@@ -701,6 +701,11 @@ def test_screen_time() -> None:
     assert updates["screen_time_today"].attributes["top_apps"] == (
         "Chrome (61 min), WhatsApp (44 min), Spotify (22 min)"
     )
+    assert updates["screen_time_today"].attributes["apps"] == [
+        {"package": "com.android.chrome", "name": "Chrome", "minutes": 61},
+        {"package": "com.whatsapp", "name": "WhatsApp", "minutes": 44},
+        {"package": "com.spotify.music", "name": "Spotify", "minutes": 22},
+    ]
 
     assert updates["screen_time_yesterday"].value == pytest.approx(212 / 60, abs=1e-4)
     # Only today's total resets; yesterday is a fixed figure.
@@ -734,7 +739,44 @@ def test_screen_time_day_without_apps() -> None:
     updates = _by_key(parse_payload(payload, tz=_amsterdam()))
     assert updates["screen_time_today"].value == pytest.approx(12 / 60, abs=1e-4)
     assert updates["screen_time_today"].attributes["top_apps"] == ""
+    assert updates["screen_time_today"].attributes["apps"] == []
     assert "screen_time_top_app" not in updates
+
+
+def test_screen_time_apps_list_has_every_app() -> None:
+    """The list goes past five, adds up a package sent twice, names a stand-in like its
+    app sensor, and leaves out rows without a package or a whole minute."""
+    payload = _screen_time_payload()
+    payload["screen_time"] = [
+        {
+            "date": "2026-09-15",
+            "total_screen_time_minutes": 400,
+            "apps": [
+                *(
+                    {"package": f"app.n{n}", "name": f"App {n}", "minutes": n * 10}
+                    for n in range(1, 8)
+                ),
+                {"package": "app.n1", "name": "App 1", "minutes": 25},
+                {"package": "org.wakingup.android", "name": "android", "minutes": 12},
+                {"package": "", "name": "Nameless", "minutes": 30},
+                {"name": "No package", "minutes": 30},
+                {"package": "app.short", "name": "Short", "minutes": 0.5},
+            ],
+        }
+    ]
+    apps = _by_key(parse_payload(payload, tz=_amsterdam()))["screen_time_today"].attributes["apps"]
+    assert [row["package"] for row in apps] == [
+        "app.n7",
+        "app.n6",
+        "app.n5",
+        "app.n4",
+        "app.n1",
+        "app.n3",
+        "app.n2",
+        "org.wakingup.android",
+    ]
+    assert apps[4] == {"package": "app.n1", "name": "App 1", "minutes": 35}
+    assert apps[-1] == {"package": "org.wakingup.android", "name": "wakingup", "minutes": 12}
 
 
 def test_screen_time_top_apps_caps_at_five() -> None:

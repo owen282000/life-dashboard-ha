@@ -65,6 +65,7 @@ _PAYLOAD_ATTRIBUTES = frozenset(
         "sources",
         "app_count",
         "top_apps",
+        "apps",
         "all_apps_minutes",
         "package",
         "minutes",
@@ -166,8 +167,9 @@ class LifeDashboardSensor(RestoreSensor):
 
     _attr_has_entity_name = True
     _attr_should_poll = False
-    # A night's stages can be over the size the recorder keeps of a state's attributes.
-    _unrecorded_attributes = frozenset({"stages"})
+    # A night's stages and a day's apps can be over the size the recorder keeps of a
+    # state's attributes; the long-term statistics hold their history instead.
+    _unrecorded_attributes = frozenset({"stages", "apps"})
 
     def __init__(self, entry: LifeDashboardConfigEntry, key: str) -> None:
         """Set up the sensor from its spec."""

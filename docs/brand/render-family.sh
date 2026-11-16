@@ -13,3 +13,10 @@ for p in android ios ha stack; do
       --virtual-time-budget=2000 "file://$PWD/docs/brand/family-card.html?p=$p&here=$here"
   done
 done
+# The two sets of cards, which have their own repositories and only appear here with a link.
+for pair in "sleep sleep-card" "screen screen-time-card"; do
+  set -- $pair
+  "$CHROME" --headless=new --screenshot="docs/family/$2.png" --window-size=800,232 \
+    --hide-scrollbars --force-device-scale-factor=1 --default-background-color=00000000 \
+    --virtual-time-budget=2000 "file://$PWD/docs/brand/family-card.html?p=$1&here=0"
+done

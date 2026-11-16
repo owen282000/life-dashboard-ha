@@ -777,6 +777,36 @@ def app_table(days: dict[date, dict[str, Any]], today: date) -> dict[str, dict[s
     return table
 
 
+def app_list(apps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every app of one day, most used first, as `package`, `name` and whole `minutes`.
+
+    For a dashboard card that draws every app, not only the top five of `top_apps`. An
+    app without a package or without a whole minute is left out, a package sent twice
+    counts once with both minutes, and the stand-in name for an app uninstalled since
+    becomes the same name its app sensor gets.
+    """
+    rows: dict[str, dict[str, Any]] = {}
+    for app in apps:
+        package = app.get("package")
+        if not isinstance(package, str) or not package:
+            continue
+        row = rows.setdefault(package, {"package": package, "name": "", "minutes": 0.0})
+        row["minutes"] += _number(app.get("minutes"))
+        label = app["name"].strip()
+        if label and is_fallback_label(package, label):
+            label = fallback_name(package)
+        if label and not row["name"]:
+            row["name"] = label
+    listed = []
+    for row in rows.values():
+        minutes = int(row["minutes"])
+        if minutes > 0:
+            name = row["name"] or fallback_name(row["package"])
+            listed.append({"package": row["package"], "name": name, "minutes": minutes})
+    listed.sort(key=lambda row: (-row["minutes"], row["name"].lower()))
+    return listed
+
+
 def _apps(entry: dict[str, Any]) -> list[dict[str, Any]]:
     """The usable app rows of a screen time day.
 
@@ -822,6 +852,7 @@ def _screen_time_attributes(entry: dict[str, Any], day: date) -> dict[str, Any]:
         "date": day.isoformat(),
         "app_count": len(apps),
         "top_apps": ", ".join(f"{app['name']} ({int(app['minutes'])} min)" for app in top),
+        "apps": app_list(apps),
     }
     if "filtered_screen_time_minutes" in entry:
         # The real total of every app, so a dashboard can show both.

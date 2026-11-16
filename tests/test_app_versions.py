@@ -446,6 +446,11 @@ def _existing_sensors(
     # And the sleep stages, with the sensors read from them.
     ledger.pop("sleep", None)
     sensors = {key: sensor for key, sensor in sensors.items() if key not in LAST_NIGHT_KEYS}
+    # And the list of every app on the two screen time days (1.2.0); its rows are tested
+    # in test_payload, and the rest of what those sensors carry must be as it was.
+    for key in ("screen_time_today", "screen_time_yesterday"):
+        if key in sensors:
+            sensors[key]["attributes"].pop("apps", None)
     # Through JSON, so a tuple and a list compare alike, as they do in the fixture file.
     return json.loads(json.dumps({"sensors": sensors, "ledger": ledger}, default=str))
 

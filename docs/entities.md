@@ -76,8 +76,8 @@ Android only. [Screen time](#screen-time) below explains them.
 
 | Sensor | Unit | Attributes |
 |---|---|---|
-| `screen_time_today` | h | `date`, `app_count`, `top_apps` (the top five with their minutes) |
-| `screen_time_yesterday` | h | `date`, `app_count`, `top_apps` |
+| `screen_time_today` | h | `date`, `app_count`, `top_apps` (the top five with their minutes), `apps` (every app, see below) |
+| `screen_time_yesterday` | h | `date`, `app_count`, `top_apps`, `apps` |
 | `most_used_app_today` | the app's name | `package`, `minutes`, `date` |
 | `<app>_screen_time`, one per app, [disabled](#per-app) until you enable it | h | `app`, `package`, `date`, `week_minutes` |
 
@@ -209,7 +209,7 @@ The Android app reads Android's usage statistics, the same numbers as the Digita
 |---|---|
 | `screen_time_today` | Time on the phone in the foreground, in hours, since the day boundary, which you set in the app (a "day" can end at 4 AM if that's when you sleep). |
 | `screen_time_yesterday` | The finished total for the day before, for a daily automation that doesn't race the clock. |
-| `most_used_app_today` | The app with the most minutes today, with its package name and minutes as attributes. It reads `none` when **Apps to send** leaves out every app used today. The top five with their minutes are the `top_apps` attribute of both minutes sensors. |
+| `most_used_app_today` | The app with the most minutes today, with its package name and minutes as attributes. It reads `none` when **Apps to send** leaves out every app used today. The top five with their minutes are the `top_apps` attribute of both minutes sensors, and every app of the day is their `apps` attribute: a list of `package`, `name` and whole `minutes`, most used first, for a card such as the [Life Dashboard Screen Time cards](https://github.com/owen282000/life-dashboard-screen-time-card). Home Assistant keeps that list out of the recorder; the history per app is in the app sensors' statistics. |
 
 Both sensors carry the day they describe as an attribute, and update as the number grows, so a dashboard shows the phone's day as it happens. Every day also goes into long-term statistics, so a year from now the statistics graph still shows your heaviest phone weeks.
 

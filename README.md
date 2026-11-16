@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <sub>Life Dashboard: <a href="https://github.com/owen282000/life-dashboard-companion-app">Android app</a> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-companion-app-ios">iPhone app</a> &nbsp;·&nbsp; <b>Home Assistant integration</b> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-stack">Grafana stack</a> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-sleep-card">Sleep card</a></sub>
+  <sub>Life Dashboard: <a href="https://github.com/owen282000/life-dashboard-companion-app">Android app</a> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-companion-app-ios">iPhone app</a> &nbsp;·&nbsp; <b>Home Assistant integration</b> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-stack">Grafana stack</a> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-sleep-card">Sleep card</a> &nbsp;·&nbsp; <a href="https://github.com/owen282000/life-dashboard-screen-time-card">Screen time cards</a></sub>
 </p>
 
 You need the Life Dashboard Companion app on your phone, a separate app from the Home Assistant Companion app, to send your data here.
@@ -46,7 +46,7 @@ You need the Life Dashboard Companion app on your phone, a separate app from the
 - **All your history.** Every day goes into long-term statistics on its own date, so a backfill from the phone fills the **Statistics graph** card as far back as the phone has data, with distance in km and sleep in hours. Use that card for the past: a sensor's own history only knows when a value arrived, so a backfill would land on a single day there.
 - **Sleep stages.** Hours of deep, light, REM and awake per night as statistics, as far back as the phone has them, and the last night's stages with their times, ready for a card. The [Sleep card](https://github.com/owen282000/life-dashboard-sleep-card) draws the night.
 - **Workouts.** The last workout and the minutes of today and yesterday, with every session's kind, start and end, and what was recorded during it: calories, distance, pace or speed, heart rate, steps, and on Android laps and sets. A shortest workout setting keeps the walks the phone notices by itself out.
-- **Screen time per app** (Android). Today and yesterday, the most used app and the top five, and per app a sensor and its history if you want one.
+- **Screen time per app** (Android). Today and yesterday with every app, the most used app, and per app a sensor and its history if you want one. The [Screen time cards](https://github.com/owen282000/life-dashboard-screen-time-card) show today, the week and the whole family.
 - **Back into Health Connect** (Android). Map a scale or blood pressure entity, and the phone writes each new reading into Health Connect. Samsung Health and Google Health pick up weight and body fat from there.
 - **A dashboard and a theme to copy.** The example [Health dashboard](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/dashboard.md) above, a screen time view, a view for two phones side by side, and a theme in the colors of the apps, all from Home Assistant's own cards. It's an example: you paste it into a new dashboard and fill in your phone's name and ID.
 
@@ -105,7 +105,7 @@ Prefer MQTT? Both Life Dashboard apps can publish with MQTT Discovery instead, f
 
 ## Part of Life Dashboard
 
-Four projects and a card, and you only install the parts you need: the app on each phone, then where the data goes. An Android phone and an iPhone send the same payload, so they can share one Home Assistant.
+Four projects and two sets of cards, and you only install the parts you need: the app on each phone, then where the data goes. An Android phone and an iPhone send the same payload, so they can share one Home Assistant.
 
 <p align="center">
   <a href="https://github.com/owen282000/life-dashboard-companion-app"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/android.png" alt="Android app: Health Connect and screen time" width="400"></a>
@@ -113,6 +113,7 @@ Four projects and a card, and you only install the parts you need: the app on ea
   <img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ha-here.png" alt="Home Assistant integration: sensors and all your history (this repository)" width="400">
   <a href="https://github.com/owen282000/life-dashboard-stack"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/stack.png" alt="Grafana stack: Postgres and Grafana dashboards" width="400"></a>
   <a href="https://github.com/owen282000/life-dashboard-sleep-card"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/sleep-card.png" alt="Sleep card: one night, stage by stage" width="400"></a>
+  <a href="https://github.com/owen282000/life-dashboard-screen-time-card"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/screen-time-card.png" alt="Screen time cards: today, the week and the family" width="400"></a>
 </p>
 
 ## Ask your own AI
