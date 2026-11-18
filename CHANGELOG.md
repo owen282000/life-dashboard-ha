@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-18
+
 ### Added
 
 - What you eat. The sensors `calories_eaten_today`, `protein_today`, `carbs_today` and
