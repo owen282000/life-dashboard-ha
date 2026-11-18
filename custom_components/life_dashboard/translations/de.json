@@ -337,6 +337,18 @@
       "exercise_yesterday": {
         "name": "Training gestern"
       },
+      "calories_eaten_today": {
+        "name": "Gegessene Kalorien heute"
+      },
+      "protein_today": {
+        "name": "Eiweiß heute"
+      },
+      "carbs_today": {
+        "name": "Kohlenhydrate heute"
+      },
+      "fat_today": {
+        "name": "Fett heute"
+      },
       "screen_time_today": {
         "name": "Bildschirmzeit heute"
       },

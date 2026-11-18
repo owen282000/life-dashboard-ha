@@ -117,6 +117,11 @@ KEY_SCREEN_TIME_APPS: Final = "screen_time_apps"
 # by parse_payload.
 KEY_LAST_WORKOUT: Final = "last_workout"
 KEY_EXERCISE_TODAY: Final = "exercise_today"
+# What was eaten today, summed from the meals the ledger holds (nutrition.py).
+KEY_CALORIES_EATEN_TODAY: Final = "calories_eaten_today"
+KEY_PROTEIN_TODAY: Final = "protein_today"
+KEY_CARBS_TODAY: Final = "carbs_today"
+KEY_FAT_TODAY: Final = "fat_today"
 KEY_EXERCISE_YESTERDAY: Final = "exercise_yesterday"
 
 # The newest main night, read from the nights the ledger keeps (sleep.py).
@@ -415,6 +420,12 @@ SENSOR_SPECS: Final[dict[str, SensorSpec]] = {
         SensorSpec(KEY_LAST_WORKOUT, None, "enum", options=WORKOUT_TYPES),
         SensorSpec(KEY_EXERCISE_TODAY, "min", "duration", precision=0),
         SensorSpec(KEY_EXERCISE_YESTERDAY, "min", "duration", precision=0),
+        # Nutrition, today's sums of the meals (nutrition.py). No device class: an energy
+        # one would offer calories to the Energy dashboard, a weight one reads oddly for food.
+        SensorSpec(KEY_CALORIES_EATEN_TODAY, "kcal", precision=0),
+        SensorSpec(KEY_PROTEIN_TODAY, "g", precision=0),
+        SensorSpec(KEY_CARBS_TODAY, "g", precision=0),
+        SensorSpec(KEY_FAT_TODAY, "g", precision=0),
         # The newest main night (sleep.py), which the night sensors show.
         SensorSpec(KEY_LAST_SLEEP_ASLEEP, "h", "duration", STATE_CLASS_MEASUREMENT, precision=3),
         SensorSpec(

@@ -64,6 +64,12 @@ SESSION_SERIES: Final[tuple[SessionSeries, ...]] = (
     SessionSeries("exercise_minutes", "exercise", "duration_seconds", "end_time", 60.0),
     SessionSeries("mindfulness_minutes", "mindfulness", "duration_seconds", "end_time", 60.0),
     SessionSeries("hydration_total", "hydration", "liters", "end_time"),
+    # A meal carries all four at once; each sums on its own, so a meal without fat
+    # still counts its calories.
+    SessionSeries("nutrition_calories", "nutrition", "calories", "end_time"),
+    SessionSeries("nutrition_protein", "nutrition", "protein_grams", "end_time"),
+    SessionSeries("nutrition_carbs", "nutrition", "carbs_grams", "end_time"),
+    SessionSeries("nutrition_fat", "nutrition", "fat_grams", "end_time"),
 )
 
 
@@ -470,21 +476,25 @@ def _app_minutes(entry: dict[str, Any]) -> dict[str, float]:
 def _apply_session_deletions(
     ledger: Ledger, data: dict[str, Any], changes: dict[str, date]
 ) -> None:
-    """A deleted workout, mindfulness session or drink leaves the sum of its day. Sleep has
-    its own rules in sleep.py. Before the records, as an older app can send one uuid as both."""
+    """A deleted workout, mindfulness session, drink or meal leaves the sum of its day. Sleep
+    has its own rules in sleep.py. Before the records, as an older app can send one uuid as
+    both. A meal sits in four sums, and leaves all four."""
     entries = data.get("deleted_records")
     if not isinstance(entries, list):
         return
-    arrays = {series.array: series.key for series in SESSION_SERIES if series.key != SLEEP_SESSIONS}
+    arrays: dict[str, list[str]] = {}
+    for series in SESSION_SERIES:
+        if series.key != SLEEP_SESSIONS:
+            arrays.setdefault(series.array, []).append(series.key)
     for entry in entries:
         if not isinstance(entry, dict) or entry.get("type") not in arrays:
             continue
-        key = arrays[entry["type"]]
-        previous = ledger.sessions.get(key, {}).pop(entry.get("uuid"), None)
-        if previous is None:
-            continue
-        _note_day(changes, key, date.fromisoformat(previous[0]))
-        _hold_emptied_day(ledger, key, previous[0])
+        for key in arrays[entry["type"]]:
+            previous = ledger.sessions.get(key, {}).pop(entry.get("uuid"), None)
+            if previous is None:
+                continue
+            _note_day(changes, key, date.fromisoformat(previous[0]))
+            _hold_emptied_day(ledger, key, previous[0])
 
 
 def _apply_sessions(

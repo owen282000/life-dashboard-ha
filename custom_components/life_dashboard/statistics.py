@@ -68,6 +68,10 @@ _DAY_UNITS: dict[str, str] = {
     "exercise_minutes": "h",
     "mindfulness_minutes": "h",
     "hydration_total": "L",
+    "nutrition_calories": "kcal",
+    "nutrition_protein": "g",
+    "nutrition_carbs": "g",
+    "nutrition_fat": "g",
     "screen_time": "h",
     "sleep_deep": "h",
     "sleep_light": "h",
@@ -93,6 +97,10 @@ _NAMES: dict[str, str] = {
     "sleep_minutes": "sleep",
     "exercise_minutes": "exercise",
     "mindfulness_minutes": "mindfulness",
+    "nutrition_calories": "calories eaten",
+    "nutrition_protein": "protein eaten",
+    "nutrition_carbs": "carbs eaten",
+    "nutrition_fat": "fat eaten",
 }
 
 
@@ -107,6 +115,7 @@ _UNIT_CLASSES: dict[str, str] = {
     "h": "duration",
     "L": "volume",
     "kg": "mass",
+    "g": "mass",
 }
 
 

@@ -59,6 +59,19 @@ Each holds the newest record, with the time it describes as `measured_at`, the a
 | `exercise_today` | min | `date`, `sessions` |
 | `exercise_yesterday` | min | `date`, `sessions` |
 
+### Nutrition sensors
+
+What you ate today, from the meals the app you log food in writes to Health Connect or Apple Health. They appear once the phone sends its first meal, and start again at 0 at midnight, without waiting for a sync.
+
+| Sensor | State | Attributes |
+|---|---|---|
+| `calories_eaten_today` | kcal | `date` |
+| `protein_today` | g | `date` |
+| `carbs_today` | g | `date` |
+| `fat_today` | g | `date` |
+
+Each meal counts on the local day it ended, once: a meal sent again, or edited in the food app, replaces its own share. A meal without a fat figure still counts toward the calories. On Android, Health Connect doesn't tell the app which meals were deleted, so a meal you remove in the food app stays counted; on an iPhone it leaves the sums.
+
 ### Last sleep
 
 The newest night with stages, so not always the newest session: `last_sleep_duration` is the latest session of any kind, including a nap, while these are the newest main night ([what that means](#sleep-stages)).
@@ -91,7 +104,7 @@ A **Test ping** in the app updates the one for its tab, which is the quickest wa
 
 ### What gets no sensor
 
-Eight of the 34 Health Connect types are event-like: meals, mindfulness sessions, sexual activity and the cycle tracking types (period, flow, intermenstrual bleeding, ovulation tests, cervical mucus). A single value can't represent them honestly, so they get no sensor. Mindfulness does count toward the [day statistics](#history). Workouts are event-like too, and get [sensors](#exercise) that show the last one and the sessions of the last two days.
+Seven of the 34 Health Connect types are event-like: mindfulness sessions, sexual activity and the cycle tracking types (period, flow, intermenstrual bleeding, ovulation tests, cervical mucus). A single value can't represent them honestly, so they get no sensor. Mindfulness does count toward the [day statistics](#history). Meals are event-like too, and get [sensors](#nutrition-sensors) for what was eaten today. Workouts are event-like too, and get [sensors](#exercise) that show the last one and the sessions of the last two days.
 
 For the raw records, add a second webhook URL in the app that points at your own backend or at an automation with a webhook trigger. Neither this integration nor MQTT passes them on.
 
@@ -279,6 +292,7 @@ A sensor can only hold now, so on its own a year of backfilled readings would al
 | `steps`, `distance` (km), `active_calories`, `total_calories` (kcal) | The day's total, from the app's daily totals. |
 | `sleep_minutes`, `exercise_minutes`, `mindfulness_minutes` | The day's total in hours (the IDs keep their old names), from the sessions that ended that day. A workout that crosses midnight counts whole on the day it ended here, where the [exercise sensors](#exercise) split it. |
 | `hydration_total` | Liters drunk that day. |
+| `nutrition_calories` (kcal), `nutrition_protein`, `nutrition_carbs`, `nutrition_fat` (g) | What was eaten that day, from the meals that ended that day. |
 | `screen_time` | Hours on the phone that day. Every sync carries the last seven days, so a day that was still running when it was sent is corrected by the next one. |
 | `app_<package>` | Hours in one app that day, for each app whose [sensor](#per-app) you enabled. |
 | `sleep_deep`, `sleep_light`, `sleep_rem`, `sleep_awake`, `sleep_asleep` | Hours of the [main night](#sleep-stages) of a wake date, one row per date as a mean: chart them with `stat_types: mean`, per day, week or month. A date with no main night, or a stage its source doesn't report, has no row. |

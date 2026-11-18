@@ -48,6 +48,7 @@ from .const import (
     PLATFORM_ANDROID,
     PLATFORM_IPHONE,
 )
+from .nutrition import NUTRITION_SENSORS, nutrition_updates
 from .payload import (
     HEALTH_SOURCES,
     KEY_EXERCISE_TODAY,
@@ -225,10 +226,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: LifeDashboardConfigEntry
     # midnight rather than at the next sync.
     async_publish_exercise(hass, entry)
     async_publish_sleep(hass, entry)
+    async_publish_nutrition(hass, entry)
 
     @callback
     def _new_day(_now: datetime) -> None:
         async_publish_exercise(hass, entry)
+        async_publish_nutrition(hass, entry)
 
     entry.async_on_unload(async_track_time_change(hass, _new_day, hour=0, minute=0, second=5))
     return True
@@ -267,6 +270,28 @@ def async_publish_exercise(hass: HomeAssistant, entry: LifeDashboardConfigEntry)
     )
     if refreshed is not None:
         updates.append(refreshed)
+    for update in updates:
+        if runtime.apply(update):
+            async_dispatcher_send(hass, signal_update(entry.entry_id), update)
+
+
+@callback
+def async_publish_nutrition(hass: HomeAssistant, entry: LifeDashboardConfigEntry) -> None:
+    """Send what was eaten today, from the meals the ledger kept.
+
+    Like the exercise sensors: right after a restart, back to 0 at midnight, and only for a
+    phone that ever sent a meal.
+    """
+    runtime = entry.runtime_data
+    if runtime.history is None:
+        return
+    tz = dt_util.get_default_time_zone()
+    updates = nutrition_updates(
+        runtime.history.ledger.day_totals,
+        today=dt_util.utcnow().astimezone(tz).date(),
+        tz=tz,
+        known=frozenset(key for key in NUTRITION_SENSORS if key in runtime.latest),
+    )
     for update in updates:
         if runtime.apply(update):
             async_dispatcher_send(hass, signal_update(entry.entry_id), update)
@@ -451,6 +476,8 @@ def _make_handler(entry: LifeDashboardConfigEntry):
                 async_publish_exercise(hass, entry)
             if change is not None and change.nights:
                 async_publish_sleep(hass, entry, clear=True)
+            if change is not None and set(change.day_keys) & set(NUTRITION_SENSORS.values()):
+                async_publish_nutrition(hass, entry)
 
             # What the phone confirmed and refused, then what waits for it. Its own
             # try inside this one: a bug in the direction to the phone must not turn
