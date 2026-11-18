@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from custom_components.life_dashboard.nutrition import NUTRITION_SENSORS
 from custom_components.life_dashboard.payload import (
     APP_PACKAGE,
     KEY_LAST_HEALTH_SYNC,
@@ -1122,6 +1123,8 @@ def test_every_emitted_key_has_a_spec() -> None:
 
     # The last-night sensors come from the ledger's nights (sleep.py).
     emitted |= set(LAST_NIGHT_KEYS)
+    # And what was eaten today from the ledger's meals (nutrition.py).
+    emitted |= set(NUTRITION_SENSORS)
 
     # And the other way round: a spec nothing can emit is dead weight.
     assert set(SENSOR_SPECS) == emitted, set(SENSOR_SPECS) ^ emitted

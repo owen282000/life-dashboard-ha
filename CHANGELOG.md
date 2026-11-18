@@ -8,6 +8,11 @@ All notable changes to this integration are documented here. The format follows
 
 ### Added
 
+- What you eat. The sensors `calories_eaten_today`, `protein_today`, `carbs_today` and
+  `fat_today`, and per day the statistics `nutrition_calories`, `nutrition_protein`,
+  `nutrition_carbs` and `nutrition_fat`, from the meals both apps already send. A meal sent
+  again or edited replaces its own share, and the sensors start again at 0 at midnight. Asked for
+  by @bhman792 in [#66](https://github.com/owen282000/life-dashboard-ha/discussions/66).
 - Every app of the day on `screen_time_today` and `screen_time_yesterday`, as the attribute
   `apps`: a list of `package`, `name` and whole `minutes`, most used first. `top_apps` keeps the
   top five as text. The [Life Dashboard Screen Time cards](https://github.com/owen282000/life-dashboard-screen-time-card)
