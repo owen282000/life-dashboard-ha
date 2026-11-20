@@ -34,6 +34,10 @@
 #   tiles under Sleep, the HRV badge and the resting heart rate cards under Heart.
 # Screen time (Android only) is in dashboard-screen-time.yaml, two phones in
 # dashboard-two-phones.yaml.
+#
+# This view uses Home Assistant's own cards only. The cards made for the job (Sleep,
+# Activity, Year, Before bed) are separate installs, with a YAML example each in
+# docs/dashboard.md.
 title: Health
 views:
   - title: Health
