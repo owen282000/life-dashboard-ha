@@ -40,6 +40,14 @@ You need the Life Dashboard Companion app on your phone, a separate app from the
   <sub>An example <a href="https://github.com/owen282000/life-dashboard-ha/blob/main/docs/dashboard.md">dashboard</a> to copy, built from Home Assistant's own cards. The screenshot shows demo data.</sub>
 </p>
 
+Your watch, ring or scale already writes to Health Connect or Apple Health on your phone. The app sends that data, from every source at once, straight to your Home Assistant. There is no account, and nothing passes through a server of mine.
+
+- **Any brand, through the phone.** If it writes to Health Connect or Apple Health, it arrives, with no cloud login and no developer app to register per brand. The phone pushes; nothing here polls.
+- **Android and iPhone in one integration.** Each phone is a device of its own, so a mixed household shares one dashboard.
+- **Day totals that add up.** Steps, distance and calories are the phone's own figure for the day, so a walk recorded by both phone and watch counts once, and a day that is sent again or corrected replaces itself.
+- **History that stays.** Every day lands on the date it happened, in Home Assistant's own statistics. When you change phones, the new one can take over the old one's history.
+- **Stable within 1.x.** An update never breaks your entities, statistics, automations or pairing. [What 1.x keeps stable](https://github.com/owen282000/life-dashboard-ha/blob/main/docs/compatibility.md) lists it.
+
 ## What you get
 
 - **Sensors for today.** Steps, distance and calories as day totals, and the latest heart rate, sleep, weight, blood pressure, glucose and more, each with the app that recorded it.
@@ -91,7 +99,7 @@ The phone sends its data to the address in the pairing code, so that address has
 
 ## Already use the Home Assistant Companion app?
 
-Keep it: it handles presence, notifications and device sensors, and this works next to it. It also reads health data: on Android it turns dozens of Health Connect types into sensors, and on an iPhone recent versions of the app have Apple Health sensors as a Labs feature. If you only want today's values, the Companion app is enough.
+Keep it: it handles presence, notifications and device sensors, and this works next to it. It also reads health data: on Android it turns dozens of Health Connect types into sensors, and on an iPhone it has Apple Health sensors. If you only want today's values, the Companion app is enough.
 
 What this integration adds, the screen time and the readings back on Android only:
 
