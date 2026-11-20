@@ -18,7 +18,7 @@ from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.util.aiohttp import MockRequest, MockStreamReader
+from homeassistant.util.aiohttp import MockRequest, MockStreamReader, serialize_response
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.life_dashboard import signal_update
@@ -36,6 +36,8 @@ from custom_components.life_dashboard.payload import (
     SIGNATURE_HEADER,
     signature_for,
 )
+
+from .phone import check_answer
 
 WEBHOOK_ID = "a" * 64
 SECRET = "b" * 64
@@ -143,6 +145,97 @@ async def test_a_cloudhook_payload_with_the_wrong_secret_is_refused(
         hass, WEBHOOK_ID, _cloud_request(_health(), secret="wrong")
     )
     assert response.status == HTTPStatus.UNAUTHORIZED
+
+
+async def _through_the_cloud(hass: HomeAssistant, payload: dict) -> tuple[dict, str]:
+    """A POST and its answer as Home Assistant Cloud carries them, and the request's signature.
+
+    What async_webhook_message in Home Assistant's cloud client does with the answer:
+    it serializes the response and passes on the status, the body as text and the
+    Content-Type. No other header reaches the phone, X-Signature included.
+    """
+    request = _cloud_request(payload)
+    response = await webhook.async_handle_webhook(hass, WEBHOOK_ID, request)
+    await hass.async_block_till_done()
+    serialized = serialize_response(response)
+    relayed = {
+        "body": serialized.get("body"),
+        "status": serialized["status"],
+        "headers": {"Content-Type": response.content_type},
+    }
+    return relayed, request.headers[SIGNATURE_HEADER]
+
+
+def _phone_reads(relayed: dict, request_signature: str):
+    """The phone's decision on what the cloud handed it."""
+    assert relayed["status"] == HTTPStatus.OK
+    assert relayed["headers"] == {"Content-Type": "application/json"}
+    return check_answer(
+        SECRET,
+        request_signature=request_signature,
+        body=relayed["body"].encode("utf-8"),
+        headers=relayed["headers"],
+        now=datetime.now(UTC),
+    )
+
+
+async def test_the_phone_can_verify_an_answer_through_the_cloud(
+    hass: HomeAssistant, loaded
+) -> None:
+    """Issue #39: the header is gone, so the signature travels in the body when asked for."""
+    relayed, request_signature = await _through_the_cloud(
+        hass,
+        _health(
+            app_version="1.32.0",
+            writeback={"protocol": 1, "types": ["weight"], "history": False, "answer": "body"},
+        ),
+    )
+    verdict = _phone_reads(relayed, request_signature)
+    assert verdict.accept
+    assert verdict.answer["life_dashboard"]["signed_body"] == 1
+    assert verdict.answer["writeback"]["in_reply_to"] == request_signature
+    assert verdict.answer["writeback"]["pending"] == []
+
+
+async def test_a_test_ping_through_the_cloud_can_be_verified(hass: HomeAssistant, loaded) -> None:
+    """The app's pairing test asks too, so a green Test means Receive can work."""
+    relayed, request_signature = await _through_the_cloud(
+        hass,
+        {
+            "test": True,
+            "timestamp": "2026-09-15T16:55:02Z",
+            "source": "health_connect",
+            "writeback": {"answer": "body"},
+        },
+    )
+    verdict = _phone_reads(relayed, request_signature)
+    assert verdict.accept
+    assert "pending" not in verdict.answer["writeback"]
+
+
+async def test_an_answer_nobody_asked_to_sign_in_the_body_stays_unverifiable_through_the_cloud(
+    hass: HomeAssistant, loaded
+) -> None:
+    """No fallback: without the signature the phone takes nothing.
+
+    The announcement in it does name signed_body, so the phone knows the integration is
+    new enough and the fault is elsewhere.
+    """
+    relayed, request_signature = await _through_the_cloud(
+        hass, _health(writeback={"protocol": 1, "types": ["weight"]})
+    )
+    verdict = _phone_reads(relayed, request_signature)
+    assert not verdict.accept
+    assert verdict.reason == "unsigned"
+    assert not verdict.update_integration
+
+
+async def test_a_changed_answer_through_the_cloud_is_refused(hass: HomeAssistant, loaded) -> None:
+    relayed, request_signature = await _through_the_cloud(
+        hass, _health(writeback={"protocol": 1, "types": ["weight"], "answer": "body"})
+    )
+    relayed["body"] = relayed["body"].replace("pending", "pendinG")
+    assert _phone_reads(relayed, request_signature).reason == "signature"
 
 
 async def test_a_body_that_cannot_be_read_is_not_a_silent_200(hass: HomeAssistant, loaded) -> None:
@@ -352,7 +445,11 @@ async def test_an_old_app_gets_the_announcement(
     assert response.content_type == "application/json"
 
     answer = await response.json()
-    assert answer["life_dashboard"] == {"version": _manifest_version(), "writeback": 1}
+    assert answer["life_dashboard"] == {
+        "version": _manifest_version(),
+        "writeback": 1,
+        "signed_body": 1,
+    }
     assert answer["writeback"]["configured"] == []
     assert "pending" not in answer["writeback"]
     assert "more" not in answer["writeback"]
@@ -393,6 +490,82 @@ async def test_a_test_ping_announces_too(hass: HomeAssistant, hass_client_no_aut
     answer = await response.json()
     assert answer["life_dashboard"]["writeback"] == 1
     assert answer["writeback"]["in_reply_to"].startswith("sha256=")
+
+
+async def test_the_signed_body_is_only_for_a_request_that_asks(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """Without writeback.answer the answer is byte for byte what it was: no envelope."""
+    client = await hass_client_no_auth()
+    for payload in (
+        _health(),
+        _health(writeback={"protocol": 1, "types": ["weight"], "history": False}),
+        _health(writeback={"protocol": 1, "answer": "header"}),
+        _health(writeback="body"),
+        {"test": True, "timestamp": "2026-09-15T16:55:02Z", "source": "health_connect"},
+    ):
+        response = await _post(client, payload)
+        assert response.status == HTTPStatus.OK
+        raw = await response.read()
+        answer = json.loads(raw)
+        assert "life_dashboard_signed" not in answer
+        assert set(answer) == {"life_dashboard", "writeback"}
+        assert response.headers[SIGNATURE_HEADER] == _reference_signature(SECRET, raw)
+
+
+async def test_a_request_that_asks_gets_the_signature_in_the_body(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """The answer as text with its signature, and the header over the body as sent."""
+    client = await hass_client_no_auth()
+    body = json.dumps(_health(writeback={"protocol": 1, "answer": "body"})).encode()
+    request_signature = signature_for(SECRET, body)
+    response = await client.post(
+        URL,
+        data=body,
+        headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature},
+    )
+    assert response.status == HTTPStatus.OK
+    assert response.content_type == "application/json"
+    raw = await response.read()
+    assert raw.isascii()
+    assert response.headers[SIGNATURE_HEADER] == _reference_signature(SECRET, raw)
+
+    envelope = json.loads(raw)
+    assert set(envelope) == {"life_dashboard_signed", "answer", "signature"}
+    assert envelope["life_dashboard_signed"] == 1
+    text = envelope["answer"]
+    assert envelope["signature"] == _reference_signature(SECRET, text.encode())
+    # Compact JSON, as the plain answer is sent.
+    answer = json.loads(text)
+    assert text == json.dumps(answer, separators=(",", ":"))
+    assert answer["life_dashboard"]["signed_body"] == 1
+    assert answer["writeback"]["in_reply_to"] == request_signature
+    assert "pending" not in answer["writeback"]
+
+
+async def test_a_test_ping_that_asks_gets_it_too(
+    hass: HomeAssistant, hass_client_no_auth, loaded, updates
+) -> None:
+    """Also from the Screen Time tab, whose payloads never get readings."""
+    client = await hass_client_no_auth()
+    for source in ("health_connect", "screen_time"):
+        response = await _post(
+            client,
+            {
+                "test": True,
+                "timestamp": "2026-09-15T16:55:02Z",
+                "source": source,
+                "writeback": {"answer": "body"},
+            },
+        )
+        assert response.status == HTTPStatus.OK
+        envelope = await response.json()
+        assert envelope["signature"] == _reference_signature(SECRET, envelope["answer"].encode())
+        assert "pending" not in json.loads(envelope["answer"])["writeback"]
+    await hass.async_block_till_done()
+    # A ping is still a ping: it moves the last sync and nothing else.
+    assert {u.key for u in updates} == {KEY_LAST_HEALTH_SYNC, "last_screen_time_sync"}
 
 
 async def test_refusals_carry_no_body(hass: HomeAssistant, hass_client_no_auth, loaded) -> None:

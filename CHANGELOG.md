@@ -6,6 +6,26 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-20
+
+### Added
+
+- The integration's side of sending measurements to a phone paired through Home Assistant
+  Cloud ([#39](https://github.com/owen282000/life-dashboard-ha/issues/39)). The cloud hands
+  the phone the status, the body and the Content-Type of an answer and drops the `X-Signature`
+  header, so the app refused the readings. A request that carries `"answer": "body"` in its
+  `writeback` block is now answered with the signature inside the body:
+  `{"life_dashboard_signed": 1, "answer": "<the answer as text>", "signature": "sha256=..."}`,
+  signed with the same key over the same bytes as before. A request that doesn't ask gets the
+  answer it always got, and an answer without a valid signature is still never taken. It works
+  once the Android app asks for it; [docs/sending-to-the-phone.md](docs/sending-to-the-phone.md#through-home-assistant-cloud)
+  has the details.
+- `signed_body: 1` in the `life_dashboard` block of every answer, which tells the app that this
+  integration knows the signed body.
+- Protocol vectors in [protocol/vectors](protocol/vectors): requests with their signatures and
+  the exact answer the integration gives, and answers with the decision the phone makes on
+  them. The integration's tests run them, and the Android and iOS apps can run the same files.
+
 ## [1.2.0] - 2026-11-18
 
 ### Added

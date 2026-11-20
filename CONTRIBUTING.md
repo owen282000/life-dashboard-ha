@@ -31,6 +31,9 @@ in Docker and restarts it (see the script for the two variables it takes).
   in the Android app's [webhook reference](https://github.com/owen282000/life-dashboard-companion-app/blob/main/docs/webhook.md)
   and shared with the iOS app. Parse defensively, never require a field the apps mark
   optional, and never send anything back the app does not expect.
+- **A change to the protocol starts with a vector.** The signatures, the answer and what
+  the phone does with it are pinned in [protocol/vectors](protocol/vectors), which the apps
+  run too. Add or change a case there first, and raise the version in both files.
 - **User-facing text lives in `strings.json`**, mirrored in `translations/en.json`; the
   two files stay identical. Translations are welcome as `translations/<locale>.json`.
 - **Keep pure logic free of Home Assistant imports.** `payload.py`, `history.py`,

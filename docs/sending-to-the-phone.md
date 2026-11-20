@@ -4,7 +4,7 @@ This is the other direction. **Configure** on the integration maps one entity pe
 
 This is Android only. It needs the Android app 1.20.0 or newer; the iOS app doesn't receive measurements from Home Assistant. For an iPhone the integration shows none of it: once the phone's first health payload arrives, the options keep only the shortest workout, the **Send history to phone** button goes away and nothing is queued.
 
-It doesn't work yet when the phone is paired through Home Assistant Cloud ([#39](https://github.com/owen282000/life-dashboard-ha/issues/39)): the cloud passes the integration's answer to the phone without the header that signs it, so the app refuses the readings, as it should. Pair the phone with an address of your own if you want to send measurements to it.
+Through Home Assistant Cloud it needs the integration 1.3.0 or newer and an app version that asks for the signed answer in the body ([#39](https://github.com/owen282000/life-dashboard-ha/issues/39)); [Through Home Assistant Cloud](#through-home-assistant-cloud) says why. With an older app, pair the phone with an address of your own if you want to send measurements to it.
 
 What shows up in Samsung Health or Google Health from there is theirs to decide. Both pick up weight and body fat from Health Connect. Whether Samsung Health shows body composition or blood pressure written by another app varies by version, and Google Health doesn't read blood pressure. The integration and the app can only promise that the reading lands in Health Connect.
 
@@ -15,6 +15,7 @@ What shows up in Samsung Health or Google Health from there is theirs to decide.
 - [Send history to phone](#send-history-to-phone)
 - [Two phones](#two-phones)
 - [When the phone refuses a reading](#when-the-phone-refuses-a-reading)
+- [Through Home Assistant Cloud](#through-home-assistant-cloud)
 
 ## What can go to the phone
 
@@ -106,3 +107,36 @@ A dropped reading is not offered again: not at the next sync, not by **Send hist
 The repair is on the integration entry and names the phone and the type. It goes away once the phone writes a reading of that type again, or when you clear the mapping for that type. Each dropped reading is also logged as a warning with the entity and the code. A code the integration doesn't know, from a newer app, is treated like `rate_limited`: the reading stays and is offered again until the 90 days are up.
 
 A second repair covers a type the phone stops asking for. With every sync the app lists the types that are switched on under **Receive** and that Health Connect lets it write, also when nothing new was measured. When a type you mapped is missing from that list three syncs in a row, because it was switched off in the app or its permission was taken away, the repair says so; until then, what waits for that type stays in the queue for up to 90 days. It goes away once the phone asks for the type again, or when you clear the mapping.
+
+## Through Home Assistant Cloud
+
+The readings ride back in the integration's answer to the phone's own POST, and the phone only takes an answer the integration signed. That signature is in the `X-Signature` header. Home Assistant Cloud passes on the status, the body and the Content-Type of an answer and no other header, so through a cloudhook the signature never arrived and the app refused every answer, as it should.
+
+From 1.3.0 the integration can put the signature in the body. The app asks for it with one field in the `writeback` block of its request, also in its test ping:
+
+```json
+"writeback": { "protocol": 1, "types": ["weight"], "history": false, "answer": "body" }
+```
+
+The answer then looks like this:
+
+```json
+{
+  "life_dashboard_signed": 1,
+  "answer": "{\"life_dashboard\":{\"version\":\"1.3.0\",\"writeback\":1,\"signed_body\":1},\"writeback\":{...}}",
+  "signature": "sha256=<hex HMAC-SHA256 of the answer text>"
+}
+```
+
+- `answer` is the answer the phone would otherwise get, as text, byte for byte. The phone checks the signature over the UTF-8 bytes of that text and only then reads it as JSON. Text survives a hop that rebuilds the outer JSON in another order or with other spacing, which a signature next to the fields would not.
+- `signature` is what the header carried before: HMAC-SHA256 over the answer, keyed with HMAC-SHA256(secret, `life-dashboard-response-v1`). `in_reply_to` and `issued_at` inside the answer are checked as before.
+- The whole body is ASCII, so no hop can re-encode it into other bytes.
+- The `X-Signature` header is still sent and signs the body as it is sent, so on a route that keeps headers it covers the whole body.
+- A request that doesn't ask gets the plain answer with the header, exactly as before 1.3.0. Any other value of `answer` counts as not asking.
+- There is no unsigned form to fall back to. An answer without a valid signature, in the body or in the header, is not taken.
+
+Every answer names `"signed_body": 1` in its `life_dashboard` block, so an app knows the integration can do this. An integration before 1.3.0 answers a phone behind the cloud with a plain body and no signature that arrives; the app can't take that answer, and uses the missing `signed_body` only to ask you to update the integration.
+
+It also helps behind a reverse proxy or a tunnel that strips headers it doesn't know. Home Assistant Cloud's remote access (your `ui.nabu.casa` address) passes the traffic through untouched and never had the problem.
+
+The requests and answers above, with their exact bytes and signatures, are in [protocol/vectors](../protocol/vectors).
