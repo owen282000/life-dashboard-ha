@@ -100,7 +100,7 @@ When **Apps to send** in the app leaves some apps out, `screen_time_today` and `
 
 `last_health_sync` and `last_screen_time_sync` are timestamps of the last payload of each kind. `last_health_sync` also carries the app version and how many records the payload held; `last_screen_time_sync` carries the app version and the phone's manufacturer and model.
 
-A **Test ping** in the app updates the one for its tab, which is the quickest way to see that pairing worked. A backfill doesn't; the next regular sync does.
+**Send test** in the app updates the one for its tab, which is the quickest way to see that pairing worked. A backfill doesn't; the next regular sync does.
 
 ### What gets no sensor
 
