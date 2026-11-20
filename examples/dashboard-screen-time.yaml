@@ -31,6 +31,15 @@
 # disabled: open the phone's device page, show the disabled entities and enable the apps
 # you want. Its statistic, life_dashboard:<entry>_app_<package> with the dots of the
 # package name as underscores, starts with the next sync. Swap in the apps you use.
+#
+# This view uses Home Assistant's own cards only. For cards made for screen time (today
+# against a daily limit, the week, the whole family), install Life Dashboard Screen Time
+# from the Marketplace: https://github.com/owen282000/life-dashboard-screen-time-card
+# With integration 1.2.0 or newer they show every app of the day without app sensors:
+#
+#   type: custom:life-dashboard-screen-time-card
+#   entity: sensor.your_phone_screen_time_today
+#   limit: "3:30"
 title: Screen time
 views:
   # Screen time: Android only. Today, the apps that have a sensor, and the days before.

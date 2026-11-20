@@ -3,7 +3,7 @@
 The [README](../README.md) has the quick start. These pages have the rest.
 
 - [Pairing a phone](pairing.md): the address to use, the three ways to use the QR code, Reconfigure and removing a phone.
-- [The Health dashboard](dashboard.md): the example dashboard and theme to copy, for one phone, two phones and screen time.
+- [The Health dashboard](dashboard.md): the example dashboard and theme to copy, for one phone, two phones and screen time, and the [Sleep card](https://github.com/owen282000/life-dashboard-sleep-card) and [Screen time cards](https://github.com/owen282000/life-dashboard-screen-time-card) that go with it.
 - [Sensors and statistics](entities.md): every sensor and attribute, screen time per app, long-term statistics and automations.
 - [Sending measurements to the phone](sending-to-the-phone.md): a scale or blood pressure monitor from Home Assistant into Health Connect on Android, and the `queue_history` action.
 - [How it works](how-it-works.md): when data arrives, why nothing is counted twice, and the security design.
