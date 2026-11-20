@@ -114,15 +114,38 @@ Prefer MQTT? Both Life Dashboard apps can publish with MQTT Discovery instead, f
 
 ## Part of Life Dashboard
 
-Four projects and two sets of cards, and you only install the parts you need: the app on each phone, then where the data goes. An Android phone and an iPhone send the same payload, so they can share one Home Assistant.
+Two apps, three places for the data to go and a set of cards for your dashboard, and you only install the parts you need: the app on each phone, then where the data goes. An Android phone and an iPhone send the same payload, so they can share one Home Assistant.
 
 <p align="center">
-  <a href="https://github.com/owen282000/life-dashboard-companion-app"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/android.png" alt="Android app: Health Connect and screen time" width="400"></a>
-  <a href="https://github.com/owen282000/life-dashboard-companion-app-ios"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ios.png" alt="iPhone app: Apple Health" width="400"></a>
-  <img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ha-here.png" alt="Home Assistant integration: sensors and all your history (this repository)" width="400">
-  <a href="https://github.com/owen282000/life-dashboard-stack"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/stack.png" alt="Grafana stack: Postgres and Grafana dashboards" width="400"></a>
-  <a href="https://github.com/owen282000/life-dashboard-sleep-card"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/sleep-card.png" alt="Sleep card: one night, stage by stage" width="400"></a>
-  <a href="https://github.com/owen282000/life-dashboard-screen-time-card"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/screen-time-card.png" alt="Screen time cards: today, the week and the family" width="400"></a>
+  <b>Start here: the app on your phone</b><br>
+  <a href="https://github.com/owen282000/life-dashboard-companion-app"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/android-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/android-dark.png" alt="Android app: Health Connect and screen time, on Google Play and F-Droid" width="198"></picture></a>
+  <a href="https://github.com/owen282000/life-dashboard-companion-app-ios"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ios-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ios-dark.png" alt="iPhone app: Apple Health, on the App Store, or build it yourself" width="198"></picture></a>
+</p>
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/arrow-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/arrow-dark.png" alt="" width="20"></picture><br>
+  <sub>sends your data to</sub>
+</p>
+
+<p align="center">
+  <b>Where the data goes</b><br>
+  <a href="https://github.com/owen282000/life-dashboard-stack"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/stack-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/stack-dark.png" alt="Grafana stack: Postgres and Grafana dashboards, with Docker Compose or Helm" width="168"></picture></a>
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ha-here-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/ha-here-dark.png" alt="Home Assistant, you're here: the integration, with sensors and all your history, in the Marketplace (HACS)" width="168"></picture>
+  <a href="https://owen282000.com/life-dashboard/health-connect-webhook/"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/own-server-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/own-server-dark.png" alt="Your own server: MQTT or any webhook, such as n8n or Node-RED, guide on owen282000.com" width="168"></picture></a>
+</p>
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/arrow-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/arrow-dark.png" alt="" width="20"></picture>
+</p>
+
+<p align="center">
+  <b>Cards for your Home Assistant dashboard</b><br>
+  <sub>They need Home Assistant; most work with any sensor, and the integration fills them with your history.</sub><br>
+  <a href="https://github.com/owen282000/life-dashboard-sleep-card"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/sleep-card-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/sleep-card-dark.png" alt="Sleep card: one night, stage by stage" width="156"></picture></a>
+  <a href="https://github.com/owen282000/life-dashboard-screen-time-card"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/screen-time-card-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/screen-time-card-dark.png" alt="Screen time cards: today, the week and the family" width="156"></picture></a>
+  <a href="https://github.com/owen282000/life-dashboard-year-card"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/year-card-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/year-card-dark.png" alt="Year card: a year of any sensor, one square a day" width="156"></picture></a>
+  <a href="https://github.com/owen282000/life-dashboard-activity-card"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/activity-card-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/activity-card-dark.png" alt="Activity card: daily goals, the week and your streak" width="156"></picture></a>
+  <a href="https://github.com/owen282000/life-dashboard-before-bed-card"><picture><source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/before-bed-card-light.png"><img src="https://raw.githubusercontent.com/owen282000/life-dashboard-ha/main/docs/family/before-bed-card-dark.png" alt="Before bed card: your phone in the last hour before sleep" width="156"></picture></a>
 </p>
 
 ## Ask your own AI
