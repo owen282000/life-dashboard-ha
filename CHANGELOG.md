@@ -26,6 +26,13 @@ All notable changes to this integration are documented here. The format follows
   the exact answer the integration gives, and answers with the decision the phone makes on
   them. The integration's tests run them, and the Android and iOS apps can run the same files.
 
+### Changed
+
+- The texts of adding a phone and of the three repairs about sending to a phone now say "the
+  Life Dashboard app", the name the phone app goes by, instead of "the Life Dashboard Companion
+  app". The model on the phone's device page says "Life Dashboard" too. Device names and entity
+  ids stay as they are.
+
 ## [1.2.0] - 2026-11-18
 
 ### Added

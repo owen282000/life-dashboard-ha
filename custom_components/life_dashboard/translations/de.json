@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Telefon hinzufügen",
-        "description": "Du brauchst die App Life Dashboard Companion auf dem Telefon: Sie scannt den QR-Code im nächsten Schritt. Das Telefon sendet an die Adresse unten, vorausgefüllt mit der Adresse, die dein Browser gerade verwendet. Behalte die Adresse in deinem Heimnetz, um nur zu Hause zu synchronisieren (unter Android die IP-Adresse statt homeassistant.local), oder gib deine öffentliche Adresse ein, um von überall zu synchronisieren. Mit einem VPN in dein Heimnetz funktioniert die Adresse im Heimnetz überall.",
+        "description": "Du brauchst die App Life Dashboard auf dem Telefon: Sie scannt den QR-Code im nächsten Schritt. Das Telefon sendet an die Adresse unten, vorausgefüllt mit der Adresse, die dein Browser gerade verwendet. Behalte die Adresse in deinem Heimnetz, um nur zu Hause zu synchronisieren (unter Android die IP-Adresse statt homeassistant.local), oder gib deine öffentliche Adresse ein, um von überall zu synchronisieren. Mit einem VPN in dein Heimnetz funktioniert die Adresse im Heimnetz überall.",
         "data": {
           "name": "Name",
           "base_url": "Home-Assistant-Adresse",
@@ -377,15 +377,15 @@
   "issues": {
     "writeback_permission_denied": {
       "title": "{phone} lehnt {type} aus Home Assistant ab",
-      "description": "Die App Life Dashboard Companion auf {phone} hat keine Berechtigung, {type} in Health Connect zu schreiben. Öffne die App, geh im Tab Gesundheit zu „Empfangen“ und schalte {type} wieder ein, um die Berechtigung zu erteilen. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
+      "description": "Die App Life Dashboard auf {phone} hat keine Berechtigung, {type} in Health Connect zu schreiben. Öffne die App, geh im Tab Gesundheit zu „Empfangen“ und schalte {type} wieder ein, um die Berechtigung zu erteilen. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
     },
     "writeback_unsupported_type": {
       "title": "{phone} kennt {type} nicht",
-      "description": "Die App Life Dashboard Companion auf {phone} ist zu alt, um {type} in Health Connect zu schreiben. Aktualisiere die App. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
+      "description": "Die App Life Dashboard auf {phone} ist zu alt, um {type} in Health Connect zu schreiben. Aktualisiere die App. Neue Messwerte gehen danach wie gewohnt durch. Die bereits abgelehnten Messwerte bleiben außerhalb von Health Connect: Sie werden nicht erneut angeboten, auch nicht über „Verlauf an Telefon senden“."
     },
     "writeback_not_asked": {
       "title": "{phone} fragt nicht nach {type}",
-      "description": "Bei den letzten Synchronisierungen hat die App Life Dashboard Companion auf {phone} nicht nach {type} gefragt, daher warten die Werte von Home Assistant dafür, bis zu 90 Tage. Öffne in der App im Tab Gesundheit „Empfangen“ und prüfe, ob {type} eingeschaltet ist und in Health Connect geschrieben werden darf. Soll {type} nicht mehr an dieses Telefon gehen, entferne es in den Optionen dieser Integration. Diese Meldung verschwindet von selbst, sobald das Telefon wieder nach {type} fragt."
+      "description": "Bei den letzten Synchronisierungen hat die App Life Dashboard auf {phone} nicht nach {type} gefragt, daher warten die Werte von Home Assistant dafür, bis zu 90 Tage. Öffne in der App im Tab Gesundheit „Empfangen“ und prüfe, ob {type} eingeschaltet ist und in Health Connect geschrieben werden darf. Soll {type} nicht mehr an dieses Telefon gehen, entferne es in den Optionen dieser Integration. Diese Meldung verschwindet von selbst, sobald das Telefon wieder nach {type} fragt."
     }
   },
   "selector": {

@@ -1,6 +1,6 @@
 # Life Dashboard theme for Home Assistant.
 #
-# The colors of the Life Dashboard Companion apps, the same on Android and iPhone. Dark is
+# The colors of the Life Dashboard apps, the same on Android and iPhone. Dark is
 # the designed look; light is the same on a pale background. Plain YAML, no fonts to
 # download. "Life Dashboard heart" only colors the icons of the heart cards red.
 #

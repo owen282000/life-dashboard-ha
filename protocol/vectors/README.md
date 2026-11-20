@@ -1,6 +1,6 @@
 # Protocol vectors
 
-Examples of the wire protocol between the Life Dashboard Companion apps and this integration, with their exact bytes: a request and its signature, the answer the integration gives, and what the phone does with an answer. They exist so that the Android app, the iOS app and the integration are tested against the same examples instead of each against its own.
+Examples of the wire protocol between the Life Dashboard apps and this integration, with their exact bytes: a request and its signature, the answer the integration gives, and what the phone does with an answer. They exist so that the Android app, the iOS app and the integration are tested against the same examples instead of each against its own.
 
 They live here, outside `tests/`, because they are not this repository's tests: they are the contract, and the tests of three repositories read them. The integration is the side that answers, so its repository is where they change, in the same pull request as the code. Nothing in this folder is shipped: Home Assistant and HACS install `custom_components/life_dashboard` only.
 
