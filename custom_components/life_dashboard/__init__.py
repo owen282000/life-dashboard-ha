@@ -1,6 +1,6 @@
 """The Life Dashboard integration.
 
-Receives webhook payloads from the Life Dashboard Companion apps, verifies the
+Receives webhook payloads from the Life Dashboard apps, verifies the
 signature, and dispatches the sensor updates a payload justifies.
 
 The one rule worth knowing: an update is applied only when it is not older than the
