@@ -37,7 +37,7 @@ The address in the code is one the phone can't reach from where it is. Open **Re
 
 ### Why does syncing over plain HTTP fail?
 
-The Android app refuses `http://` unless **Allow plain HTTP webhooks** is on. That's one switch under **Advanced**, shown on both tabs, and also in the app's own pairing dialog when the scanned address is `http://`. The integration's pairing dialog has no such option.
+The Android app refuses `http://` unless **Allow plain HTTP webhooks** is on. That's one switch under **More > Advanced**, shown on both tabs, and also in the app's own pairing dialog when the scanned address is `http://`. The integration's pairing dialog has no such option.
 
 An iPhone has no switch at all. iOS allows plain HTTP only to an IP address like `http://192.168.1.10:8123`, a `.local` name like `http://homeassistant.local:8123`, or a name without a dot, and the app refuses to pair any other `http://` address. Use **Reconfigure** to put in such an address or an `https://` one, and scan the new code.
 
