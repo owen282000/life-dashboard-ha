@@ -2,6 +2,8 @@
 
 An example dashboard for the integration, built only from Home Assistant's own cards, with a theme in the colors of the Life Dashboard apps. It isn't installed for you: you copy it, put your phone's name in, and remove what your phone doesn't send. No custom cards to install.
 
+Want cards made for the job as well? The [Sleep card](#drawing-the-night) draws the night and the [Screen time cards](#screen-time-cards) show today, the week and the family. Both are separate installs from the Marketplace.
+
 <p align="center">
   <img src="screenshots/dashboard-hero.png" alt="The top of the Health dashboard: today's tiles, the last workout with its pace, heart rate and laps, last night's sleep, and recovery with heart rate variability against its baseline, resting heart rate against last week, and VO2 max" width="900">
 </p>
@@ -142,6 +144,35 @@ entities:
 Screen time comes from the Android app only, so it has its own view in its own file: [examples/dashboard-screen-time.yaml](../examples/dashboard-screen-time.yaml). Paste it as a dashboard of its own, or copy its view under `views:` into the Health dashboard. Replace `your_phone` and `<entry>` the same way.
 
 The six apps are examples. Each app gets a sensor that starts disabled: open the phone's device page, show the disabled entities, and enable the apps you want. An enabled app also gets a statistic with its time per day, `life_dashboard:<entry>_app_<package>`, with the dots of the package name as underscores, and that's what the stacked graph reads. It starts with the next sync, which carries the last seven days. More in [entities.md](entities.md#per-app).
+
+### Screen time cards
+
+For cards made for screen time there's [Life Dashboard Screen Time](https://github.com/owen282000/life-dashboard-screen-time-card), a separate install from the Marketplace (HACS before Home Assistant 2026.11). One install gives three cards, each against a daily limit you set: today on one phone, the week, and the whole family. From integration 1.2.0 they show every app of the day without enabling any app sensor, and the week comes from the statistics.
+
+```yaml
+type: custom:life-dashboard-screen-time-card
+entity: sensor.your_phone_screen_time_today
+limit: "3:30"
+```
+
+```yaml
+type: custom:life-dashboard-screen-time-week-card
+entity: sensor.your_phone_screen_time_today
+limit: "3:30"
+```
+
+```yaml
+type: custom:life-dashboard-screen-time-family-card
+people:
+  - entity: sensor.first_phone_screen_time_today
+    person: person.sam
+    limit: "3:30"
+  - entity: sensor.second_phone_screen_time_today
+    name: Mila
+    limit: "2:00"
+```
+
+Add them next to the view above or in its place. The card's [README](https://github.com/owen282000/life-dashboard-screen-time-card#configure) has every option, and the other sources it reads, such as Google Family Link.
 
 ## Two phones
 
