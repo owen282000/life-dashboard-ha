@@ -2,10 +2,10 @@
 
 An example dashboard for the integration, built only from Home Assistant's own cards, with a theme in the colors of the Life Dashboard apps. It isn't installed for you: you copy it, put your phone's name in, and remove what your phone doesn't send. No custom cards to install.
 
-Want cards made for the job as well? The [Sleep card](#drawing-the-night) draws the night and the [Screen time cards](#screen-time-cards) show today, the week and the family. Both are separate installs from the Marketplace.
+Want cards made for the job as well? The [Sleep card](#drawing-the-night) draws the night and the [Screen time cards](#screen-time-cards) show today, the week and the family. Both are separate installs from the Marketplace. The [Activity, Year and Before bed cards](#activity-year-and-before-bed-cards) are new, and install as custom repositories for now.
 
 <p align="center">
-  <img src="screenshots/dashboard-hero.png" alt="The top of the Health dashboard: today's tiles, the last workout with its pace, heart rate and laps, last night's sleep, and recovery with heart rate variability against its baseline, resting heart rate against last week, and VO2 max" width="900">
+  <img src="screenshots/dashboard-hero.png" alt="The top of the Health dashboard: today's tiles, the last workout, last night's sleep, and recovery" width="900">
 </p>
 
 The screenshots show demo data from two made-up phones, not a real person's.
@@ -138,7 +138,7 @@ entities:
 ## Screen time
 
 <p align="center">
-  <img src="screenshots/screen-time.png" alt="The screen time view: today, yesterday, the most used app and the number of apps, six apps with their time today as bars, screen time per day, and the apps per day stacked" width="700">
+  <img src="screenshots/screen-time.png" alt="The screen time view: today and yesterday, six apps as bars, screen time per day, and the apps per day stacked" width="700">
 </p>
 
 Screen time comes from the Android app only, so it has its own view in its own file: [examples/dashboard-screen-time.yaml](../examples/dashboard-screen-time.yaml). Paste it as a dashboard of its own, or copy its view under `views:` into the Health dashboard. Replace `your_phone` and `<entry>` the same way.
@@ -174,10 +174,48 @@ people:
 
 Add them next to the view above or in its place. The card's [README](https://github.com/owen282000/life-dashboard-screen-time-card#configure) has every option, and the other sources it reads, such as Google Family Link.
 
+## Activity, Year and Before bed cards
+
+Three more cards made for the job, each a repository of its own. They are not in the Marketplace's default list yet, so add each one as a custom repository first: in **Settings > Marketplace** (HACS before Home Assistant 2026.11), open the three dots, choose **Custom repositories**, and add the card's address as the type **Dashboard**. Then search for the card and download it. Every card has a visual editor, and its README has every option.
+
+The [Life Dashboard Activity Card](https://github.com/owen282000/life-dashboard-activity-card) shows steps, active energy and exercise as rings against a daily goal, the last seven days, and how many days in a row you made it. Leave a ring out by leaving its sensor out:
+
+```yaml
+type: custom:life-dashboard-activity-card
+steps: sensor.your_phone_steps_today
+steps_goal: 10000
+energy: sensor.your_phone_active_calories_today
+energy_goal: 500
+exercise: sensor.your_phone_exercise_today
+exercise_goal: 30
+```
+
+The [Life Dashboard Year Card](https://github.com/owen282000/life-dashboard-year-card) draws a year as one square per day, for one metric or several. It reads the integration's statistics, so the days you sent with **Send history** are there from the start:
+
+```yaml
+type: custom:life-dashboard-year-card
+metrics:
+  - entity: sensor.your_phone_steps_today
+    thresholds: [4000, 7000, 10000]
+  - entity: sensor.your_phone_last_sleep_duration
+    thresholds: [6, 7, 8]
+  - entity: sensor.your_phone_exercise_today
+```
+
+The [Life Dashboard Before Bed Card](https://github.com/owen282000/life-dashboard-before-bed-card) sets the screen time in the last hour before you fell asleep next to the night that followed, for the last seven nights. The night comes from an Android phone or an iPhone, the screen from an Android phone only:
+
+```yaml
+type: custom:life-dashboard-before-bed-card
+sleep_entity: sensor.your_phone_last_sleep_asleep
+screen_entity: sensor.your_phone_screen_time_today
+```
+
+With `screen_time_today` the card estimates where the minutes fell between two syncs, and marks those numbers with `~`. For minutes that are exact, give it a sensor that is on while the screen is on, such as `binary_sensor.your_phone_interactive` of Home Assistant's Companion app. Its [README](https://github.com/owen282000/life-dashboard-before-bed-card#works-with-any-sensor) lists the sensors it reads.
+
 ## Two phones
 
 <p align="center">
-  <img src="screenshots/two-phones.png" alt="Two phones side by side: each phone's steps, calories, sleep, resting heart rate, weight and last workout, and graphs with both phones in one: resting heart rate per week, steps per day, sleep per night and distance per month" width="900">
+  <img src="screenshots/two-phones.png" alt="Two phones side by side: each phone's numbers of today, and graphs with both phones in one" width="900">
 </p>
 
 Every phone is a device of its own, an Android phone and an iPhone alike. [examples/dashboard-two-phones.yaml](../examples/dashboard-two-phones.yaml) puts two side by side and draws both in the same graphs. Replace `first_phone`, `second_phone`, `<first_entry>` and `<second_entry>` the same way, and the headings, names and phone icons in the graphs. Paste it as a dashboard of its own, or copy its view into the Health dashboard.
