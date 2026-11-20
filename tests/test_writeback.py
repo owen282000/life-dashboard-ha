@@ -831,6 +831,58 @@ async def test_a_queue_failure_costs_the_phone_nothing(
     assert "Could not prepare the readings for Owen's Pixel" in caplog.text
 
 
+async def test_a_queue_failure_still_answers_in_the_form_that_was_asked(
+    hass_tz: HomeAssistant, hass_client_no_auth
+) -> None:
+    """The bare answer after a bug is signed in the body as well when the phone asked."""
+    hass = hass_tz
+    await _load(hass)
+    client = await hass_client_no_auth()
+    with patch(
+        "custom_components.life_dashboard.writeback.WritebackManager.async_respond",
+        side_effect=RuntimeError("boom"),
+    ):
+        response = await _post(
+            client,
+            {
+                "timestamp": "2026-09-27T06:35:00Z",
+                "source": "health_connect",
+                "writeback": {"protocol": 1, "types": ["weight"], "answer": "body"},
+            },
+        )
+    assert response.status == HTTPStatus.OK
+    envelope = await response.json()
+    assert envelope["life_dashboard_signed"] == 1
+    answer = json.loads(envelope["answer"])
+    assert answer["writeback"]["configured"] == ["weight"]
+    assert "pending" not in answer["writeback"]
+
+
+async def test_readings_arrive_inside_the_signed_body(
+    hass_tz: HomeAssistant, hass_client_no_auth, freezer
+) -> None:
+    """The same readings, in the same answer, as text under its signature."""
+    hass = hass_tz
+    await _set(hass, WEIGHT, 80.0)
+    await _load(hass)
+    freezer.tick(timedelta(minutes=1))
+    await _set(hass, WEIGHT, 81.0)
+    client = await hass_client_no_auth()
+    payload = {
+        "timestamp": "2026-09-27T06:35:00Z",
+        "app_version": "1.32.0",
+        "source": "health_connect",
+        "writeback": {"protocol": 1, "types": ["weight"], "history": False},
+    }
+    plain = await (await _post(client, payload)).json()
+    payload["writeback"]["answer"] = "body"
+    envelope = await (await _post(client, payload)).json()
+    answer = json.loads(envelope["answer"])
+    assert len(answer["writeback"]["pending"]) == 1
+    assert answer["writeback"]["pending"] == plain["writeback"]["pending"]
+    assert answer["writeback"]["pending"][0]["kilograms"] == 81.0
+
+
 async def test_a_failure_to_frame_the_answer_is_not_a_success(
     hass_tz: HomeAssistant, hass_client_no_auth
 ) -> None:

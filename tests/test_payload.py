@@ -97,7 +97,7 @@ def test_response_body_announces_and_only_pages_when_asked() -> None:
         version="0.7.0", in_reply_to="sha256=abc", issued_at=issued, configured=["weight"]
     )
     assert plain == {
-        "life_dashboard": {"version": "0.7.0", "writeback": 1},
+        "life_dashboard": {"version": "0.7.0", "writeback": 1, "signed_body": 1},
         "writeback": {
             "in_reply_to": "sha256=abc",
             "issued_at": "2026-09-27T06:35:01Z",
