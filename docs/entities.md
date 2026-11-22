@@ -216,7 +216,7 @@ A night's stages become sensors and statistics by the rules of the wake date, th
 
 ### Past nights as data
 
-The sensors show the newest night. For the nights before it, the action `life_dashboard.get_sleep_nights` returns what the integration keeps, as response data. It is meant for other integrations, cards and scripts that build on the sleep data, so they don't have to read the integration's own files.
+The sensors show the newest night. For the nights before it, the action `life_dashboard.get_sleep_nights` (from 1.4.0) returns what the integration keeps, as response data. It is meant for other integrations, cards and scripts that build on the sleep data, so they don't have to read the integration's own files.
 
 ```yaml
 action: life_dashboard.get_sleep_nights

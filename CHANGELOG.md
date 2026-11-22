@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-22
+
 ### Added
 
 - The action `life_dashboard.get_sleep_nights`, which returns the sleep sessions the integration
