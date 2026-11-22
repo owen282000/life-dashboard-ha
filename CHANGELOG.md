@@ -6,7 +6,7 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
-## [1.3.0] - 2026-11-20
+## [1.3.0] - 2026-11-22
 
 ### Added
 
