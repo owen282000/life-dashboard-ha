@@ -445,7 +445,7 @@
     },
     "get_sleep_nights": {
       "name": "Schlafnächte abrufen",
-      "description": "Gibt die Schlafsitzungen zurück, die die Integration für ein Telefon behält, jede im Format der Attribute des Sensors „Letzter Schlaf: geschlafen“: das Aufwachdatum, Beginn und Ende, die Minuten je Phase und der Verlauf der Phasen. Jede Sitzung eines Aufwachdatums wird zurückgegeben, auch Nickerchen und eine zweite App, die älteste zuerst. Der Verlauf wird für die letzten 14 Nächte behalten und ist bei älteren leer.",
+      "description": "Gibt die Schlafsitzungen zurück, die die Integration für ein Telefon speichert, jede im Format der Attribute des Sensors „Letzter Schlaf: geschlafen“: das Aufwachdatum, Beginn und Ende, die Minuten je Phase und der Verlauf der Phasen. Jede Sitzung eines Aufwachdatums wird zurückgegeben, auch Nickerchen und eine zweite App, die älteste zuerst. Der Verlauf wird für die letzten 14 Nächte gespeichert und ist bei älteren leer.",
       "fields": {
         "config_entry": {
           "name": "Telefon",
@@ -453,7 +453,7 @@
         },
         "start": {
           "name": "Von",
-          "description": "Das erste Aufwachdatum, das zurückgegeben wird. Ohne Angabe alles, was behalten wird."
+          "description": "Das erste Aufwachdatum, das zurückgegeben wird. Ohne Angabe alles, was gespeichert ist."
         },
         "end": {
           "name": "Bis",

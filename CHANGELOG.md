@@ -14,7 +14,8 @@ All notable changes to this integration are documented here. The format follows
   the format of the `last_sleep_asleep` attributes: the wake date, start and end, the minutes
   per stage and the `stages` timeline, with an optional `start` and `end` date. Every session of
   a wake date is returned, so the reader picks the main night;
-  [docs/entities.md](docs/entities.md#past-nights-as-data) has the details.
+  [docs/entities.md](docs/entities.md#past-nights-as-data) has the details. Contributed by
+  @MulletBoy in [#79](https://github.com/owen282000/life-dashboard-ha/pull/79), for his SleepRings card.
 
 ## [1.3.0] - 2026-11-22
 
