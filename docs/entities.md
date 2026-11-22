@@ -214,6 +214,48 @@ A night's stages become sensors and statistics by the rules of the wake date, th
 
 **MQTT.** Over MQTT the apps publish one sleep sensor, the session's duration. The stage sensors and the stage statistics are this integration's.
 
+### Past nights as data
+
+The sensors show the newest night. For the nights before it, the action `life_dashboard.get_sleep_nights` returns what the integration keeps, as response data. It is meant for other integrations, cards and scripts that build on the sleep data, so they don't have to read the integration's own files.
+
+```yaml
+action: life_dashboard.get_sleep_nights
+data:
+  start: "2026-11-01"
+  end: "2026-11-08"
+response_variable: sleep
+```
+
+| Field | What it does |
+|---|---|
+| `config_entry` | Which phone to read. Only needed with more than one phone. |
+| `start` | The first wake date to return. Everything kept when left out. |
+| `end` | The last wake date to return, included. Up to the newest night when left out. |
+
+The response has one list, `nights`, oldest first. Each night has the format of the attributes of `last_sleep_asleep`:
+
+```yaml
+nights:
+  - night: "2026-11-08"                    # the wake date
+    start: "2026-11-07T23:30:00+01:00"
+    end: "2026-11-08T07:00:00+01:00"
+    source: com.watch
+    asleep_minutes: 440.0
+    deep_minutes: 60.0
+    light_minutes: 350.0
+    rem_minutes: 30.0
+    awake_minutes: 10.0
+    stages:
+      - stage: light
+        start: "2026-11-07T23:30:00+01:00"
+        end: "2026-11-08T00:30:00+01:00"
+```
+
+- **Every session is in it**, not only the [main night](#sleep-stages): a nap, and a second app that wrote the same night, are entries of their own under the same `night`. Take the one with the most `asleep_minutes` for the night the sensors and statistics use.
+- **Only what the phone could say.** `source` and each of the minutes are left out when a session doesn't have them, as on the sensor: a session without stages has only its times, and a night with only `sleeping` has `asleep_minutes` and no deep, light or REM.
+- **`stages` is kept for the last 14 nights.** Older nights keep their minutes and return an empty list, as does a session that came without stages.
+- **How far back.** The integration keeps the nights of the last 400 days, counted from the newest one, and returns those.
+
 ## Screen time
 
 The Android app reads Android's usage statistics, the same numbers as the Digital Wellbeing screen, and sends them on their own schedule, separate from the health sync. Three sensors come out of it:
