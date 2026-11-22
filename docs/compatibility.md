@@ -9,7 +9,7 @@ A minor version adds things: a sensor, an attribute, a statistic, a setting with
 - One device per paired phone, and on it the sensors in [entities.md](entities.md), each with its key, unit and device class as listed there. A sensor keeps its unique ID (`<entry ID>_<key>`, and `<entry ID>_screen_time_app_<package>` for an app's screen time), so the entity ID you have, also one you renamed, stays.
 - A state keeps its meaning: steps stay steps of the phone's day, a duration stays in hours, and a sensor that reads a day keeps that day in its `date` attribute.
 - Attributes may be added; none are renamed, removed or given another unit. Sensors may be added; a sensor that would crowd the device page comes disabled. The stage names in the `stages` attribute of `last_sleep_asleep`, listed in [entities.md](entities.md#sleep-stages), stay as they are.
-- The action `life_dashboard.get_sleep_nights` with its fields `config_entry`, `start` and `end`, and its response: `nights`, each with the keys of the `last_sleep_asleep` attributes, as in [entities.md](entities.md#past-nights-as-data). Keys may be added.
+- From 1.4.0, the action `life_dashboard.get_sleep_nights` with its fields `config_entry`, `start` and `end`, and its response: `nights`, each with the keys of the `last_sleep_asleep` attributes, as in [entities.md](entities.md#past-nights-as-data). Keys may be added.
 
 ## The long-term statistics
 
