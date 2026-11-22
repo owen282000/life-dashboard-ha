@@ -5,8 +5,10 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 
 import pytest
+import yaml
 from homeassistant.core import HomeAssistant, State
 from homeassistant.core_config import async_process_ha_core_config
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -324,3 +326,134 @@ async def test_translations_stay_in_step() -> None:
         assert strings["entity"]["sensor"][key]["name"]
         assert german["entity"]["sensor"][key]["name"]
         assert icons["entity"]["sensor"][key]["default"].startswith("mdi:")
+
+
+async def test_the_action_returns_the_nights_in_the_format_of_the_sensor(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    await _post(
+        hass,
+        client,
+        _health(
+            _session("before", end="2026-11-07T05:30:00Z", hours=6),
+            _session("n"),
+            _session("nap", end="2026-11-08T11:00:00Z", hours=1),
+        ),
+    )
+
+    response = await hass.services.async_call(
+        DOMAIN, "get_sleep_nights", {}, blocking=True, return_response=True
+    )
+
+    nights = response["nights"]
+    assert [(night["night"], night["asleep_minutes"]) for night in nights] == [
+        ("2026-11-07", 360.0),
+        ("2026-11-08", 420.0),
+        ("2026-11-08", 60.0),
+    ]
+    # The newest main night is word for word what the sensor shows.
+    attributes = hass.states.get(ASLEEP).attributes
+    assert nights[1] == {key: attributes[key] for key in nights[1]}
+    assert set(nights[1]) == {
+        "night",
+        "start",
+        "end",
+        "source",
+        "asleep_minutes",
+        "deep_minutes",
+        "light_minutes",
+        "rem_minutes",
+        "awake_minutes",
+        "stages",
+    }
+    assert nights[1]["stages"] == [
+        {
+            "stage": "deep",
+            "start": "2026-11-08T00:00:00+01:00",
+            "end": "2026-11-08T07:00:00+01:00",
+        }
+    ]
+
+
+async def test_the_action_takes_a_window_of_wake_dates(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    await _post(
+        hass,
+        client,
+        _health(
+            _session("a", end="2026-11-06T06:00:00Z"),
+            _session("b", end="2026-11-07T06:00:00Z"),
+            _session("c"),
+        ),
+    )
+
+    async def days(**data) -> list[str]:
+        response = await hass.services.async_call(
+            DOMAIN, "get_sleep_nights", data, blocking=True, return_response=True
+        )
+        return [night["night"] for night in response["nights"]]
+
+    assert await days() == ["2026-11-06", "2026-11-07", "2026-11-08"]
+    assert await days(start="2026-11-07") == ["2026-11-07", "2026-11-08"]
+    assert await days(end="2026-11-06") == ["2026-11-06"]
+    assert await days(start="2026-11-07", end="2026-11-07") == ["2026-11-07"]
+    assert await days(start="2026-11-09") == []
+    with pytest.raises(ServiceValidationError) as refused:
+        await days(start="2026-11-08", end="2026-11-07")
+    assert refused.value.translation_key == "end_before_start"
+
+
+async def test_the_action_before_any_night_and_with_two_phones(hass: HomeAssistant, loaded) -> None:
+    assert await hass.services.async_call(
+        DOMAIN, "get_sleep_nights", {}, blocking=True, return_response=True
+    ) == {"nights": []}
+
+    other = MockConfigEntry(
+        domain=DOMAIN,
+        title="Second phone",
+        unique_id="c" * 64,
+        data={
+            CONF_WEBHOOK_ID: "c" * 64,
+            CONF_SECRET: SECRET,
+            CONF_URL_CHOICE: URL_CHOICE_INTERNAL,
+        },
+    )
+    other.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(other.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError) as refused:
+        await hass.services.async_call(
+            DOMAIN, "get_sleep_nights", {}, blocking=True, return_response=True
+        )
+    assert refused.value.translation_key == "choose_a_phone"
+    assert await hass.services.async_call(
+        DOMAIN,
+        "get_sleep_nights",
+        {"config_entry": loaded.entry_id},
+        blocking=True,
+        return_response=True,
+    ) == {"nights": []}
+
+
+async def test_the_action_has_its_texts_everywhere() -> None:
+    folder = "custom_components/life_dashboard"
+    with open(f"{folder}/strings.json") as handle:
+        strings = json.load(handle)
+    with open(f"{folder}/translations/de.json") as handle:
+        german = json.load(handle)
+    with open(f"{folder}/icons.json") as handle:
+        icons = json.load(handle)
+    with open(f"{folder}/services.yaml") as handle:
+        described = yaml.safe_load(handle)
+    fields = set(described["get_sleep_nights"]["fields"])
+    assert fields == {"config_entry", "start", "end"}
+    for texts in (strings, german):
+        service = texts["services"]["get_sleep_nights"]
+        assert service["name"] and service["description"]
+        assert set(service["fields"]) == fields
+        assert texts["exceptions"]["end_before_start"]["message"]
+    assert icons["services"]["get_sleep_nights"]["service"].startswith("mdi:")

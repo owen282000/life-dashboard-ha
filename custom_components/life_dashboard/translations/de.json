@@ -442,6 +442,24 @@
           "description": "Welche Typen gesendet werden. Leer bedeutet alle zugeordneten Typen."
         }
       }
+    },
+    "get_sleep_nights": {
+      "name": "Schlafnächte abrufen",
+      "description": "Gibt die Schlafsitzungen zurück, die die Integration für ein Telefon behält, jede im Format der Attribute des Sensors „Letzter Schlaf: geschlafen“: das Aufwachdatum, Beginn und Ende, die Minuten je Phase und der Verlauf der Phasen. Jede Sitzung eines Aufwachdatums wird zurückgegeben, auch Nickerchen und eine zweite App, die älteste zuerst. Der Verlauf wird für die letzten 14 Nächte behalten und ist bei älteren leer.",
+      "fields": {
+        "config_entry": {
+          "name": "Telefon",
+          "description": "Welches Telefon gelesen wird. Bei einem Telefon nicht nötig."
+        },
+        "start": {
+          "name": "Von",
+          "description": "Das erste Aufwachdatum, das zurückgegeben wird. Ohne Angabe alles, was behalten wird."
+        },
+        "end": {
+          "name": "Bis",
+          "description": "Das letzte Aufwachdatum, das zurückgegeben wird, einschließlich. Ohne Angabe bis zur neuesten Nacht."
+        }
+      }
     }
   },
   "exceptions": {
@@ -456,6 +474,9 @@
     },
     "iphone_receives_nothing": {
       "message": "{phone} ist ein iPhone, und nur die Android-App empfängt Messwerte, daher gibt es keinen Verlauf, der an das Telefon gesendet werden kann."
+    },
+    "end_before_start": {
+      "message": "Das Bis-Datum liegt vor dem Von-Datum."
     }
   }
 }

@@ -30,6 +30,7 @@ from custom_components.life_dashboard.sleep import (
     night_values,
     noon,
     parse_samples,
+    sleep_nights,
     sleep_updates,
     summarize,
     timeline,
@@ -984,3 +985,141 @@ def test_a_last_night_sensor_reads_the_whole_minute_on_a_tile() -> None:
     assert int(tile_hours(386) * 3600) // 60 == 386
     assert tile_hours(420) == 7.0
     assert tile_hours(90) == 1.5
+
+
+def _twenty_nights() -> Ledger:
+    payloads = []
+    for days in range(20):
+        day = date(2026, 11, 8) - timedelta(days=days)
+        payloads.append(
+            _payload(
+                _session(
+                    f"s{days}",
+                    [_stage("light", f"{day}T00:00:00Z", f"{day}T05:00:00Z")],
+                    end=f"{day}T05:00:00Z",
+                    seconds=18000,
+                )
+            )
+        )
+    return _ledger(*payloads)
+
+
+def test_the_nights_as_data_have_the_format_of_the_sensor() -> None:
+    ledger = _ledger(_payload(_android()))
+    nights = sleep_nights(ledger.sleep, tz=AMS)
+    asleep = sleep_updates(ledger.sleep, tz=AMS)[0]
+    assert nights == [asleep.attributes]
+    assert nights[0] == {
+        "night": NIGHT,
+        "start": "2026-11-07T23:30:00+01:00",
+        "end": "2026-11-08T07:00:00+01:00",
+        "source": "com.watch",
+        "asleep_minutes": 440.0,
+        "deep_minutes": 60.0,
+        "light_minutes": 350.0,
+        "rem_minutes": 30.0,
+        "awake_minutes": 10.0,
+        "stages": [
+            {
+                "stage": "light",
+                "start": "2026-11-07T23:30:00+01:00",
+                "end": "2026-11-08T00:30:00+01:00",
+            },
+            {
+                "stage": "deep",
+                "start": "2026-11-08T00:30:00+01:00",
+                "end": "2026-11-08T01:30:00+01:00",
+            },
+            {
+                "stage": "rem",
+                "start": "2026-11-08T01:30:00+01:00",
+                "end": "2026-11-08T02:00:00+01:00",
+            },
+            {
+                "stage": "awake",
+                "start": "2026-11-08T02:00:00+01:00",
+                "end": "2026-11-08T02:10:00+01:00",
+            },
+            {
+                "stage": "light",
+                "start": "2026-11-08T02:10:00+01:00",
+                "end": "2026-11-08T07:00:00+01:00",
+            },
+        ],
+    }
+    # Plain data: it goes out as the response of an action.
+    assert json.loads(json.dumps(nights)) == nights
+
+
+def test_the_nights_as_data_hold_every_session_oldest_first() -> None:
+    before = _session(
+        "night-0",
+        [_stage("deep", "2026-11-06T23:00:00Z", "2026-11-07T05:00:00Z")],
+        end="2026-11-07T05:00:00Z",
+        seconds=21600,
+    )
+    ledger = _ledger(_payload(_nap("nap-1"), _android(), before))
+    nights = sleep_nights(ledger.sleep, tz=AMS)
+    assert [(night["night"], night["asleep_minutes"]) for night in nights] == [
+        ("2026-11-07", 360.0),
+        (NIGHT, 440.0),
+        (NIGHT, 40.0),
+    ]
+    # The nap is there next to the main night; which one counts is the reader's choice.
+    assert main_session(ledger.sleep, NIGHT)[0] == "night-1"
+
+
+def test_the_nights_as_data_in_a_window_with_both_ends_in() -> None:
+    ledger = _twenty_nights()
+    days = [night["night"] for night in sleep_nights(ledger.sleep, tz=AMS)]
+    assert days == sorted(days) and len(days) == 20
+    window = sleep_nights(ledger.sleep, tz=AMS, start=date(2026, 11, 3), end=date(2026, 11, 5))
+    assert [night["night"] for night in window] == ["2026-11-03", "2026-11-04", "2026-11-05"]
+    since = sleep_nights(ledger.sleep, tz=AMS, start=date(2026, 11, 7))
+    assert [night["night"] for night in since] == ["2026-11-07", "2026-11-08"]
+    until = sleep_nights(ledger.sleep, tz=AMS, end=date(2026, 10, 21))
+    assert [night["night"] for night in until] == ["2026-10-20", "2026-10-21"]
+    assert sleep_nights(ledger.sleep, tz=AMS, start=date(2026, 11, 9)) == []
+
+
+def test_a_night_older_than_the_held_stages_keeps_its_minutes_as_data() -> None:
+    nights = {night["night"]: night for night in sleep_nights(_twenty_nights().sleep, tz=AMS)}
+    held = nights["2026-10-26"]
+    assert held["stages"] == [
+        {
+            "stage": "light",
+            "start": "2026-10-26T01:00:00+01:00",
+            "end": "2026-10-26T06:00:00+01:00",
+        }
+    ]
+    let_go = nights["2026-10-25"]
+    assert let_go["stages"] == []
+    assert let_go["asleep_minutes"] == 300.0
+    assert let_go["light_minutes"] == 300.0
+
+
+def test_a_session_without_stages_is_data_with_only_its_times() -> None:
+    ledger = _ledger(_payload(_session("bare", [])))
+    assert sleep_nights(ledger.sleep, tz=AMS) == [
+        {
+            "night": NIGHT,
+            "start": "2026-11-07T23:30:00+01:00",
+            "end": "2026-11-08T07:00:00+01:00",
+            "source": "com.watch",
+            "stages": [],
+        }
+    ]
+
+
+def test_a_night_of_only_sleeping_is_data_without_a_breakdown() -> None:
+    stages = [_stage("sleeping", "2026-11-07T22:00:00Z", "2026-11-08T06:00:00Z")]
+    ledger = _ledger(_payload(_session("n", stages, source=None)))
+    (night,) = sleep_nights(ledger.sleep, tz=AMS)
+    assert night["asleep_minutes"] == 480.0
+    assert "source" not in night and "deep_minutes" not in night
+    assert [segment["stage"] for segment in night["stages"]] == ["sleeping"]
+
+
+def test_no_nights_as_data_without_sleep() -> None:
+    assert sleep_nights({}, tz=AMS) == []
+    assert sleep_nights(Ledger().sleep, tz=AMS) == []

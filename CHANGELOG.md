@@ -6,6 +6,16 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The action `life_dashboard.get_sleep_nights`, which returns the sleep sessions the integration
+  keeps for a phone as response data, for other integrations, cards and scripts that build on
+  them ([#77](https://github.com/owen282000/life-dashboard-ha/discussions/77)). Each night has
+  the format of the `last_sleep_asleep` attributes: the wake date, start and end, the minutes
+  per stage and the `stages` timeline, with an optional `start` and `end` date. Every session of
+  a wake date is returned, so the reader picks the main night;
+  [docs/entities.md](docs/entities.md#past-nights-as-data) has the details.
+
 ## [1.3.0] - 2026-11-22
 
 ### Added
