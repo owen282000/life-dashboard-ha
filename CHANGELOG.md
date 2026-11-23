@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-23
+
 ### Added
 
 - Workouts are kept after their two days. A workout that is no longer of yesterday or today stays
