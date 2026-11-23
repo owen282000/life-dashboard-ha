@@ -898,6 +898,72 @@ def test_pruning_leaves_the_workouts_of_today_and_yesterday() -> None:
     assert ledger.carried == {"steps": 100.0}
 
 
+def _run(uuid: str, day: str) -> dict:
+    return {
+        "type": "56",
+        "start_time": f"{day}T07:00:00Z",
+        "end_time": f"{day}T08:00:00Z",
+        "duration_seconds": 3600,
+        "uuid": uuid,
+    }
+
+
+def test_pruning_lets_the_past_workouts_go_with_the_days() -> None:
+    """A workout from before yesterday is kept as long as the session of its day sum."""
+    now = datetime(2026, 10, 14, 12, tzinfo=UTC)
+    ledger = Ledger()
+    apply_payload(
+        ledger,
+        _backfill(exercise=[_run("old", "2025-01-01"), _run("new", "2026-09-15")]),
+        tz=_amsterdam(),
+        now=now,
+    )
+    assert set(ledger.past_workouts) == {"old", "new"}
+    assert prune(ledger, before=date(2025, 1, 1), tz=_amsterdam()) is False
+
+    assert prune(ledger, before=date(2026, 1, 1), tz=_amsterdam()) is True
+    assert set(ledger.past_workouts) == {"new"}
+    assert set(ledger.sessions["exercise_minutes"]) == {"new"}
+    assert prune(ledger, before=date(2026, 1, 1), tz=_amsterdam()) is False
+
+
+def test_a_prune_of_a_taken_over_history_still_prunes_the_past_workouts() -> None:
+    """Its kept_from is the day the old phone stopped, which says nothing about them."""
+    ledger = Ledger()
+    apply_payload(
+        ledger,
+        _backfill(exercise=[_run("old", "2025-01-01")]),
+        tz=_amsterdam(),
+        now=datetime(2026, 10, 14, 12, tzinfo=UTC),
+    )
+    ledger.kept_from = "2026-10-01"
+    assert prune(ledger, before=date(2026, 1, 1), tz=_amsterdam()) is True
+    assert ledger.past_workouts == {}
+
+
+def test_a_year_of_backfilled_workouts_is_kept_whole() -> None:
+    """Both apps backfill 365 days at most, three days at a time, oldest first."""
+    today = date(2026, 10, 14)
+    now = datetime(2026, 10, 14, 12, tzinfo=UTC)
+    days = [today - timedelta(days=n) for n in range(365, 1, -1)]
+    ledger = Ledger()
+    for index in range(0, len(days), 3):
+        window = days[index : index + 3]
+        apply_payload(
+            ledger,
+            _backfill(
+                window_start=f"{window[0].isoformat()}T00:00:00Z",
+                exercise=[_run(f"run-{day.isoformat()}", day.isoformat()) for day in window],
+            ),
+            tz=_amsterdam(),
+            now=now + timedelta(seconds=index),
+        )
+    assert len(ledger.past_workouts) == len(days)
+    before = keep_from(ledger, today=today, tz=_amsterdam())
+    assert prune(ledger, before=before, tz=_amsterdam()) is False
+    assert len(ledger.past_workouts) == len(days)
+
+
 def test_the_key_sets_cover_what_apply_produces() -> None:
     """Whatever the ledger can hold, statistics.py must have metadata for."""
     ledger = Ledger()

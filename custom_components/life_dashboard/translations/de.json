@@ -460,6 +460,24 @@
           "description": "Das letzte Aufwachdatum, das zurückgegeben wird, einschließlich. Ohne Angabe bis zur neuesten Nacht."
         }
       }
+    },
+    "get_workouts": {
+      "name": "Trainings abrufen",
+      "description": "Gibt die Trainings zurück, die die Integration für ein Telefon speichert, jedes im Format eines Eintrags des Attributs sessions der Sensoren „Training heute“ und „Training gestern“: die Art, Beginn und Ende, die Minuten und die Details des Trainings. Die Trainings von gestern und heute und die davor werden als eine Liste zurückgegeben, das älteste zuerst, jedes einmal mit all seinen Minuten, auch eines, das kürzer ist als das kürzeste Training, das für die Sensoren eingestellt ist. Ein Training von vor gestern behält die Details, die es hatte, als es diese zwei Tage verließ.",
+      "fields": {
+        "config_entry": {
+          "name": "Telefon",
+          "description": "Welches Telefon gelesen wird. Bei einem Telefon nicht nötig."
+        },
+        "start": {
+          "name": "Von",
+          "description": "Der erste Tag, der zurückgegeben wird, gezählt nach dem Tag, an dem ein Training endete. Ohne Angabe alles, was gespeichert ist."
+        },
+        "end": {
+          "name": "Bis",
+          "description": "Der letzte Tag, der zurückgegeben wird, einschließlich. Ohne Angabe bis zum neuesten Training."
+        }
+      }
     }
   },
   "exceptions": {

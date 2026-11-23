@@ -5,6 +5,7 @@ with heart rate every second, and a fitness app that notices walks by itself and
 own calories, distance and steps for them.
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -24,6 +25,7 @@ from custom_components.life_dashboard.workout_details import (
 from custom_components.life_dashboard.workout_types import segment_type
 from custom_components.life_dashboard.workouts import (
     day_updates,
+    kept_workouts,
     last_workout_update,
     parse_workout,
     refresh_last_workout,
@@ -732,6 +734,279 @@ def test_an_unreadable_pool_reads_as_empty() -> None:
     }
     # A ledger without any records writes no key for them.
     assert "activity" not in Ledger().to_dict()
+
+
+# --- Past workouts: the details they keep ---------------------------------------------
+
+# The run of 4 October, as a backfill sends it sixteen days later.
+BACKFILL = datetime(2026, 10, 20, 9, 0, tzinfo=UTC)
+WAIT = timedelta(seconds=PENDING_SECONDS)
+WINDOW = {
+    "backfill": True,
+    "window_start": "2026-10-03T00:00:00Z",
+    "window_end": "2026-10-06T00:00:00Z",
+}
+RUN_DETAILS = {
+    "active_calories": 400,
+    "distance_km": 10.0,
+    "pace_min_per_km": 5.0,
+    "pace": "5:00",
+    "heart_rate_avg": 140,
+    "heart_rate_min": 130,
+    "heart_rate_max": 149,
+    "steps": 8000,
+    "cadence_spm": 160,
+}
+
+
+def _kept(ledger: Ledger, **window) -> list[dict]:
+    return kept_workouts(
+        ledger.workouts, ledger.past_workouts, tz=_amsterdam(), pool=ledger.activity, **window
+    )
+
+
+def test_a_workout_that_leaves_the_two_days_takes_its_details_along() -> None:
+    ledger = Ledger()
+    _apply(ledger, _full_payload(1))
+    _apply(ledger, _payload(2, exercise=[_run()]))
+    [as_listed] = _session_rows(ledger)
+    assert _kept(ledger) == [as_listed]
+
+    change = _apply(ledger, _payload(3), now=NOW + timedelta(days=2))
+    assert change.workouts
+    assert ledger.workouts == {}
+    # The records went as they always did; what they said of the run stays.
+    assert not any(ledger.activity.values())
+    assert ledger.past_workouts["run-1"]["details"] == RUN_DETAILS
+    assert "received" not in ledger.past_workouts["run-1"]
+    # With the same keys as the entry the sensor listed, for as long as the ledger keeps days.
+    assert _kept(ledger) == [as_listed]
+    assert as_listed == {
+        "type": "running",
+        "start": "2026-10-04T09:00:00+02:00",
+        "end": "2026-10-04T09:50:00+02:00",
+        "minutes": 50,
+        **RUN_DETAILS,
+    }
+    assert set(as_listed) - {"type", "start", "end", "minutes"} <= set(DETAIL_KEYS)
+
+
+def test_the_payload_that_moves_the_days_on_still_counts_for_the_details() -> None:
+    """The watch uploads the heart rate in the first sync after the run left the two days."""
+    ledger = Ledger()
+    _apply(ledger, _payload(1, exercise=[_run()]))
+    late = _payload(2, heart_rate=_samples("hr", "07:10:00", 60, 120))
+    _apply(ledger, late, now=NOW + timedelta(days=2))
+    assert ledger.past_workouts["run-1"]["details"] == {
+        "heart_rate_avg": 120,
+        "heart_rate_min": 120,
+        "heart_rate_max": 120,
+    }
+    assert not any(ledger.activity.values())
+
+
+def test_a_backfilled_workout_with_its_records_in_the_same_payload() -> None:
+    ledger = Ledger()
+    change = _apply(ledger, {**_full_payload(1), "exercise": [_run()], **WINDOW}, now=BACKFILL)
+    assert change.workouts
+    assert ledger.workouts == {}
+    # It waits, and its records with it; until then its details are read as they are.
+    assert ledger.past_workouts["run-1"]["received"] == int(BACKFILL.timestamp())
+    assert "details" not in ledger.past_workouts["run-1"]
+    assert _kept(ledger)[0]["heart_rate_avg"] == 140
+
+    change = _apply(ledger, _payload(2), now=BACKFILL + WAIT)
+    assert change.workouts
+    assert ledger.past_workouts["run-1"] == {
+        "type": "56",
+        "start": "2026-10-04T07:00:00+00:00",
+        "end": "2026-10-04T07:50:00+00:00",
+        "seconds": 3000.0,
+        "source": WATCH,
+        "details": RUN_DETAILS,
+    }
+    assert not any(ledger.activity.values())
+    assert _kept(ledger) == [
+        {
+            "type": "running",
+            "start": "2026-10-04T09:00:00+02:00",
+            "end": "2026-10-04T09:50:00+02:00",
+            "minutes": 50,
+            **RUN_DETAILS,
+        }
+    ]
+
+
+def test_records_that_come_after_a_backfilled_workout_fill_it_in() -> None:
+    """The run in one payload of the window, its records in the next ones."""
+    ledger = Ledger()
+    _apply(ledger, {**_payload(1, exercise=[_run()]), **WINDOW}, now=BACKFILL)
+    assert _kept(ledger)[0].keys() == {"type", "start", "end", "minutes"}
+
+    first = _payload(2, active_calories=_full_payload()["active_calories"])
+    _apply(ledger, {**first, **WINDOW}, now=BACKFILL + timedelta(seconds=2))
+    rest = {key: value for key, value in _full_payload(3).items() if key != "active_calories"}
+    _apply(ledger, {**rest, **WINDOW}, now=BACKFILL + timedelta(seconds=4))
+    # A sync of today in between does not let them go: the run holds them.
+    _apply(ledger, _payload(4), now=BACKFILL + timedelta(hours=1))
+    assert _kept(ledger)[0]["active_calories"] == 400
+
+    _apply(ledger, _payload(5), now=BACKFILL + WAIT)
+    assert ledger.past_workouts["run-1"]["details"] == RUN_DETAILS
+    assert not any(ledger.activity.values())
+
+
+def test_records_that_come_before_a_backfilled_workout_wait_for_it() -> None:
+    """The order varies: here the window's records come first, and the run after them."""
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), **WINDOW}, now=BACKFILL)
+    assert ledger.past_workouts == {}
+    assert set(ledger.activity["add"]) == {"active_calories", "distance", "steps"}
+
+    run = {**_payload(2, exercise=[_run()]), **WINDOW}
+    _apply(ledger, run, now=BACKFILL + timedelta(seconds=2))
+    _apply(ledger, _payload(3), now=BACKFILL + WAIT + timedelta(seconds=2))
+    assert ledger.past_workouts["run-1"]["details"] == RUN_DETAILS
+
+
+def test_the_next_window_of_a_backfill_lets_the_records_before_it_go() -> None:
+    """Oldest first, a window at a time: the pool holds one window of records at most."""
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), **WINDOW}, now=BACKFILL)
+    assert any(ledger.activity.values())
+    following = {
+        "backfill": True,
+        "window_start": "2026-10-06T00:00:00Z",
+        "window_end": "2026-10-09T00:00:00Z",
+    }
+    _apply(ledger, {**_payload(2), **following}, now=BACKFILL + timedelta(seconds=2))
+    assert not any(ledger.activity.values())
+    assert "activity" not in ledger.to_dict()
+
+
+def test_a_sync_lets_the_records_of_a_backfill_without_a_workout_go() -> None:
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), **WINDOW}, now=BACKFILL)
+    _apply(ledger, _payload(2), now=BACKFILL + timedelta(minutes=5))
+    assert not any(ledger.activity.values())
+
+
+def test_outside_a_backfill_records_of_an_older_day_do_not_wait() -> None:
+    """A sync that brings old records before their workout: they go at once, as they
+    always did, and the workout is kept without them."""
+    ledger = Ledger()
+    _apply(ledger, _full_payload(1), now=BACKFILL)
+    assert not any(ledger.activity.values())
+    _apply(ledger, {**_full_payload(2), "backfill": True}, now=BACKFILL)
+    assert not any(ledger.activity.values()), "a backfill that names no window"
+
+    _apply(ledger, _payload(3, exercise=[_run()]), now=BACKFILL + timedelta(seconds=2))
+    _apply(ledger, _payload(4), now=BACKFILL + WAIT + timedelta(seconds=2))
+    assert ledger.past_workouts["run-1"]["details"] == {}
+    assert _kept(ledger) == [
+        {
+            "type": "running",
+            "start": "2026-10-04T09:00:00+02:00",
+            "end": "2026-10-04T09:50:00+02:00",
+            "minutes": 50,
+        }
+    ]
+
+
+def test_a_past_workout_keeps_what_its_record_carries_inside_it() -> None:
+    """Sets need no other record, so a strength session without any still has them."""
+    squats = [
+        {"type": "51", "start_time": _at(start), "end_time": _at(end), "repetitions": 5}
+        for start, end in (("07:00:00", "07:01:00"), ("07:03:00", "07:04:00"))
+    ]
+    ledger = Ledger()
+    _apply(ledger, _payload(1, exercise=[_run(type="70", segments=squats)]), now=BACKFILL)
+    _apply(ledger, _payload(2), now=BACKFILL + WAIT)
+    details = {
+        "sets": 2,
+        "repetitions": 10,
+        "exercises": [{"type": "squat", "type_code": "51", "sets": 2, "repetitions": 10}],
+    }
+    assert ledger.past_workouts["run-1"]["details"] == details
+    [row] = _kept(ledger)
+    assert row["type"] == "strength_training"
+    assert row["exercises"] == details["exercises"]
+    # Whoever gets the list cannot change what the ledger keeps.
+    row["exercises"][0]["sets"] = 0
+    assert ledger.past_workouts["run-1"]["details"] == details
+
+
+def test_a_past_workout_sent_again_keeps_its_details() -> None:
+    """A second Send history a day later: the run is the same, and its records are not
+    waited for again."""
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), "exercise": [_run()], **WINDOW}, now=BACKFILL)
+    _apply(ledger, _payload(2), now=BACKFILL + WAIT)
+    kept = json.dumps(ledger.to_dict(), sort_keys=True)
+
+    again = BACKFILL + timedelta(days=1)
+    change = _apply(ledger, {**_payload(3, exercise=[_run()]), "backfill": True}, now=again)
+    assert not change.workouts
+    assert json.dumps(ledger.to_dict(), sort_keys=True) == kept
+
+
+def test_a_record_deleted_later_leaves_the_kept_details_alone() -> None:
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), "exercise": [_run()], **WINDOW}, now=BACKFILL)
+    _apply(ledger, _payload(2), now=BACKFILL + WAIT)
+    gone = _payload(3, deleted_records=[{"type": "active_calories", "uuid": "cal"}])
+    _apply(ledger, gone, now=BACKFILL + WAIT + timedelta(hours=1))
+    assert ledger.past_workouts["run-1"]["details"] == RUN_DETAILS
+
+
+def test_a_deleted_past_workout_lets_its_records_go() -> None:
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), "exercise": [_run()]}, now=BACKFILL)
+    assert any(ledger.activity.values())
+    gone = _payload(2, deleted_records=[{"type": "exercise", "uuid": "run-1"}])
+    change = _apply(ledger, gone, now=BACKFILL + timedelta(minutes=5))
+    assert change.workouts
+    assert ledger.past_workouts == {}
+    assert not any(ledger.activity.values())
+    assert _kept(ledger) == []
+
+
+def test_an_ios_edit_of_a_past_workout_with_details() -> None:
+    """The old uuid deleted and a new one written, two weeks after the run: the old row
+    goes with its details, and the new one has what is sent with it."""
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), "exercise": [_run()], **WINDOW}, now=BACKFILL)
+    _apply(ledger, _payload(2), now=BACKFILL + WAIT)
+
+    edited = _payload(
+        3,
+        exercise=[_run(uuid="run-2", end_time=_at("07:40:00"), duration_seconds=2400)],
+        steps=[_interval("steps-2", "07:00:00", "07:40:00", count=6000)],
+        deleted_records=[{"type": "exercise", "uuid": "run-1"}],
+    )
+    later = BACKFILL + timedelta(days=14)
+    _apply(ledger, edited, now=later)
+    assert set(ledger.past_workouts) == {"run-2"}
+    _apply(ledger, _payload(4), now=later + WAIT)
+    assert _kept(ledger) == [
+        {
+            "type": "running",
+            "start": "2026-10-04T09:00:00+02:00",
+            "end": "2026-10-04T09:40:00+02:00",
+            "minutes": 40,
+            "steps": 6000,
+            "cadence_spm": 150,
+        }
+    ]
+
+
+def test_the_kept_details_are_written_and_read_back() -> None:
+    ledger = Ledger()
+    _apply(ledger, {**_full_payload(1), "exercise": [_run()], **WINDOW}, now=BACKFILL)
+    _apply(ledger, _payload(2), now=BACKFILL + WAIT)
+    again = Ledger.from_dict(json.loads(json.dumps(ledger.to_dict())))
+    assert again.past_workouts == ledger.past_workouts
+    assert _kept(again) == _kept(ledger)
 
 
 # --- Last workout, once its records came later ----------------------------------------

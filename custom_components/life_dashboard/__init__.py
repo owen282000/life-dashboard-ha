@@ -76,6 +76,7 @@ from .statistics import async_remove_store as async_remove_history
 from .workouts import (
     day_updates,
     identity,
+    kept_workouts,
     newest_workout,
     payload_pool,
     refresh_last_workout,
@@ -110,6 +111,15 @@ SERVICE_GET_SLEEP_NIGHTS = "get_sleep_nights"
 ATTR_START = "start"
 ATTR_END = "end"
 GET_SLEEP_NIGHTS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+        vol.Optional(ATTR_START): cv.date,
+        vol.Optional(ATTR_END): cv.date,
+    }
+)
+
+SERVICE_GET_WORKOUTS = "get_workouts"
+GET_WORKOUTS_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
         vol.Optional(ATTR_START): cv.date,
@@ -191,6 +201,27 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             )
         }
 
+    async def _get_workouts(call: ServiceCall) -> ServiceResponse:
+        """The kept workouts of a phone, for whoever builds on them."""
+        entry = _entry_for_service(hass, call.data.get(ATTR_CONFIG_ENTRY))
+        start = call.data.get(ATTR_START)
+        end = call.data.get(ATTR_END)
+        if start is not None and end is not None and end < start:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="end_before_start"
+            )
+        ledger = entry.runtime_data.history.ledger
+        return {
+            "workouts": kept_workouts(
+                ledger.workouts,
+                ledger.past_workouts,
+                tz=dt_util.get_default_time_zone(),
+                pool=ledger.activity,
+                start=start,
+                end=end,
+            )
+        }
+
     hass.services.async_register(
         DOMAIN, SERVICE_QUEUE_HISTORY, _queue_history, schema=QUEUE_HISTORY_SCHEMA
     )
@@ -199,6 +230,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         SERVICE_GET_SLEEP_NIGHTS,
         _get_sleep_nights,
         schema=GET_SLEEP_NIGHTS_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_WORKOUTS,
+        _get_workouts,
+        schema=GET_WORKOUTS_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
     return True

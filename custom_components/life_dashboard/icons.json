@@ -41,6 +41,9 @@
     },
     "get_sleep_nights": {
       "service": "mdi:bed-clock"
+    },
+    "get_workouts": {
+      "service": "mdi:run-fast"
     }
   }
 }

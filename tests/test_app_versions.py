@@ -441,6 +441,8 @@ def _existing_sensors(
     del ledger["workouts"]
     # So did the records of the workouts' details.
     ledger.pop("activity", None)
+    # And the workouts from before yesterday.
+    ledger.pop("past_workouts", None)
     # And the units the statistics are written in (1.0.0).
     ledger.pop("units", None)
     # And the sleep stages, with the sensors read from them.

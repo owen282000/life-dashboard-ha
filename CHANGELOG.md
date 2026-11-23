@@ -6,6 +6,20 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Workouts are kept after their two days. A workout that is no longer of yesterday or today stays
+  with the details it had, for as long as the ledger keeps days, and one that arrives when it is
+  already older, as with **Send history** in the app, is kept with the records the phone sends
+  for it ([#82](https://github.com/owen282000/life-dashboard-ha/discussions/82)). The exercise
+  sensors read what they always read.
+- The action `life_dashboard.get_workouts`, which returns the workouts the integration keeps for
+  a phone as response data, for other integrations, cards and scripts that build on them. Each
+  workout has the format of an entry of the `sessions` attribute: the kind, start and end, the
+  minutes and its details, oldest first, with an optional `start` and `end` date.
+  [docs/entities.md](docs/entities.md#past-workouts-as-data) has the details. Contributed by
+  @MulletBoy in [#83](https://github.com/owen282000/life-dashboard-ha/pull/83), for ActiveRings.
+
 ## [1.4.0] - 2026-11-22
 
 ### Added

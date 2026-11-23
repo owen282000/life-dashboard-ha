@@ -460,6 +460,24 @@
           "description": "The last wake date to return, included. Up to the newest night when empty."
         }
       }
+    },
+    "get_workouts": {
+      "name": "Get workouts",
+      "description": "Returns the workouts the integration keeps for a phone, each in the format of an entry of the sessions attribute of the sensors Exercise today and Exercise yesterday, which are the kind, start and end, the minutes and the details of the workout. The workouts of yesterday and today and the ones from before are returned as one list, oldest first, each once with all its minutes, also one that is shorter than the shortest workout set for the sensors. A workout from before yesterday keeps the details it had when it left those two days.",
+      "fields": {
+        "config_entry": {
+          "name": "Phone",
+          "description": "Which phone to read. Not needed with one phone."
+        },
+        "start": {
+          "name": "From",
+          "description": "The first day to return, by the day a workout ended. Everything kept when empty."
+        },
+        "end": {
+          "name": "Until",
+          "description": "The last day to return, included. Up to the newest workout when empty."
+        }
+      }
     }
   },
   "exceptions": {

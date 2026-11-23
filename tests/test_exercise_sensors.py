@@ -5,13 +5,15 @@ ledger kept; these tests send syncs the way the app does, and move the clock.
 """
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
+import yaml
 from homeassistant.core import HomeAssistant, State
 from homeassistant.core_config import async_process_ha_core_config
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from pytest_homeassistant_custom_component.common import (
@@ -294,6 +296,8 @@ async def test_a_backfill_of_the_past_makes_no_day_sensor(
     await _post(hass, client, _health(old, backfill=True))
     assert hass.states.get(TODAY) is None
     assert loaded.runtime_data.history.ledger.workouts == {}
+    # It is kept as a past workout, for the action.
+    assert set(loaded.runtime_data.history.ledger.past_workouts) == {"old"}
     # The statistic still has it.
     assert loaded.runtime_data.history.ledger.day_totals("exercise_minutes") == {"2026-08-01": 60.0}
 
@@ -574,7 +578,7 @@ async def test_a_ledger_of_0_9_0_is_taken_over_whole(
     assert ledger.workouts == {}
     # Migrated on the spot: the file says what it is now, and keeps everything it had.
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 5)
+    assert (saved["version"], saved["minor_version"]) == (1, 6)
     assert saved["data"]["days"] == OLD_LEDGER["days"]
     assert saved["data"]["sessions"] == OLD_LEDGER["sessions"]
     assert saved["data"]["workouts"] == {}
@@ -599,7 +603,7 @@ async def test_workouts_are_written_and_read_back(
     await hass.async_block_till_done()
 
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 5)
+    assert (saved["version"], saved["minor_version"]) == (1, 6)
     assert set(saved["data"]["workouts"]) == {"run", "walk-2"}
     assert saved["data"]["workouts"]["run"] == {
         "type": "56",
@@ -847,7 +851,7 @@ async def test_a_ledger_of_0_10_1_gets_the_details(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 5)
+    assert (saved["version"], saved["minor_version"]) == (1, 6)
     assert saved["data"]["workouts"] == {"run": run_row}
     assert saved["data"]["activity"] == {}
     assert hass.states.get(TODAY).state == "60"
@@ -876,3 +880,289 @@ async def test_a_release_before_the_details_still_reads_the_new_file(
     old = Ledger.from_dict(known)
     assert set(old.workouts) == {"run"}
     assert old.day_totals("exercise_minutes") == {"2026-10-04": 60.0}
+
+
+# --- Past workouts, and the action ----------------------------------------------
+
+# A run of two weeks ago with its steps, as Send history brings them.
+OLD_RUN = {
+    "type": "56",
+    "start_time": "2026-09-20T07:00:00Z",
+    "end_time": "2026-09-20T07:30:00Z",
+    "duration_seconds": 1800,
+    "uuid": "old-run",
+    "source": FITNESS,
+}
+OLD_STEPS = {
+    "count": 4500,
+    "start_time": "2026-09-20T07:00:00Z",
+    "end_time": "2026-09-20T07:30:00Z",
+    "uuid": "old-steps",
+    "source": FITNESS,
+}
+OLD_WINDOW = {
+    "backfill": True,
+    "window_start": "2026-09-19T00:00:00Z",
+    "window_end": "2026-09-22T00:00:00Z",
+}
+OLD_RUN_LISTED = {
+    "type": "running",
+    "start": "2026-09-20T09:00:00+02:00",
+    "end": "2026-09-20T09:30:00+02:00",
+    "minutes": 30,
+}
+
+
+async def _workouts(hass: HomeAssistant, **data) -> list[dict]:
+    response = await hass.services.async_call(
+        DOMAIN, "get_workouts", data, blocking=True, return_response=True
+    )
+    return response["workouts"]
+
+
+async def test_a_workout_is_kept_after_its_two_days(
+    hass: HomeAssistant, hass_client_no_auth, loaded, freezer
+) -> None:
+    """Sunday's run with its heart rate, read on Wednesday as the sensor listed it."""
+    client = await hass_client_no_auth()
+    await _post(
+        hass, client, _health(RUN, heart_rate=_heart_rate("hr-1", "07:10", 120, 150, FITNESS))
+    )
+    listed = hass.states.get(TODAY).attributes["sessions"]
+    assert listed[0]["heart_rate_avg"] == 150
+    assert await _workouts(hass) == listed
+
+    freezer.move_to(datetime(2026, 10, 7, 6, 0, tzinfo=UTC))
+    await _post(hass, client, {"timestamp": "2026-10-07T06:00:00Z", "source": "health_connect"})
+    ledger = loaded.runtime_data.history.ledger
+    assert ledger.workouts == {}
+    assert set(ledger.past_workouts) == {"run"}
+    # The records went as they always did; the run keeps what they said of it.
+    assert not any(ledger.activity.values())
+    assert hass.states.get(YESTERDAY).attributes["sessions"] == []
+    assert await _workouts(hass) == listed
+
+
+async def test_a_backfilled_workout_gets_its_details_in_any_order(
+    hass: HomeAssistant, hass_client_no_auth, loaded, freezer
+) -> None:
+    """The window's steps come first here, the run after them, its calories last."""
+    client = await hass_client_no_auth()
+    calories = {**OLD_STEPS, "uuid": "old-calories", "calories": 300.0}
+    del calories["count"]
+    await _post(hass, client, _health(steps=[OLD_STEPS], **OLD_WINDOW))
+    await _post(hass, client, _health(OLD_RUN, **OLD_WINDOW))
+    await _post(hass, client, _health(active_calories=[calories], **OLD_WINDOW))
+    assert hass.states.get(TODAY) is None
+
+    details = {"active_calories": 300, "steps": 4500, "cadence_spm": 150}
+    assert await _workouts(hass) == [{**OLD_RUN_LISTED, **details}]
+
+    # A few hours later the details are the run's own, and the records are let go.
+    freezer.move_to(NOON + timedelta(hours=7))
+    await _post(hass, client, {"timestamp": "2026-10-04T19:00:00Z", "source": "health_connect"})
+    ledger = loaded.runtime_data.history.ledger
+    assert ledger.past_workouts["old-run"]["details"] == details
+    assert not any(ledger.activity.values())
+    assert await _workouts(hass) == [{**OLD_RUN_LISTED, **details}]
+
+
+async def test_a_deleted_or_edited_past_workout_leaves_no_copy(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    await _post(hass, client, _health(OLD_RUN, backfill=True))
+    # No records were sent for it, so it has no details.
+    assert await _workouts(hass) == [OLD_RUN_LISTED]
+
+    # An edit on an iPhone: the old uuid deleted, the shorter run under a new one.
+    shorter = {
+        **OLD_RUN,
+        "uuid": "old-run-2",
+        "end_time": "2026-09-20T07:20:00Z",
+        "duration_seconds": 1200,
+    }
+    gone = [{"type": "exercise", "uuid": "old-run"}]
+    await _post(hass, client, _health(shorter, deleted_records=gone))
+    assert [(row["end"], row["minutes"]) for row in await _workouts(hass)] == [
+        ("2026-09-20T09:20:00+02:00", 20)
+    ]
+
+    gone = [{"type": "exercise", "uuid": "old-run-2"}]
+    await _post(hass, client, _health(deleted_records=gone))
+    assert await _workouts(hass) == []
+    assert loaded.runtime_data.history.ledger.past_workouts == {}
+
+
+async def test_the_action_returns_the_workouts_in_the_format_of_the_sessions(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    await _post(hass, client, _health(WALK_1, RUN, OLD_RUN))
+
+    workouts = await _workouts(hass)
+    assert [(row["type"], row["minutes"]) for row in workouts] == [
+        ("running", 30),
+        ("walking", 12),
+        ("running", 60),
+    ]
+    assert workouts[0] == OLD_RUN_LISTED
+    # Those of the two days are word for word what the sensor lists.
+    assert workouts[1:] == hass.states.get(TODAY).attributes["sessions"]
+
+
+async def test_the_action_returns_the_short_workouts_too(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    """The shortest workout is an option of the sensors; the list holds every workout."""
+    client = await hass_client_no_auth()
+    await _post(hass, client, _health(WALK_1, RUN))
+    await _set_minimum(hass, loaded, 30)
+    assert _minutes(hass, TODAY) == [("running", 60)]
+    assert [(row["type"], row["minutes"]) for row in await _workouts(hass)] == [
+        ("walking", 12),
+        ("running", 60),
+    ]
+
+
+async def test_the_action_takes_a_window_of_days(
+    hass: HomeAssistant, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    older = {
+        **OLD_RUN,
+        "uuid": "older-run",
+        "start_time": "2026-09-19T07:00:00Z",
+        "end_time": "2026-09-19T07:30:00Z",
+    }
+    await _post(hass, client, _health(older, OLD_RUN, RUN))
+
+    async def days(**data) -> list[str]:
+        return [row["end"][:10] for row in await _workouts(hass, **data)]
+
+    assert await days() == ["2026-09-19", "2026-09-20", "2026-10-04"]
+    assert await days(start="2026-09-20") == ["2026-09-20", "2026-10-04"]
+    assert await days(end="2026-09-19") == ["2026-09-19"]
+    assert await days(start="2026-09-20", end="2026-09-20") == ["2026-09-20"]
+    assert await days(start="2026-10-05") == []
+    with pytest.raises(ServiceValidationError) as refused:
+        await days(start="2026-10-04", end="2026-10-03")
+    assert refused.value.translation_key == "end_before_start"
+
+
+async def test_the_action_before_any_workout_and_with_two_phones(
+    hass: HomeAssistant, loaded
+) -> None:
+    assert await hass.services.async_call(
+        DOMAIN, "get_workouts", {}, blocking=True, return_response=True
+    ) == {"workouts": []}
+
+    other = MockConfigEntry(
+        domain=DOMAIN,
+        title="Second phone",
+        unique_id="c" * 64,
+        data={
+            CONF_WEBHOOK_ID: "c" * 64,
+            CONF_SECRET: SECRET,
+            CONF_URL_CHOICE: URL_CHOICE_INTERNAL,
+        },
+    )
+    other.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(other.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(ServiceValidationError) as refused:
+        await _workouts(hass)
+    assert refused.value.translation_key == "choose_a_phone"
+    with pytest.raises(ServiceValidationError) as refused:
+        await _workouts(hass, config_entry="nope")
+    assert refused.value.translation_key == "phone_not_loaded"
+    assert await _workouts(hass, config_entry=loaded.entry_id) == []
+
+
+async def test_the_action_has_its_texts_everywhere() -> None:
+    folder = "custom_components/life_dashboard"
+    with open(f"{folder}/strings.json") as handle:
+        strings = json.load(handle)
+    with open(f"{folder}/translations/en.json") as handle:
+        english = json.load(handle)
+    with open(f"{folder}/translations/de.json") as handle:
+        german = json.load(handle)
+    with open(f"{folder}/icons.json") as handle:
+        icons = json.load(handle)
+    with open(f"{folder}/services.yaml") as handle:
+        described = yaml.safe_load(handle)
+    assert strings == english
+    fields = set(described["get_workouts"]["fields"])
+    assert fields == {"config_entry", "start", "end"}
+    for texts in (strings, german):
+        service = texts["services"]["get_workouts"]
+        assert service["name"] and service["description"]
+        assert set(service["fields"]) == fields
+    assert german["services"]["get_workouts"] != strings["services"]["get_workouts"]
+    assert icons["services"]["get_workouts"]["service"].startswith("mdi:")
+
+
+async def test_a_ledger_of_1_4_0_starts_without_past_workouts(
+    hass: HomeAssistant, hass_storage, entry: MockConfigEntry
+) -> None:
+    """1.5 to 1.6: what it kept stays as it is, and no workout from before is made up."""
+    run_row = {
+        "type": "56",
+        "start": "2026-10-04T07:00:00+00:00",
+        "end": "2026-10-04T08:00:00+00:00",
+        "seconds": 3600.0,
+    }
+    old = {**OLD_LEDGER, "workouts": {"run": run_row}, "units": 3}
+    hass_storage[_ledger_key()] = {
+        "version": 1,
+        "minor_version": 5,
+        "key": _ledger_key(),
+        "data": old,
+    }
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    saved = hass_storage[_ledger_key()]
+    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert saved["data"]["past_workouts"] == {}
+    assert {key: saved["data"][key] for key in old} == old
+    ledger = entry.runtime_data.history.ledger
+    assert ledger.past_workouts == {}
+    assert ledger.days == OLD_LEDGER["days"]
+    assert ledger.sessions == OLD_LEDGER["sessions"]
+    assert hass.states.get(TODAY).state == "60"
+    # The session of the statistic from before has no kind and no start: it is no workout.
+    assert [row["start"] for row in await _workouts(hass)] == ["2026-10-04T09:00:00+02:00"]
+
+
+async def test_past_workouts_are_written_and_an_older_release_reads_the_file(
+    hass: HomeAssistant, hass_storage, hass_client_no_auth, loaded
+) -> None:
+    client = await hass_client_no_auth()
+    await _post(hass, client, _health(OLD_RUN, RUN))
+    assert await hass.config_entries.async_unload(loaded.entry_id)
+    await hass.async_block_till_done()
+
+    saved = hass_storage[_ledger_key()]
+    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert set(saved["data"]["workouts"]) == {"run"}
+    assert saved["data"]["past_workouts"] == {
+        "old-run": {
+            "type": "56",
+            "start": "2026-09-20T07:00:00+00:00",
+            "end": "2026-09-20T07:30:00+00:00",
+            "seconds": 1800.0,
+            "source": FITNESS,
+            "received": int(NOON.timestamp()),
+        }
+    }
+    # A downgrade to 1.4.0 takes the keys it knows and leaves the past workouts out.
+    data = await Store(hass, 1, _ledger_key()).async_load()
+    old = Ledger.from_dict({k: v for k, v in data.items() if k != "past_workouts"})
+    assert set(old.workouts) == {"run"}
+    assert old.day_totals("exercise_minutes") == {"2026-09-20": 30.0, "2026-10-04": 60.0}
+
+    assert await hass.config_entries.async_setup(loaded.entry_id)
+    await hass.async_block_till_done()
+    assert [row["minutes"] for row in await _workouts(hass)] == [30, 60]
