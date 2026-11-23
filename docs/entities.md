@@ -196,7 +196,7 @@ actions:
 
 ### Past workouts as data
 
-The sensors show the workouts of yesterday and today. The integration keeps the ones from before too, and the action `life_dashboard.get_workouts` returns them all, as response data. It is meant for other integrations, cards and scripts that build on the workouts, so they don't have to read the integration's own files.
+The sensors show the workouts of yesterday and today. From 1.5.0 the integration keeps the ones from before too, and the action `life_dashboard.get_workouts` returns them all, as response data. It is meant for other integrations, cards and scripts that build on the workouts, so they don't have to read the integration's own files.
 
 ```yaml
 action: life_dashboard.get_workouts
