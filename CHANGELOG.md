@@ -17,7 +17,8 @@ All notable changes to this integration are documented here. The format follows
   a phone as response data, for other integrations, cards and scripts that build on them. Each
   workout has the format of an entry of the `sessions` attribute: the kind, start and end, the
   minutes and its details, oldest first, with an optional `start` and `end` date.
-  [docs/entities.md](docs/entities.md#past-workouts-as-data) has the details.
+  [docs/entities.md](docs/entities.md#past-workouts-as-data) has the details. Contributed by
+  @MulletBoy in [#83](https://github.com/owen282000/life-dashboard-ha/pull/83), for ActiveRings.
 
 ## [1.4.0] - 2026-11-22
 

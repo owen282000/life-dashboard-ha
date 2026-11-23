@@ -471,7 +471,7 @@
         },
         "start": {
           "name": "Von",
-          "description": "Der erste Tag, der zurückgegeben wird, nach dem Tag, an dem ein Training endete. Ohne Angabe alles, was gespeichert ist."
+          "description": "Der erste Tag, der zurückgegeben wird, gezählt nach dem Tag, an dem ein Training endete. Ohne Angabe alles, was gespeichert ist."
         },
         "end": {
           "name": "Bis",
