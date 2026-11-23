@@ -19,6 +19,7 @@ from custom_components.life_dashboard.payload import (
     KEY_LAST_WORKOUT,
     SENSOR_SPECS,
 )
+from custom_components.life_dashboard.workout_details import PENDING_SECONDS
 from custom_components.life_dashboard.workout_types import (
     HEALTH_CONNECT_TYPES,
     WORKOUT_TYPES,
@@ -26,11 +27,14 @@ from custom_components.life_dashboard.workout_types import (
     workout_type,
 )
 from custom_components.life_dashboard.workouts import (
+    MAX_WAITING,
     day_sessions,
     day_updates,
     keep_sessions,
+    kept_workouts,
     last_workout_update,
     parse_workout,
+    prune_past,
     stored_workouts,
 )
 
@@ -638,6 +642,287 @@ def test_the_minimum_is_judged_on_the_whole_session() -> None:
     assert _day(sessions, date(2026, 10, 4), min_minutes=41) == []
 
 
+# --- The past workouts -------------------------------------------------------
+
+
+def _fold(sessions: dict, past: dict, *records: dict, now: datetime = NOW, **extra) -> bool:
+    """As the ledger folds a payload: with the past workouts next to the sessions."""
+    payload = _payload(*records, **extra)
+    return keep_sessions(sessions, payload, now=now, tz=_amsterdam(), past=past)
+
+
+def _old(uuid: str | None = "old", day: int = 20, **extra) -> dict:
+    """A run in September, an hour from 09:00 in Amsterdam, as a backfill brings it."""
+    record = _record(
+        start=f"2026-09-{day:02d}T07:00:00Z", end=f"2026-09-{day:02d}T08:00:00Z", **extra
+    )
+    if uuid is not None:
+        record["uuid"] = uuid
+    return record
+
+
+OLD_ROW = {
+    "type": "56",
+    "start": "2026-09-20T07:00:00+00:00",
+    "end": "2026-09-20T08:00:00+00:00",
+    "seconds": 3600.0,
+}
+LATER = NOW + timedelta(seconds=PENDING_SECONDS)
+
+
+def test_a_session_that_leaves_the_two_days_stays_as_a_past_workout() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _record(uuid="run"))
+    assert past == {}
+    row = dict(sessions["run"])
+
+    assert _fold(sessions, past, now=NOW + timedelta(days=2))
+    assert sessions == {}
+    # The session as it was, and its details: none, with no records to read them from.
+    assert past == {"run": {**row, "details": {}}}
+
+
+def test_a_session_that_arrives_older_waits_for_its_records_and_then_stays() -> None:
+    """A backfill brings a run of two weeks ago: its records may still be on their way."""
+    sessions: dict = {}
+    past: dict = {}
+    assert _fold(sessions, past, _old())
+    assert sessions == {}
+    assert past == {"old": {**OLD_ROW, "received": int(NOW.timestamp())}}
+
+    assert not _fold(sessions, past, now=LATER - timedelta(seconds=1))
+    assert "received" in past["old"]
+    assert _fold(sessions, past, now=LATER)
+    assert past == {"old": {**OLD_ROW, "details": {}}}
+    assert not _fold(sessions, past, now=LATER + timedelta(days=30))
+
+
+def test_a_backfill_fills_the_past_workouts_and_not_the_two_days() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, *(_old(f"u{day}", day) for day in range(1, 28)), backfill=True)
+    assert sessions == {}
+    assert len(past) == 27
+    assert len(kept_workouts(sessions, past, tz=_amsterdam())) == 27
+
+
+def test_a_past_workout_that_arrives_again_changes_nothing() -> None:
+    """A backfill sent a second time, while it waits and after."""
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old())
+    assert not _fold(sessions, past, _old(), now=NOW + timedelta(hours=1))
+    assert past["old"]["received"] == int(NOW.timestamp())
+
+    _fold(sessions, past, now=LATER)
+    finished = dict(past["old"])
+    assert not _fold(sessions, past, _old(), now=LATER + timedelta(days=1))
+    assert past == {"old": finished}
+
+
+def test_an_edited_past_workout_replaces_itself_and_waits_again() -> None:
+    """Same uuid, another kind and half the length: one row, with its hours from now."""
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old())
+    _fold(sessions, past, now=LATER)
+    edited = _old(type_="79", seconds=1800)
+    assert _fold(sessions, past, edited, now=LATER + timedelta(days=1))
+    assert past == {
+        "old": {
+            **OLD_ROW,
+            "type": "79",
+            "seconds": 1800.0,
+            "received": int((LATER + timedelta(days=1)).timestamp()),
+        }
+    }
+
+
+def test_a_past_workout_without_a_uuid_is_not_kept_twice() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old(uuid=None))
+    assert not _fold(sessions, past, _old(uuid=None))
+    assert list(past) == ["2026-09-20T08:00:00+00:00:3600.0:56"]
+
+
+def test_a_deleted_past_workout_goes() -> None:
+    """One that still waits and one that is finished, both by their uuid."""
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old("first", 20))
+    _fold(sessions, past, _old("second", 21), now=LATER)
+    assert "received" not in past["first"] and "received" in past["second"]
+
+    payload = {"deleted_records": _deleted("first", "second") + _deleted("first", type_="steps")}
+    assert keep_sessions(sessions, payload, now=LATER, tz=_amsterdam(), past=past) is True
+    assert past == {}
+    assert keep_sessions(sessions, payload, now=LATER, tz=_amsterdam(), past=past) is False
+
+
+def test_a_past_workout_deleted_and_written_again_as_it_was_stays_as_it_is() -> None:
+    """An older app names a record it wrote again as deleted too (Fitbit does this). The
+    records of its details are long gone, so the row must not start again without them."""
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old())
+    _fold(sessions, past, now=LATER)
+    past["old"]["details"] = {"steps": 4500}
+    finished = dict(past["old"])
+
+    _fold(sessions, past, _old(), now=LATER + timedelta(days=1), deleted_records=_deleted("old"))
+    assert past == {"old": finished}
+    # Written again as something else, it is an edit like any other.
+    _fold(sessions, past, _old(seconds=1800), now=LATER, deleted_records=_deleted("old"))
+    assert "details" not in past["old"] and past["old"]["seconds"] == 1800.0
+
+
+def test_an_ios_edit_of_a_past_workout_leaves_one_row() -> None:
+    """HealthKit deletes the old uuid and writes a new one, here for a run of two weeks ago."""
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old("before"))
+    _fold(sessions, past, now=LATER)
+
+    shorter = _record("56", "2026-09-20T07:00:00Z", "2026-09-20T07:45:00Z", 2700, uuid="after")
+    _fold(sessions, past, shorter, now=LATER, deleted_records=_deleted("before"))
+    assert set(past) == {"after"}
+    [row] = kept_workouts(sessions, past, tz=_amsterdam())
+    assert row["minutes"] == 45
+
+
+def test_an_edit_that_moves_a_session_before_yesterday_makes_it_a_past_workout() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _record(uuid="moved"))
+    moved = _record("56", "2026-10-01T07:00:00Z", "2026-10-01T08:00:00Z", 3600, uuid="moved")
+    assert _fold(sessions, past, moved) is True
+    assert sessions == {}
+    assert past["moved"]["end"] == "2026-10-01T08:00:00+00:00"
+
+
+def test_an_edit_that_moves_a_past_workout_into_the_two_days_makes_it_a_session() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old("moved"))
+    assert _fold(sessions, past, _record(uuid="moved")) is True
+    assert past == {}
+    assert set(sessions) == {"moved"}
+    assert len(kept_workouts(sessions, past, tz=_amsterdam())) == 1
+
+
+def test_only_so_many_wait_at_once() -> None:
+    """A year of backfill in a few minutes: the ones that waited longest are finished."""
+    sessions: dict = {}
+    past: dict = {}
+    for day in range(1, 4):
+        _fold(sessions, past, _old(f"first-{day}", day), now=NOW + timedelta(minutes=day))
+    _fold(
+        sessions,
+        past,
+        *(_old(f"u{n}", 5 + n // 10, seconds=600 + n) for n in range(MAX_WAITING)),
+        now=NOW + timedelta(minutes=10),
+    )
+    waiting = {key for key, row in past.items() if "received" in row}
+    assert len(waiting) == MAX_WAITING
+    assert set(past) - waiting == {"first-1", "first-2", "first-3"}
+
+
+def test_the_kept_workouts_as_data_have_the_format_of_the_sessions() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(
+        sessions,
+        past,
+        _record(uuid="run"),
+        _record("8", "2026-10-03T09:00:00Z", "2026-10-03T10:30:00Z", 5400, uuid="ride"),
+        _old("walk", type_="79"),
+    )
+    workouts = kept_workouts(sessions, past, tz=_amsterdam())
+    assert workouts == [
+        {
+            "type": "walking",
+            "start": "2026-09-20T09:00:00+02:00",
+            "end": "2026-09-20T10:00:00+02:00",
+            "minutes": 60,
+        },
+        {
+            "type": "biking",
+            "start": "2026-10-03T11:00:00+02:00",
+            "end": "2026-10-03T12:30:00+02:00",
+            "minutes": 90,
+        },
+        {
+            "type": "running",
+            "start": "2026-10-04T09:00:00+02:00",
+            "end": "2026-10-04T10:00:00+02:00",
+            "minutes": 60,
+        },
+    ]
+    # Those of the two days are word for word what the sensors list.
+    assert workouts[1:] == _day(sessions, date(2026, 10, 3)) + _day(sessions, date(2026, 10, 4))
+    # Plain data: it goes out as the response of an action.
+    assert json.loads(json.dumps(workouts)) == workouts
+
+
+def test_the_kept_workouts_as_data_in_a_window_of_the_days_they_ended() -> None:
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, *(_old(f"u{day}", day) for day in (18, 19, 20, 21)), _record(uuid="run"))
+
+    def ended(**window) -> list[str]:
+        rows = kept_workouts(sessions, past, tz=_amsterdam(), **window)
+        return [row["end"][:10] for row in rows]
+
+    assert ended() == ["2026-09-18", "2026-09-19", "2026-09-20", "2026-09-21", "2026-10-04"]
+    assert ended(start=date(2026, 9, 20)) == ["2026-09-20", "2026-09-21", "2026-10-04"]
+    assert ended(end=date(2026, 9, 19)) == ["2026-09-18", "2026-09-19"]
+    assert ended(start=date(2026, 9, 19), end=date(2026, 9, 20)) == ["2026-09-19", "2026-09-20"]
+    assert ended(start=date(2026, 10, 5)) == []
+
+
+def test_a_kept_workout_across_midnight_is_data_once_and_whole() -> None:
+    """23:30 to 00:30 in Amsterdam: two entries of 30 minutes on the sensors, one of 60 here,
+    on the day it ended."""
+    sessions: dict = {}
+    past: dict = {}
+    late = _record("56", "2026-10-03T21:30:00Z", "2026-10-03T22:30:00Z", 3600, uuid="late")
+    _fold(sessions, past, late, now=datetime(2026, 10, 4, 6, 0, tzinfo=UTC))
+    [row] = kept_workouts(sessions, past, tz=_amsterdam())
+    assert row["minutes"] == 60
+    assert kept_workouts(sessions, past, tz=_amsterdam(), end=date(2026, 10, 3)) == []
+    assert kept_workouts(sessions, past, tz=_amsterdam(), start=date(2026, 10, 4)) == [row]
+    # For a Home Assistant set to UTC it ended on the 3rd.
+    assert len(kept_workouts(sessions, past, tz=UTC, end=date(2026, 10, 3))) == 1
+
+
+def test_the_kept_workouts_as_data_hold_the_short_ones_too() -> None:
+    """The shortest workout is an option of the sensors; whoever reads the list picks."""
+    sessions = _short_and_long()
+    assert len(_day(sessions, date(2026, 10, 4), min_minutes=30)) == 1
+    assert [row["minutes"] for row in kept_workouts(sessions, {}, tz=_amsterdam())] == [10, 15, 60]
+
+
+def test_no_workouts_as_data_without_workouts() -> None:
+    assert kept_workouts({}, {}, tz=_amsterdam()) == []
+    # A row that cannot be read is left out, not fatal.
+    assert kept_workouts({"worse": "x"}, {"bad": {"type": "56"}}, tz=_amsterdam()) == []
+
+
+def test_past_workouts_go_by_the_day_they_ended() -> None:
+    """As the ledger lets its sessions go: by the local day, one that still waits included."""
+    sessions: dict = {}
+    past: dict = {}
+    _fold(sessions, past, _old("a", 19), _old("b", 20))
+    _fold(sessions, past, _old("c", 21), now=LATER)
+    assert prune_past(past, before=date(2026, 9, 19), tz=_amsterdam()) is False
+    assert prune_past(past, before=date(2026, 9, 21), tz=_amsterdam()) is True
+    assert set(past) == {"c"}
+    assert prune_past(past, before=date(2026, 9, 22), tz=_amsterdam()) is True
+    assert past == {}
+
+
 # --- Last workout ------------------------------------------------------------
 
 
@@ -724,17 +1009,18 @@ def test_apply_payload_keeps_the_workouts_and_the_statistics_as_they_were() -> N
     assert ledger.day_totals("exercise_minutes") == {"2026-10-04": 90.0}
 
 
-def test_a_workout_alone_leaves_the_statistics_nothing_to_rewrite() -> None:
+def test_a_workout_of_two_days_ago_is_a_past_workout_and_the_statistic_takes_it() -> None:
     ledger = Ledger()
-    # Two days ago: no longer kept, and the statistic still takes it.
+    # Two days ago: not one of the two days, and the statistic still takes it.
     change = apply_payload(
         ledger,
         _payload(_record(uuid="old", start="2026-10-02T07:00:00Z", end="2026-10-02T08:00:00Z")),
         tz=_amsterdam(),
         now=NOW,
     )
-    assert not change.workouts
+    assert change.workouts
     assert ledger.workouts == {}
+    assert set(ledger.past_workouts) == {"old"}
     assert not change.is_empty
     assert ledger.sessions["exercise_minutes"] == {"old": ["2026-10-02", 60.0]}
 
@@ -746,6 +1032,7 @@ def test_a_test_ping_keeps_nothing() -> None:
     )
     assert not change.workouts
     assert ledger.workouts == {}
+    assert ledger.past_workouts == {}
 
 
 def test_the_ledger_survives_a_round_trip() -> None:
@@ -754,6 +1041,38 @@ def test_the_ledger_survives_a_round_trip() -> None:
     restored = Ledger.from_dict(json.loads(json.dumps(ledger.to_dict())))
     assert restored.workouts == ledger.workouts
     assert restored.sessions == ledger.sessions
+    # No workout is older than yesterday, so the file is what it was.
+    assert "past_workouts" not in ledger.to_dict()
+
+
+def test_the_past_workouts_survive_a_round_trip() -> None:
+    """One that is finished and one that still waits, and the wait carries on after it."""
+    ledger = Ledger()
+    apply_payload(ledger, _payload(_old("first", 20)), tz=_amsterdam(), now=NOW)
+    apply_payload(ledger, _payload(_old("second", 21)), tz=_amsterdam(), now=LATER)
+    restored = Ledger.from_dict(json.loads(json.dumps(ledger.to_dict())))
+    assert restored.past_workouts == ledger.past_workouts
+    assert restored.past_workouts["first"] == {**OLD_ROW, "details": {}}
+    assert "received" in restored.past_workouts["second"]
+
+    apply_payload(restored, _payload(), tz=_amsterdam(), now=LATER + timedelta(days=1))
+    assert "received" not in restored.past_workouts["second"]
+
+
+def test_a_past_workout_that_cannot_be_read_is_dropped_not_fatal() -> None:
+    stored = {
+        "past_workouts": {
+            "ok": {**OLD_ROW, "details": {"steps": 4500}},
+            "waiting": {**OLD_ROW, "received": 1790000000},
+            "no end": {"type": "56", "details": {}},
+            "neither": dict(OLD_ROW),
+            "since when": {**OLD_ROW, "received": "yesterday"},
+            "no details": {**OLD_ROW, "details": "none"},
+            "worse": "x",
+        }
+    }
+    assert set(Ledger.from_dict(stored).past_workouts) == {"ok", "waiting"}
+    assert Ledger.from_dict({"past_workouts": "x"}).past_workouts == {}
 
 
 def test_a_ledger_from_before_the_workouts_loads() -> None:
@@ -767,6 +1086,7 @@ def test_a_ledger_from_before_the_workouts_loads() -> None:
     }
     ledger = Ledger.from_dict(stored)
     assert ledger.workouts == {}
+    assert ledger.past_workouts == {}
     assert ledger.days == stored["days"]
     assert ledger.sessions == stored["sessions"]
     assert ledger.hours["heart_rate"]["2026-10-03T10:00:00+00:00"].count == 2

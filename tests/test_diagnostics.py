@@ -83,6 +83,7 @@ async def test_diagnostics(hass: HomeAssistant, hass_client, hass_client_no_auth
     }
     assert "1234" not in json.dumps(result["history"])
     assert result["history"]["workouts"] == 0
+    assert result["history"]["past_workouts"] == 0
     # The records workout details are read from are counted, never shown.
     assert all(isinstance(n, int) for n in result["history"]["workout_records"].values())
     # Never pruned, so nothing is carried; once it is, only the day shows.

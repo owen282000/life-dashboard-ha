@@ -125,7 +125,7 @@ Both minutes sensors carry the day as `date`, and every session of that day in `
 
 - **Kinds.** There are 62, such as `running`, `biking`, `biking_stationary`, `strength_training`, `weightlifting`, `hiit`, `yoga`, `swimming_pool`, `hiking`, `rowing_machine`, `soccer` and `other`, each with an English and a German name. Health Connect's exercise types and HealthKit's activities are mapped to the same ones. A type that has none, or one that a newer Health Connect or iOS added, reads as `other`, and `type_code` still says what it was.
 - **Midnight.** A workout that crosses midnight counts for the part on each day: 23:30 to 00:30 is 30 minutes in `exercise_yesterday` and 30 in `exercise_today`, and the session is listed on both days with its real start and end. The two minutes sensors move on at midnight, without waiting for a sync.
-- **Two days.** The integration keeps the sessions of yesterday and today. They're stored by record ID, so a session that arrives again or is edited replaces itself, and one the app reports as deleted goes. `last_workout` has no such limit: it keeps the newest workout until a newer one comes.
+- **Two days.** The sensors read the sessions of yesterday and today. They're stored by record ID, so a session that arrives again or is edited replaces itself, and one the app reports as deleted goes. `last_workout` has no such limit: it keeps the newest workout until a newer one comes. A workout from before those two days is kept as well, as [data](#past-workouts-as-data).
 - **Shortest workout.** **Configure** on the integration has **Shortest workout (minutes)**, 0 by default. A workout that is shorter is left out of all three sensors. A phone or a watch that notices a walk by itself gives sessions of 10 or 15 minutes, and a value like 20 keeps them out. The sessions are kept whole, so changing it applies to today and yesterday at once. `last_workout` follows it from the next workout on.
 - **The statistic is different.** The long-term statistic `exercise_minutes` counts every session whatever its length, and books it on the day it ended, as before. It is a day sum for a graph; the sensors say what happened on the day.
 - A phone that sends no workouts gets no exercise sensors.
@@ -167,7 +167,7 @@ cadence_spm: 160
 - **Records across the edges.** A record that is partly inside the workout counts for the part that is: 100 kcal from 06:40 to 07:20 is 50 kcal for a run that started at 07:00.
 - **Late records.** A watch can upload a workout's heart rate hours later, and a phone that syncs every 15 minutes sends the first part of a run before the run itself. The details follow whenever the records come: the integration keeps the records of the kept workouts, and those of the last 6 hours for a workout still to come. A record sent again or edited replaces itself, and one the phone reports as deleted leaves the details.
 - **Buckets.** With a [data resolution](https://github.com/owen282000/life-dashboard-companion-app/blob/main/docs/webhook.md#data-resolution) set for heart rate or for calories, distance and steps, the buckets are read instead, a heart rate bucket weighted by its samples.
-- **Older workouts.** The details of a workout older than yesterday, such as from a backfill, come from the records in the same payload only.
+- **Older workouts.** On `last_workout`, the details of a workout older than yesterday, such as from a backfill, come from the records in the same payload only. As a [past workout](#past-workouts-as-data) it also gets the records of the payloads around it.
 
 ```yaml
 # Today's workouts in a card.
@@ -193,6 +193,50 @@ actions:
     data:
       message: "No workout today."
 ```
+
+### Past workouts as data
+
+The sensors show the workouts of yesterday and today. The integration keeps the ones from before too, and the action `life_dashboard.get_workouts` returns them all, as response data. It is meant for other integrations, cards and scripts that build on the workouts, so they don't have to read the integration's own files.
+
+```yaml
+action: life_dashboard.get_workouts
+data:
+  start: "2026-10-01"
+  end: "2026-10-07"
+response_variable: exercise
+```
+
+| Field | What it does |
+|---|---|
+| `config_entry` | Which phone to read. Only needed with more than one phone. |
+| `start` | The first day to return, by the day a workout ended. Everything kept when left out. |
+| `end` | The last day to return, included. Up to the newest workout when left out. |
+
+The response has one list, `workouts`, oldest first. Each workout has the format of an entry of `sessions`:
+
+```yaml
+workouts:
+  - type: running
+    start: "2026-10-04T09:00:00+02:00"
+    end: "2026-10-04T09:50:00+02:00"
+    minutes: 50
+    active_calories: 400
+    distance_km: 10.0
+    pace_min_per_km: 5.0
+    pace: "5:00"
+    heart_rate_avg: 140
+    heart_rate_min: 130
+    heart_rate_max: 149
+    steps: 8000
+    cadence_spm: 160
+```
+
+- **One list.** The workouts of yesterday and today are in it with their details as they are now, and the ones from before as they were when they left those two days. Each workout is in it once, with all its minutes, on the day it ended in Home Assistant's time zone: a run from 23:30 to 00:30 is one entry of 60 minutes on the second day, where `sessions` lists it on both days with 30 each.
+- **Every workout is in it**, also one that is shorter than **Shortest workout**, which is a setting of the sensors. Leave out what you don't want by its `minutes`.
+- **Details.** A workout keeps the [details](#workout-details) it had when it left the two days, and a key is left out when nothing was recorded for it. The records they are read from are let go at that moment, as they always were, so a record that arrives or is deleted later no longer changes them.
+- **Send history.** A workout that arrives when it is already older than yesterday is kept too, such as with **Send history** in the app. Its records can come in other payloads, so it waits 6 hours for them, and until then the action reads its details as they are. In a backfill the records of the 3-day window that is being sent wait for its workouts, so the order within a window doesn't matter. In a regular sync a record older than yesterday that comes before its workout isn't kept, and the workout is listed without it. With more than 50 workouts waiting, as in a backfill of a year, the ones that waited longest get their details at once. A workout whose records aren't sent has `type`, `start`, `end` and `minutes`, and sending the same window again changes nothing.
+- **Deleted and edited workouts.** A workout you delete on the phone leaves the list at the next sync. An edit replaces it: on Android under the same record ID, on an iPhone as the old workout deleted and a new one written. An edited workout from before yesterday waits for its records again, and has only the details of the records that are sent with it or after it.
+- **How far back.** The integration keeps the workouts of the last 400 days, counted from the newest day it has anything for, and returns those. Workouts that had left the two days before this action existed weren't kept; **Send history** brings them in.
 
 ## Sleep stages
 

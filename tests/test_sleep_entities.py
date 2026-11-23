@@ -283,7 +283,7 @@ async def test_a_ledger_before_the_stages_is_migrated(
     await hass.async_block_till_done()
 
     saved = hass_storage[key]
-    assert (saved["version"], saved["minor_version"]) == (1, 5)
+    assert (saved["version"], saved["minor_version"]) == (1, 6)
     assert saved["data"]["sessions"] == old["sessions"]
     assert saved["data"]["sleep"] == {}
     ledger = entry.runtime_data.history.ledger

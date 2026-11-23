@@ -10,6 +10,7 @@ A minor version adds things: a sensor, an attribute, a statistic, a setting with
 - A state keeps its meaning: steps stay steps of the phone's day, a duration stays in hours, and a sensor that reads a day keeps that day in its `date` attribute.
 - Attributes may be added; none are renamed, removed or given another unit. Sensors may be added; a sensor that would crowd the device page comes disabled. The stage names in the `stages` attribute of `last_sleep_asleep`, listed in [entities.md](entities.md#sleep-stages), stay as they are.
 - From 1.4.0, the action `life_dashboard.get_sleep_nights` with its fields `config_entry`, `start` and `end`, and its response: `nights`, each with the keys of the `last_sleep_asleep` attributes, as in [entities.md](entities.md#past-nights-as-data). Keys may be added.
+- The action `life_dashboard.get_workouts` with its fields `config_entry`, `start` and `end`, and its response: `workouts`, each with the keys of an entry of the `sessions` attribute of `exercise_today`, as in [entities.md](entities.md#past-workouts-as-data). Keys may be added.
 
 ## The long-term statistics
 
