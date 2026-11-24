@@ -2,7 +2,7 @@
 
 An example dashboard for the integration, built only from Home Assistant's own cards, with a theme in the colors of the Life Dashboard apps. It isn't installed for you: you copy it, put your phone's name in, and remove what your phone doesn't send. No custom cards to install.
 
-Want cards made for the job as well? The [Sleep card](#drawing-the-night) draws the night and the [Screen time cards](#screen-time-cards) show today, the week and the family. Both are separate installs from the Marketplace. The [Activity, Year and Before bed cards](#activity-year-and-before-bed-cards) are new, and install as custom repositories for now.
+Want cards made for the job as well? The [Sleep card](#drawing-the-night) draws the night and the [Screen time cards](#screen-time-cards) show today, the week and the family. The [Activity, Year and Before bed cards](#activity-year-and-before-bed-cards) are newer. Each is a separate install from the Marketplace.
 
 <p align="center">
   <img src="screenshots/dashboard-hero.png" alt="The top of the Health dashboard: today's tiles, the last workout, last night's sleep, and recovery" width="900">
@@ -176,7 +176,7 @@ Add them next to the view above or in its place. The card's [README](https://git
 
 ## Activity, Year and Before bed cards
 
-Three more cards made for the job, each a repository of its own. They are not in the Marketplace's default list yet, so add each one as a custom repository first: in **Settings > Marketplace** (HACS before Home Assistant 2026.11), open the three dots, choose **Custom repositories**, and add the card's address as the type **Dashboard**. Then search for the card and download it. Every card has a visual editor, and its README has every option.
+Three more cards made for the job, each a repository of its own. In **Settings > Marketplace** (HACS before Home Assistant 2026.11), search for the card's name and download it. Every card has a visual editor, and its README has every option.
 
 The [Life Dashboard Activity Card](https://github.com/owen282000/life-dashboard-activity-card) shows steps, active energy and exercise as rings against a daily goal, the last seven days, and how many days in a row you made it. Leave a ring out by leaving its sensor out:
 
