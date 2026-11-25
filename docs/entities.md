@@ -20,7 +20,7 @@ The device's firmware field shows the app version the phone last reported, so yo
 
 ### Day totals
 
-These come from Health Connect's own deduplicated figures, or HealthKit's statistics on an iPhone. Each covers one local day from midnight and carries that day as a `date` attribute. A sensor moves on to the new day with the first sync after midnight.
+These come from Health Connect's own deduplicated figures, or HealthKit's statistics on an iPhone. Each covers one local day from midnight and carries that day as a `date` attribute. At midnight they start again at 0, without waiting for a sync, and a metric the new day has no data for yet stays at 0 until it does, rather than showing the day before.
 
 | Sensor | Unit |
 |---|---|
