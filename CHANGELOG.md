@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-25
+
 ### Fixed
 
 - A day total without data for the new day yet no longer shows the day before. When the morning
