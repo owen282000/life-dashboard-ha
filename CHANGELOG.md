@@ -6,6 +6,15 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A day total without data for the new day yet no longer shows the day before. When the morning
+  sync had steps for today but no active energy, **Active calories today** kept yesterday's value
+  until the first record of the day; it reads 0 now. The four day totals also start again at 0 at
+  midnight, like the exercise and nutrition sensors, so a quiet period overnight does not leave
+  yesterday on the dashboard
+  ([app discussion #257](https://github.com/owen282000/life-dashboard-companion-app/discussions/257)).
+
 ## [1.5.0] - 2026-11-23
 
 ### Added
