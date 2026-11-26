@@ -22,6 +22,7 @@ from custom_components.life_dashboard.const import (
     DOMAIN,
     URL_CHOICE_INTERNAL,
 )
+from custom_components.life_dashboard.history import Ledger, apply_payload
 from custom_components.life_dashboard.payload import SIGNATURE_HEADER, signature_for
 from custom_components.life_dashboard.statistics import statistic_id
 
@@ -35,9 +36,12 @@ def auto_enable_custom_integrations(recorder_mock, enable_custom_integrations):
     yield
 
 
-async def _entry(hass: HomeAssistant, time_zone: str = "Europe/Amsterdam") -> MockConfigEntry:
+async def _entry(
+    hass: HomeAssistant, time_zone: str = "Europe/Amsterdam", **extra
+) -> MockConfigEntry:
     await async_process_ha_core_config(hass, {"time_zone": time_zone})
     entry = MockConfigEntry(
+        **extra,
         domain=DOMAIN,
         title="Owen's Pixel",
         unique_id=WEBHOOK_ID,
@@ -259,3 +263,56 @@ async def test_nothing_to_report_writes_no_row(hass: HomeAssistant, hass_client_
     assert _rows(hass, entry, "sleep_deep") == []
     assert _rows(hass, entry, "sleep_asleep") == []
     assert [r["state"] for r in _sums(hass, entry, "sleep_minutes")] == [7.0]
+
+
+def _version(uuid: str, deep_hours: int, light_hours: int) -> dict:
+    """One of the versions Samsung writes of yesterday's night, all from 23:00 UTC."""
+    day = _day(1).isoformat()
+    previous = _day(2).isoformat()
+    end = 1 + light_hours
+    return {
+        "uuid": uuid,
+        "source": "com.sec.android.app.shealth",
+        "session_end_time": f"{day}T{end:02d}:00:00Z",
+        "duration_seconds": (deep_hours + light_hours) * 3600,
+        "stages": [
+            {
+                "stage": "deep",
+                "start_time": f"{previous}T23:00:00Z",
+                "end_time": f"{day}T{deep_hours - 1:02d}:00:00Z",
+            },
+            {
+                "stage": "light",
+                "start_time": f"{day}T{deep_hours - 1:02d}:00:00Z",
+                "end_time": f"{day}T{end:02d}:00:00Z",
+            },
+        ],
+    }
+
+
+async def test_a_ledger_of_1_5_1_writes_its_versions_as_one_night(
+    hass: HomeAssistant, hass_storage
+) -> None:
+    """ha#87: three versions of one night counted three times in sleep_minutes, and the
+    roughest spoke for its stages. Starting up writes that date again, once."""
+    await async_process_ha_core_config(hass, {"time_zone": "Europe/Amsterdam"})
+    ledger = Ledger()
+    # The night with its stages, 2 h deep and 5 h light, and a rougher estimate with more
+    # time asleep: 1 h deep and 7 h light.
+    apply_payload(
+        ledger,
+        _payload(_version("shown", 2, 5), _version("rough", 1, 7)),
+        tz=dt_util.get_default_time_zone(),
+    )
+    written = ledger.to_dict()
+    del written["nights_settled"]
+    key = f"{DOMAIN}.settle.history"
+    hass_storage[key] = {"version": 1, "minor_version": 6, "key": key, "data": written}
+
+    entry = await _entry(hass, entry_id="settle")
+    await async_wait_recording_done(hass)
+
+    assert [r["mean"] for r in _rows(hass, entry, "sleep_deep")] == [2.0]
+    assert [r["mean"] for r in _rows(hass, entry, "sleep_asleep")] == [7.0]
+    assert [r["state"] for r in _sums(hass, entry, "sleep_minutes")][-1] == 7.0
+    assert entry.runtime_data.history.ledger.nights_settled is True

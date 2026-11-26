@@ -16,6 +16,7 @@ from custom_components.life_dashboard.history import (
     closing_rows,
     day_rows,
     prune,
+    settle_versions,
 )
 from custom_components.life_dashboard.payload import parse_payload, tile_hours
 from custom_components.life_dashboard.sleep import (
@@ -29,6 +30,7 @@ from custom_components.life_dashboard.sleep import (
     night_rows,
     night_values,
     noon,
+    other_versions,
     parse_samples,
     sleep_nights,
     sleep_updates,
@@ -1123,3 +1125,154 @@ def test_a_night_of_only_sleeping_is_data_without_a_breakdown() -> None:
 def test_no_nights_as_data_without_sleep() -> None:
     assert sleep_nights({}, tz=AMS) == []
     assert sleep_nights(Ledger().sleep, tz=AMS) == []
+
+
+# Samsung Health's night of ha#87: three records from the same start, the part up to 03:51,
+# the night it shows with its stages, and a rougher estimate up to 06:05. Local time.
+SAMSUNG = "com.sec.android.app.shealth"
+SAMSUNG_DAY = "2026-11-24"
+SAMSUNG_START = datetime(2026, 11, 23, 21, 52, tzinfo=AMS)
+
+
+def _samsung(uuid: str, stages: list[tuple[str, float]]) -> dict:
+    """A Samsung record from 21:52 with these stages in a row, minutes each."""
+    rows = []
+    moment = SAMSUNG_START
+    for name, minutes in stages:
+        end = moment + timedelta(minutes=minutes)
+        rows.append(_stage(name, moment.isoformat(), end.isoformat()))
+        moment = end
+    seconds = int((moment - SAMSUNG_START).total_seconds())
+    return _session(uuid, rows, end=moment.isoformat(), seconds=seconds, source=SAMSUNG)
+
+
+PART = _samsung("part", [("light", 162.5), ("deep", 59), ("rem", 116), ("awake", 21.5)])
+SHOWN = _samsung("shown", [("light", 177.5), ("deep", 70), ("rem", 215.5), ("awake", 24)])
+ROUGH = _samsung("rough", [("light", 444), ("deep", 7.5), ("rem", 25.5), ("awake", 16)])
+
+
+def _samsung_payload(*sleep) -> dict:
+    return _payload(*sleep, timestamp="2026-11-24T12:00:00Z")
+
+
+def _sleep_total(ledger: Ledger, day: str = SAMSUNG_DAY) -> float:
+    return round(ledger.day_totals("sleep_minutes")[day], 2)
+
+
+def test_versions_of_one_night_speak_through_the_most_detailed() -> None:
+    ledger = _ledger(_samsung_payload(PART, SHOWN, ROUGH))
+    assert main_session(ledger.sleep, SAMSUNG_DAY)[0] == "shown"
+    assert _hours(ledger, SAMSUNG_DAY) == {
+        "sleep_asleep": round(463 / 60, 4),
+        "sleep_deep": round(70 / 60, 4),
+        "sleep_light": round(177.5 / 60, 4),
+        "sleep_rem": round(215.5 / 60, 4),
+        "sleep_awake": round(24 / 60, 4),
+    }
+    night = last_night(ledger.sleep, today=date(2026, 11, 24))
+    assert night.end == datetime(2026, 11, 24, 5, 59, tzinfo=AMS)
+
+
+def test_versions_of_one_night_count_once_in_the_running_sum() -> None:
+    ledger = _ledger(_samsung_payload(PART, SHOWN, ROUGH))
+    # 8 h 07 m of the night it shows, not 22 h 19 m of all three.
+    assert _sleep_total(ledger) == 487
+    assert other_versions(ledger.sleep) == {"part", "rough"}
+    # The ledger keeps all three: the service still lists them, and a deletion can fall
+    # back to another.
+    assert set(ledger.sessions["sleep_minutes"]) == {"part", "shown", "rough"}
+    assert len(sleep_nights(ledger.sleep, tz=AMS, start=date(2026, 11, 24))) == 3
+
+
+@pytest.mark.parametrize(
+    "order", [(PART, SHOWN, ROUGH), (ROUGH, SHOWN, PART), (SHOWN, ROUGH, PART)]
+)
+def test_versions_arriving_one_by_one_end_the_same(order) -> None:
+    ledger = _ledger(*(_samsung_payload(record) for record in order))
+    assert main_session(ledger.sleep, SAMSUNG_DAY)[0] == "shown"
+    assert _sleep_total(ledger) == 487
+
+
+def test_a_later_version_rewrites_its_day() -> None:
+    ledger = _ledger(_samsung_payload(PART, SHOWN))
+    change = apply_payload(ledger, _samsung_payload(ROUGH), tz=AMS)
+    # The new version changes nothing of the night, but its day is written again.
+    assert change.day_keys["sleep_minutes"] == date(2026, 11, 24)
+    assert _sleep_total(ledger) == 487
+    assert main_session(ledger.sleep, SAMSUNG_DAY)[0] == "shown"
+
+
+def test_a_deleted_version_leaves_the_night_to_the_next() -> None:
+    ledger = _ledger(_samsung_payload(PART, SHOWN, ROUGH))
+    change = apply_payload(
+        ledger,
+        {
+            "timestamp": "2026-11-24T14:00:00Z",
+            "source": "health_connect",
+            "deleted_records": [{"type": "sleep", "uuid": "shown"}],
+        },
+        tz=AMS,
+    )
+    assert change.day_keys["sleep_minutes"] == date(2026, 11, 24)
+    # The part up to 03:51 has more deep and REM than the rough estimate.
+    assert main_session(ledger.sleep, SAMSUNG_DAY)[0] == "part"
+    assert _sleep_total(ledger) == 359
+
+
+def test_a_nap_of_the_same_app_still_counts() -> None:
+    nap = _session(
+        "nap",
+        [_stage("light", "2026-11-24T13:00:00Z", "2026-11-24T13:30:00Z")],
+        end="2026-11-24T13:30:00Z",
+        seconds=1800,
+        source=SAMSUNG,
+    )
+    ledger = _ledger(_samsung_payload(PART, SHOWN, ROUGH, nap))
+    assert main_session(ledger.sleep, SAMSUNG_DAY)[0] == "shown"
+    assert _sleep_total(ledger) == 487 + 30
+
+
+def test_another_app_the_same_night_is_a_night_of_its_own() -> None:
+    other = _samsung("other", [("light", 300), ("deep", 60), ("rem", 100), ("awake", 20)])
+    other["source"] = "com.urbandroid.sleep"
+    ledger = _ledger(_samsung_payload(SHOWN, ROUGH, other))
+    # Only Samsung's own second version leaves the sum; another app counts, as it always did.
+    assert other_versions(ledger.sleep) == {"rough"}
+    assert _sleep_total(ledger) == 487 + 480
+
+
+def test_nights_without_a_source_are_not_versions() -> None:
+    first = _samsung("first", [("light", 300), ("deep", 30)])
+    second = _samsung("second", [("light", 200), ("deep", 90)])
+    for record in (first, second):
+        del record["source"]
+    ledger = _ledger(_samsung_payload(first, second))
+    assert other_versions(ledger.sleep) == set()
+    assert _sleep_total(ledger) == 330 + 290
+
+
+def test_a_ledger_of_1_5_1_settles_its_versions_once() -> None:
+    written = _ledger(_samsung_payload(PART, SHOWN, ROUGH)).to_dict()
+    del written["nights_settled"]
+    ledger = Ledger.from_dict(written)
+    assert ledger.nights_settled is False
+    change = settle_versions(ledger)
+    assert ledger.nights_settled is True
+    assert change.day_keys == {"sleep_minutes": date(2026, 11, 24)}
+    assert change.night_rows == {
+        SAMSUNG_DAY: {key: value for key, value in night_values(ledger.sleep, SAMSUNG_DAY).items()}
+    }
+    assert change.night_rows[SAMSUNG_DAY]["sleep_deep"] == 70 / 60
+
+
+def test_a_ledger_without_versions_settles_without_rows() -> None:
+    written = _ledger(_payload(_android())).to_dict()
+    del written["nights_settled"]
+    ledger = Ledger.from_dict(written)
+    assert settle_versions(ledger).is_empty
+    assert ledger.nights_settled is True
+
+
+def test_a_ledger_without_nights_has_nothing_to_settle() -> None:
+    assert Ledger.from_dict({"days": {}, "sessions": {}, "units": 3}).nights_settled is True
+    assert "nights_settled" not in Ledger().to_dict()

@@ -578,7 +578,7 @@ async def test_a_ledger_of_0_9_0_is_taken_over_whole(
     assert ledger.workouts == {}
     # Migrated on the spot: the file says what it is now, and keeps everything it had.
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert (saved["version"], saved["minor_version"]) == (1, 7)
     assert saved["data"]["days"] == OLD_LEDGER["days"]
     assert saved["data"]["sessions"] == OLD_LEDGER["sessions"]
     assert saved["data"]["workouts"] == {}
@@ -603,7 +603,7 @@ async def test_workouts_are_written_and_read_back(
     await hass.async_block_till_done()
 
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert (saved["version"], saved["minor_version"]) == (1, 7)
     assert set(saved["data"]["workouts"]) == {"run", "walk-2"}
     assert saved["data"]["workouts"]["run"] == {
         "type": "56",
@@ -851,7 +851,7 @@ async def test_a_ledger_of_0_10_1_gets_the_details(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert (saved["version"], saved["minor_version"]) == (1, 7)
     assert saved["data"]["workouts"] == {"run": run_row}
     assert saved["data"]["activity"] == {}
     assert hass.states.get(TODAY).state == "60"
@@ -1124,7 +1124,7 @@ async def test_a_ledger_of_1_4_0_starts_without_past_workouts(
     await hass.async_block_till_done()
 
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert (saved["version"], saved["minor_version"]) == (1, 7)
     assert saved["data"]["past_workouts"] == {}
     assert {key: saved["data"][key] for key in old} == old
     ledger = entry.runtime_data.history.ledger
@@ -1145,7 +1145,7 @@ async def test_past_workouts_are_written_and_an_older_release_reads_the_file(
     await hass.async_block_till_done()
 
     saved = hass_storage[_ledger_key()]
-    assert (saved["version"], saved["minor_version"]) == (1, 6)
+    assert (saved["version"], saved["minor_version"]) == (1, 7)
     assert set(saved["data"]["workouts"]) == {"run"}
     assert saved["data"]["past_workouts"] == {
         "old-run": {

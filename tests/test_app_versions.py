@@ -445,8 +445,10 @@ def _existing_sensors(
     ledger.pop("past_workouts", None)
     # And the units the statistics are written in (1.0.0).
     ledger.pop("units", None)
-    # And the sleep stages, with the sensors read from them.
+    # And the sleep stages, with the sensors read from them, and whether a night sent in
+    # several versions was written as one (1.5.2).
     ledger.pop("sleep", None)
+    ledger.pop("nights_settled", None)
     sensors = {key: sensor for key, sensor in sensors.items() if key not in LAST_NIGHT_KEYS}
     # And the list of every app on the two screen time days (1.2.0); its rows are tested
     # in test_payload, and the rest of what those sensors carry must be as it was.
