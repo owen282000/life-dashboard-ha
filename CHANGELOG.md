@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-26
+
 ### Fixed
 
 - A night that one app wrote in several versions counts once. Samsung Health can write the same
