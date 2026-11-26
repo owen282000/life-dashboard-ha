@@ -6,6 +6,19 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A night that one app wrote in several versions counts once. Samsung Health can write the same
+  night three times from the same start: a part of it, the night it shows with its stages, and a
+  rougher estimate with more time asleep but hardly any deep sleep or REM. The integration took
+  the rough one as the main night, and `sleep_minutes` added up all three, 22 hours for one night.
+  Now sessions from one app that overlap on the same date are versions of one night: the one with
+  the most deep sleep and REM speaks for it, and only that one is in `sleep_minutes`. Naps and a
+  second app's copy of the night count as before. The nights the integration keeps are written
+  again once at the first start, so the dates already affected are right too. Reported by
+  @therave79-stack in [#87](https://github.com/owen282000/life-dashboard-ha/issues/87), with the
+  three records that showed what Samsung writes.
+
 ## [1.5.1] - 2026-11-25
 
 ### Fixed

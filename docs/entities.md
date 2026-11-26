@@ -242,7 +242,9 @@ workouts:
 
 A night's stages become sensors and statistics by the rules of the wake date, the date the session ended on in Home Assistant's time zone.
 
-**The main night.** A date gets one main night: the session with the most time asleep, then the longest, and a stable tie-break on the record ID. Naps and a second app that wrote the same night don't add up with it; they stay in the statistic `sleep_minutes`, which counts every session whole on the day it ended. That is why `sleep_minutes` and the stage statistics differ: `sleep_minutes` is the record's duration including time in bed and awake, and the stages are the stages.
+**The main night.** A date gets one main night: the session with the most time asleep, then the longest, and a stable tie-break on the record ID. Naps and a second app that wrote the same night don't add up with it; they stay in the statistic `sleep_minutes`, which counts every session whole on the day it ended.
+
+**Versions of one night.** Sessions from the same app that overlap on the same date are versions of one night, since nobody sleeps twice at once. Samsung Health, for one, can write a night up to three times: a part of it, the night it shows with its stages, and a rougher estimate next to it. Of such versions only one counts: the one with the most deep sleep plus REM, then the most time asleep. It is the candidate for the main night, and the only one of them in `sleep_minutes`. A session without a source, from an iOS app older than 1.5.0, is never a version of another. That is why `sleep_minutes` and the stage statistics differ: `sleep_minutes` is the record's duration including time in bed and awake, and the stages are the stages.
 
 **Which one to use.** For how much you slept, use `sleep_asleep`. `sleep_minutes` adds up the full length of every session that ended that day, so it also holds time awake during the night, any part of a session before its first stage, and naps, and it usually reads higher, often by an hour or more. It stays for existing dashboards and automations.
 
@@ -295,7 +297,7 @@ nights:
         end: "2026-11-08T00:30:00+01:00"
 ```
 
-- **Every session is in it**, not only the [main night](#sleep-stages): a nap, and a second app that wrote the same night, are entries of their own under the same `night`. Take the one with the most `asleep_minutes` for the night the sensors and statistics use.
+- **Every session is in it**, not only the [main night](#sleep-stages): a nap, and a second app that wrote the same night, are entries of their own under the same `night`. For the night the sensors and statistics use, take of the entries from one `source` that overlap the one with the most `deep_minutes` plus `rem_minutes`, and of what is left the one with the most `asleep_minutes`.
 - **Only what the phone could say.** `source` and each of the minutes are left out when a session doesn't have them, as on the sensor: a session without stages has only its times, and a night with only `sleeping` has `asleep_minutes` and no deep, light or REM.
 - **`stages` is kept for the last 14 nights.** Older nights keep their minutes and return an empty list, as does a session that came without stages.
 - **How far back.** The integration keeps the nights of the last 400 days, counted from the newest one, and returns those.
