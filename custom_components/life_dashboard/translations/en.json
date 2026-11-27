@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Add a phone",
-        "description": "You need the Life Dashboard app on the phone: it scans the QR code shown in the next step. The phone sends to the address below, filled in with the one your browser is using right now. Keep your home network address to sync at home only (on Android, use the IP address rather than homeassistant.local), or enter your public address to sync from anywhere. With a VPN to your home network, the home network address works everywhere.",
+        "description": "You need the Life Dashboard app on the phone, from [Google Play]({play}) or the [App Store]({app_store}): it scans the QR code shown in the next step. The phone sends to the address below, filled in with the one your browser is using right now. Keep your home network address to sync at home only (on Android, use the IP address rather than homeassistant.local), or enter your public address to sync from anywhere. With a VPN to your home network, the home network address works everywhere.",
         "data": {
           "name": "Name",
           "base_url": "Home Assistant address",
@@ -386,6 +386,10 @@
     "writeback_not_asked": {
       "title": "{phone} does not ask for {type}",
       "description": "In its last syncs, the Life Dashboard app on {phone} did not ask for {type}, so what Home Assistant has for it waits, for up to 90 days. In the app, open Receive on the Health tab and check that {type} is on and allowed to write to Health Connect. If {type} should no longer go to this phone, clear it in this integration's options. This goes away by itself once the phone asks for {type} again."
+    },
+    "no_data": {
+      "title": "{phone} has not sent anything yet",
+      "description": "{phone} was added a day ago, but nothing has arrived from it since. On the phone, install the Life Dashboard app from [Google Play]({play}) or the [App Store]({app_store}). Then open this integration, choose Reconfigure on {phone} to show its QR code again, scan it in the app and tap Sync Now. If the app is already paired, the [troubleshooting guide]({help}) covers syncs that don't arrive. This goes away by itself with the first sync."
     }
   },
   "selector": {

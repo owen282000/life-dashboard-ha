@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Telefon hinzufügen",
-        "description": "Du brauchst die App Life Dashboard auf dem Telefon: Sie scannt den QR-Code im nächsten Schritt. Das Telefon sendet an die Adresse unten, vorausgefüllt mit der Adresse, die dein Browser gerade verwendet. Behalte die Adresse in deinem Heimnetz, um nur zu Hause zu synchronisieren (unter Android die IP-Adresse statt homeassistant.local), oder gib deine öffentliche Adresse ein, um von überall zu synchronisieren. Mit einem VPN in dein Heimnetz funktioniert die Adresse im Heimnetz überall.",
+        "description": "Du brauchst die App Life Dashboard auf dem Telefon, aus [Google Play]({play}) oder dem [App Store]({app_store}): Sie scannt den QR-Code im nächsten Schritt. Das Telefon sendet an die Adresse unten, vorausgefüllt mit der Adresse, die dein Browser gerade verwendet. Behalte die Adresse in deinem Heimnetz, um nur zu Hause zu synchronisieren (unter Android die IP-Adresse statt homeassistant.local), oder gib deine öffentliche Adresse ein, um von überall zu synchronisieren. Mit einem VPN in dein Heimnetz funktioniert die Adresse im Heimnetz überall.",
         "data": {
           "name": "Name",
           "base_url": "Home-Assistant-Adresse",
@@ -386,6 +386,10 @@
     "writeback_not_asked": {
       "title": "{phone} fragt nicht nach {type}",
       "description": "Bei den letzten Synchronisierungen hat die App Life Dashboard auf {phone} nicht nach {type} gefragt, daher warten die Werte von Home Assistant dafür, bis zu 90 Tage. Öffne in der App im Tab Gesundheit „Empfangen“ und prüfe, ob {type} eingeschaltet ist und in Health Connect geschrieben werden darf. Soll {type} nicht mehr an dieses Telefon gehen, entferne es in den Optionen dieser Integration. Diese Meldung verschwindet von selbst, sobald das Telefon wieder nach {type} fragt."
+    },
+    "no_data": {
+      "title": "{phone} hat noch nichts gesendet",
+      "description": "{phone} wurde vor einem Tag hinzugefügt, aber seitdem ist nichts angekommen. Installiere auf dem Telefon die App Life Dashboard aus [Google Play]({play}) oder dem [App Store]({app_store}). Öffne dann diese Integration, wähle bei {phone} Neu konfigurieren, um den QR-Code wieder anzuzeigen, scanne ihn in der App und tippe auf Sync Now. Ist die App schon gekoppelt, hilft die [Anleitung zur Fehlersuche]({help}) bei Syncs, die nicht ankommen. Diese Meldung verschwindet von selbst mit dem ersten Sync."
     }
   },
   "selector": {
