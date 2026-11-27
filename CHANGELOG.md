@@ -6,6 +6,8 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-27
+
 ### Added
 
 - A repair for a phone that has not sent anything a day after it was added. It says where to get
