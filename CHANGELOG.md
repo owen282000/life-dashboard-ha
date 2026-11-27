@@ -6,6 +6,14 @@ All notable changes to this integration are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A repair for a phone that has not sent anything a day after it was added. It says where to get
+  the Life Dashboard app, how to show the phone's QR code again (Reconfigure), and links the
+  troubleshooting guide for syncs that don't arrive. It goes away by itself with the first sync,
+  and a phone that synced before never gets it.
+- The dialog for adding a phone links to the app on Google Play and the App Store.
+
 ## [1.5.2] - 2026-11-26
 
 ### Fixed
